@@ -78,7 +78,7 @@ async function main() {
     });
     const fromDb = await applySettings(db, config);
     if (fromDb.length) log.info('Settings from database', { keys: fromDb });
-    const { products, total, fallbacks, categories } = await fetchWithSession();
+    const { products, total, fallbacks, categories, shape } = await fetchWithSession();
     run.fetched = products.length;
 
     if (products.length < total * config.minCoverage) {
@@ -125,6 +125,21 @@ async function main() {
 
     const missing = [...prev.keys()].filter((id) => !seenIds.has(id));
     if (missing.length) log.warn(`${missing.length} previously known products not in source anymore`, { ids: missing });
+
+    // Early warning: Liateam added or removed fields. Everything still reads correctly (otherwise the
+    // run would have stopped), but this is usually the first sign of a redesign on their side.
+    const { rows: [prevShape] } = await db.query(`SELECT value FROM bot_status WHERE key = 'payload_shape'`);
+    if (prevShape?.value?.keys) {
+      const before = new Set(prevShape.value.keys);
+      const added = shape.filter((k) => !before.has(k));
+      const removed = prevShape.value.keys.filter((k) => !shape.includes(k));
+      if (added.length || removed.length) {
+        alertLines.push('🧬 ساختار داده‌های لیاتیم تغییر کرد (فعلاً همه‌چیز درست خوانده می‌شود؛ احتمالاً سایتشان در حال به‌روزرسانی است):');
+        if (added.length) alertLines.push(`• فیلد جدید: ${added.slice(0, 12).join(', ')}`);
+        if (removed.length) alertLines.push(`• فیلد حذف‌شده: ${removed.slice(0, 12).join(', ')}`);
+      }
+    }
+    await setStatus(db, 'payload_shape', { keys: shape, at: new Date().toISOString() });
 
     if (rejected.length) {
       alertLines.push(`⚠️ ${rejected.length} محصول رد شد و مقدار قبلی‌اش حفظ شد:`);

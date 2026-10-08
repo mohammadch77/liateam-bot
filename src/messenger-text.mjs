@@ -20,6 +20,7 @@ export const GROUPS = {
   stock: { label: 'موجودی (ناموجود / موجود شد)', icon: '📦', kinds: ['out_of_stock', 'back_in_stock'] },
   catalog: { label: 'محصول جدید یا حذف‌شده', icon: '🆕', kinds: ['new', 'removed', 'returned', 'name'] },
   errors: { label: 'خطاها و هشدارهای غیرعادی', icon: '🚨', kinds: [] },
+  daily: { label: 'گزارش روزانه‌ی سلامت (۹ صبح)', icon: '☀️', kinds: [] },
 };
 export const KIND = {
   price: { icon: '💰', label: 'تغییر قیمت فروش' },

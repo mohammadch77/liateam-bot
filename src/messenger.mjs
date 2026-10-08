@@ -479,6 +479,39 @@ async function notifyStale(cursor) {
   }
 }
 
+const DAILY_HOUR = 9; // Tehran
+const tehranDay = (d = new Date()) => d.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
+const tehranHour = () => Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Tehran', hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
+
+/** Once a day: a short health report. If it ever does not arrive, something is wrong with the server. */
+async function dailyReport(cursor) {
+  if (tehranHour() < DAILY_HOUR || cursor.daily_date === tehranDay()) return;
+  cursor.daily_date = tehranDay();
+  const [[runs], kinds, [cat], st, [good]] = await Promise.all([
+    q(`SELECT count(*) FILTER (WHERE status = 'ok')::int AS ok, count(*) FILTER (WHERE status = 'warning')::int AS warning,
+              count(*) FILTER (WHERE status = 'failed')::int AS failed FROM sync_runs WHERE started_at > now() - interval '24 hours'`),
+    q(`SELECT kind, count(*)::int AS n FROM product_events WHERE at > now() - interval '24 hours' GROUP BY kind`),
+    q(`SELECT count(*) FILTER (WHERE is_sellable AND missing_since IS NULL)::int AS sellable, count(*)::int AS total,
+              count(*) FILTER (WHERE is_sellable AND stock <= 0)::int AS out,
+              count(*) FILTER (WHERE is_sellable AND stock > 0 AND stock < $1)::int AS low FROM supplier_products`, [LOW_STOCK]),
+    statusMap(),
+    q(`SELECT started_at FROM sync_runs WHERE status IN ('ok','warning') ORDER BY started_at DESC LIMIT 1`),
+  ]);
+  const changes = kinds.filter((k) => T.KIND[k.kind]).map((k) => `${T.KIND[k.kind].icon} ${T.KIND[k.kind].label}: ${T.num(k.n)}`);
+  const healthy = runs.failed === 0 && runs.ok + runs.warning > 0;
+  const text = [`☀️ گزارش روزانه‌ی لیاتیم · ${new Date().toLocaleDateString('fa-IR', { timeZone: 'Asia/Tehran', dateStyle: 'medium' })}`, T.LINE,
+    healthy ? '✅ همه‌چیز سالم است.' : runs.ok + runs.warning === 0 ? '🚨 در ۲۴ ساعت گذشته هیچ اجرای موفقی نبوده است!' : '⚠️ در ۲۴ ساعت گذشته اجرای ناموفق داشتیم.',
+    `🔄 اجراها (۲۴ ساعت): ${T.num(runs.ok)} موفق · ${T.num(runs.warning)} با هشدار · ${T.num(runs.failed)} ناموفق`,
+    `🗂 آخرین به‌روزرسانی موفق: ${good ? T.ago(good.started_at) : '—'}`,
+    `🔐 ورود به لیاتیم: ${st.session?.ok === false ? '❌ نیاز به بررسی' : 'برقرار'}`,
+    T.LINE,
+    changes.length ? `🔔 تغییرات ۲۴ ساعت:\n${changes.join('\n')}` : '🔔 در ۲۴ ساعت گذشته تغییری در محصولات نبود.',
+    T.LINE,
+    `📦 قابل‌فروش: ${T.num(cat.sellable)} از ${T.num(cat.total)} · 🔴 ناموجود: ${T.num(cat.out)} · 🟠 رو به اتمام: ${T.num(cat.low)}`,
+  ].join('\n');
+  await broadcast('daily', () => ({ text, extra: { reply_markup: inline([[{ text: '📊 وضعیت', callback_data: 'st' }, { text: '🔔 تغییرات', callback_data: 'ch:0' }]]) } }));
+}
+
 async function notifierLoop() {
   const st = await statusMap();
   const cursor = st.notify_cursor ?? (await q(
@@ -490,6 +523,7 @@ async function notifierLoop() {
       await notifyEvents(cursor);
       await notifyManualResults();
       await notifyStale(cursor);
+      await dailyReport(cursor);
       await setStatus(pool, 'notify_cursor', cursor);
     } catch (e) {
       log.warn('messenger: notifier failed', { error: e.message });
@@ -499,6 +533,11 @@ async function notifierLoop() {
 }
 
 await applySettings(pool, config);
+// One-time: people linked before the daily report existed get it too (they can switch it off in the bot).
+if (!(await statusMap()).migrated_daily) {
+  await q(`UPDATE messenger_chats SET kinds = array_append(kinds, 'daily') WHERE NOT 'daily' = ANY(kinds)`);
+  await setStatus(pool, 'migrated_daily', true);
+}
 log.info(`messenger started (telegram: ${clients.telegram.configured ? 'token set' : 'no token'}, bale: ${clients.bale.configured ? 'token set' : 'no token'})`);
 pollLoop('telegram');
 pollLoop('bale');

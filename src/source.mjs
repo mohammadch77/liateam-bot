@@ -10,6 +10,15 @@ import { AuthError } from './auth.mjs';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const jitter = () => config.delayMinMs + Math.random() * (config.delayMaxMs - config.delayMinMs);
 
+/** Top-level field names plus those inside pricing / inventory (values are never kept). */
+export function shapeKeys(raw) {
+  const keys = Object.keys(raw);
+  for (const nest of ['pricing', 'inventory']) {
+    if (raw[nest] && typeof raw[nest] === 'object') for (const k of Object.keys(raw[nest])) keys.push(`${nest}.${k}`);
+  }
+  return keys;
+}
+
 /** @returns { products: normalized[], total, fallbacks: string[], categories: Map<code,{code,name,parent_code}> } */
 export async function fetchAllProducts() {
   const ctx = await request.newContext({
@@ -26,6 +35,8 @@ export async function fetchAllProducts() {
     const byCode = new Map();
     const fallbacks = new Set();
     const categories = new Map();
+    const keyCounts = new Map(); // how often each field appears, to notice Liateam changing its data
+    let seen = 0;
     let total = null;
     for (let page = 1; page <= config.maxPages; page++) {
       if (page > 1) await sleep(jitter());
@@ -54,6 +65,8 @@ export async function fetchAllProducts() {
       for (const f of parsed.fallbacks) fallbacks.add(`${f.field} از مسیر جایگزین «${f.path}» (صفحه‌ی ${page})`);
 
       for (const raw of parsed.products) {
+        seen++;
+        for (const k of shapeKeys(raw)) keyCounts.set(k, (keyCounts.get(k) || 0) + 1);
         const { product, fallbacks: fb } = normalize(raw, { page }); // throws StructureError if no path works
         for (const f of fb) fallbacks.add(`${f.field} از مسیر جایگزین «${f.path}»`);
         byCode.set(product.id, product);
@@ -62,7 +75,9 @@ export async function fetchAllProducts() {
       if (byCode.size >= total || parsed.products.length === 0) break;
     }
     if (fallbacks.size) log.warn('Fallback field paths used - source structure may be drifting', { fallbacks: [...fallbacks] });
-    return { products: [...byCode.values()], total, fallbacks: [...fallbacks], categories };
+    // Fields present on (almost) every product = the data contract we rely on.
+    const shape = [...keyCounts].filter(([, n]) => n >= seen * 0.9).map(([k]) => k).sort();
+    return { products: [...byCode.values()], total, fallbacks: [...fallbacks], categories, shape };
   } finally {
     await ctx.dispose();
   }

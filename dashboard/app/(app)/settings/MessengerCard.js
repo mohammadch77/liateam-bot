@@ -7,7 +7,7 @@ const PLATFORMS = {
   telegram: { label: 'تلگرام', link: (u) => `https://t.me/${u}` },
 };
 const ROLE = { admin: 'مدیر', viewer: 'بیننده' };
-const GROUP = { price: 'قیمت', stock: 'موجودی', catalog: 'محصول جدید/حذف', errors: 'خطاها' };
+const GROUP = { price: 'قیمت', stock: 'موجودی', catalog: 'محصول جدید/حذف', errors: 'خطاها', daily: 'گزارش روزانه' };
 const fa = (v) => new Intl.NumberFormat('fa-IR').format(v);
 const ago = (v) => {
   if (!v) return 'هنوز پیامی نداده';

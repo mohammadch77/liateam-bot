@@ -154,3 +154,9 @@ test('notification text groups changes and flags unusual price moves', async () 
   assert.doesNotMatch(text, /B[^\n]*\n[^\n]*غیرعادی/);
   assert.match(text, /ناموجود شد \(۱\)/);
 });
+
+test('payload shape lists field names (incl. pricing / inventory), never values', async () => {
+  const { shapeKeys } = await import('../src/source.mjs');
+  const keys = shapeKeys({ code: 1, title: 't', pricing: { price: 5, payable_price: 4 }, inventory: { total_inventory: 2 } });
+  assert.deepEqual(keys.sort(), ['code', 'inventory', 'inventory.total_inventory', 'pricing', 'pricing.payable_price', 'pricing.price', 'title']);
+});

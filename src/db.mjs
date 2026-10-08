@@ -107,11 +107,12 @@ CREATE TABLE IF NOT EXISTS messenger_chats (
   display_name TEXT,
   role         TEXT NOT NULL DEFAULT 'viewer', -- admin (sees cost/profit, manual run, interval) | viewer
   notify       BOOLEAN NOT NULL DEFAULT true,
-  kinds        TEXT[] NOT NULL DEFAULT '{price,stock,catalog,errors}',
+  kinds        TEXT[] NOT NULL DEFAULT '{price,stock,catalog,errors,daily}',
   linked_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   last_seen_at TIMESTAMPTZ,
   UNIQUE (platform, chat_id)
 );
+ALTER TABLE messenger_chats ALTER COLUMN kinds SET DEFAULT '{price,stock,catalog,errors,daily}';
 CREATE TABLE IF NOT EXISTS messenger_invites (
   id         SERIAL PRIMARY KEY,
   code_hash  TEXT NOT NULL,                  -- sha256 of the 6-digit code; the code itself is never stored
