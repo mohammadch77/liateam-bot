@@ -165,7 +165,7 @@ async function main() {
 
     // One-time audit, AUDIT_PER_RUN products per run until every product was checked once; then it
     // stops by itself (only products Liateam adds later are checked, once each).
-    const AUDIT_PER_RUN = 10;
+    const AUDIT_PER_RUN = 5;
     const { rows: done } = await db.query('SELECT product_id FROM product_audit WHERE ok OR attempts >= 3');
     const doneSet = new Set(done.map((r) => r.product_id));
     const todo = products.filter((p) => !doneSet.has(p.id)).slice(0, AUDIT_PER_RUN);
