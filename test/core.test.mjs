@@ -123,3 +123,12 @@ test('image url is picked from the first http path, absence is fine', async () =
   assert.equal(normalize({ ...base, home_page_image: 'https://s3.liateam.ir/a.png' }).product.image_url, 'https://s3.liateam.ir/a.png');
   assert.equal(normalize({ ...base, image: 'not-a-url' }).product.image_url, null);
 });
+
+test('api login session state is a lia-token cookie with the server expiry', async () => {
+  const { sessionState } = await import('../src/auth.mjs');
+  const st = sessionState('abc', '2027-11-12T10:00:00+03:30');
+  assert.equal(st.cookies[0].name, 'lia-token');
+  assert.equal(st.cookies[0].domain, 'liateam.ir');
+  assert.equal(st.cookies[0].expires, Math.floor(Date.parse('2027-11-12T10:00:00+03:30') / 1000));
+  assert.equal(sessionState('abc', 'garbage').cookies[0].expires, -1);
+});

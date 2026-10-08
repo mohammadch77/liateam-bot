@@ -1,15 +1,73 @@
 // Logs in with a real browser and saves Playwright storageState (lia-token cookie + localStorage).
 import fs from 'node:fs';
 import path from 'node:path';
-import { chromium } from 'playwright';
+import { chromium, request } from 'playwright';
 import { config, requireCredentials } from './config.mjs';
 import { log } from './logger.mjs';
 
 export class AuthError extends Error {}
 
-export async function login() {
+/** Playwright storageState holding the lia-token cookie, as the site's own login would leave it. */
+export function sessionState(token, expireAt) {
+  const exp = Date.parse(expireAt);
+  return {
+    cookies: [{
+      name: 'lia-token', value: token, domain: 'liateam.ir', path: '/',
+      expires: Number.isFinite(exp) ? Math.floor(exp / 1000) : -1, httpOnly: true, secure: true, sameSite: 'Lax',
+    }],
+    origins: [],
+  };
+}
+
+function saveState(state) {
+  fs.mkdirSync(path.dirname(config.storageStatePath), { recursive: true });
+  fs.writeFileSync(config.storageStatePath + '.tmp', JSON.stringify(state), { mode: 0o600 });
+  fs.renameSync(config.storageStatePath + '.tmp', config.storageStatePath);
+}
+
+/**
+ * Browserless login: POST /api/v1/client/login {username, password} -> {success, data: {token, expire_at}}.
+ * The token is what the site stores in the lia-token cookie. Works where no browser can be installed.
+ */
+export async function apiLogin() {
   requireCredentials();
-  log.info('Logging in to liateam.ir');
+  const ctx = await request.newContext({
+    baseURL: config.baseUrl,
+    extraHTTPHeaders: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36',
+      'Accept-Language': 'fa-IR,fa;q=0.9',
+      Referer: config.signInUrl,
+    },
+  });
+  try {
+    const res = await ctx.post('/api/v1/client/login', { data: { username: config.username, password: config.password } });
+    const body = await res.json().catch(() => ({}));
+    const token = body?.data?.token;
+    if (res.status() !== 200 || body.success === false || typeof token !== 'string' || !token) {
+      // Never include the request or the token; the server message is safe (e.g. "wrong password").
+      throw new AuthError(`Login rejected: HTTP ${res.status()} ${body.message ?? ''}`.trim());
+    }
+    saveState(sessionState(token, body.data.expire_at));
+    log.info('Login OK (api), session saved', { expires: body.data.expire_at ?? 'unknown' });
+  } finally {
+    await ctx.dispose();
+  }
+}
+
+/** API login first (no browser needed); falls back to the browser flow only if the API path fails. */
+export async function login() {
+  try {
+    return await apiLogin();
+  } catch (e) {
+    if (e instanceof AuthError && /Login rejected: HTTP (200|401|403|422)/.test(e.message)) throw e; // real rejection: wrong credentials
+    log.warn('API login failed, trying the browser', { reason: e.message });
+  }
+  return browserLogin();
+}
+
+async function browserLogin() {
+  requireCredentials();
+  log.info('Logging in to liateam.ir (browser)');
   // CHROMIUM_PATH: use a system Chromium (e.g. from apt) where Playwright's own download is blocked.
   const browser = await chromium.launch({ headless: !config.headful, executablePath: process.env.CHROMIUM_PATH || undefined });
   try {
@@ -45,9 +103,8 @@ export async function login() {
     if (!state.cookies.some((c) => c.name === 'lia-token')) {
       throw new AuthError('Login finished but no lia-token cookie was set');
     }
-    fs.mkdirSync(path.dirname(config.storageStatePath), { recursive: true });
-    fs.writeFileSync(config.storageStatePath, JSON.stringify(state));
-    log.info('Login OK, session saved');
+    saveState(state);
+    log.info('Login OK (browser), session saved');
   } finally {
     await browser.close();
   }

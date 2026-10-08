@@ -9,13 +9,15 @@ const SECRETS = [config.username, config.password].filter(Boolean);
 const mask = (s) => {
   let out = String(s ?? '');
   for (const x of SECRETS) for (const v of [x, encodeURIComponent(x)]) out = out.split(v).join('<SECRET>');
-  return out.replace(/[A-Za-z0-9_\-.]{24,}/g, (m) => `<long:${m.length}>`); // tokens / jwt
+  return out.replace(/[A-Za-z0-9_\-.]{12,}/g, (m) => `<long:${m.length}>`); // tokens / jwt
 };
-const shape = (v, d = 0) => {
+const SECRET_KEYS = /token|secret|password|auth|session|key/i;
+const shape = (v, d = 0, key = '') => {
+  if (SECRET_KEYS.test(key) && v != null) return `<hidden:${typeof v === 'string' ? v.length : typeof v}>`;
   if (v === null) return null;
   if (Array.isArray(v)) return v.length ? [shape(v[0], d + 1)] : [];
-  if (typeof v === 'object') return d > 3 ? '{…}' : Object.fromEntries(Object.entries(v).map(([k, x]) => [k, shape(x, d + 1)]));
-  if (typeof v === 'string') return SECRETS.includes(v) ? '<SECRET>' : v.length > 24 ? `<string:${v.length}>` : mask(v);
+  if (typeof v === 'object') return d > 3 ? '{…}' : Object.fromEntries(Object.entries(v).map(([k, x]) => [k, shape(x, d + 1, k)]));
+  if (typeof v === 'string') return SECRETS.includes(v) ? '<SECRET>' : v.length > 12 ? `<string:${v.length}>` : mask(v);
   return typeof v;
 };
 
