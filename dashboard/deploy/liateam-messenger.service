@@ -1,0 +1,15 @@
+# /etc/systemd/system/liateam-messenger.service - Telegram / Bale bots + notifications
+[Unit]
+Description=Liateam messenger bots (Telegram / Bale)
+After=network.target postgresql.service
+
+[Service]
+User=liateam
+WorkingDirectory=/opt/liateam-bot/app
+Environment=HOME=/opt/liateam-bot
+ExecStart=/usr/bin/env node src/messenger.mjs
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

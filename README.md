@@ -23,25 +23,15 @@ Syncs supplier prices and stock from liateam.ir into `products.json` and a local
 - **Docker Desktop must be running.** Otherwise the run fails with a "database not reachable" alert.
 - `LastResult` in the status output: `0` ok, `2` warning, `1` failed.
 
-## Telegram alerts
-1. Create a bot with @BotFather and put its token in `TELEGRAM_BOT_TOKEN`.
-2. Send the bot a message, open `https://api.telegram.org/bot<TOKEN>/getUpdates`, and put `chat.id` in `TELEGRAM_CHAT_ID`.
-3. **api.telegram.org is filtered in Iran.** Either set `TELEGRAM_PROXY=http://127.0.0.1:<port>` (the local HTTP port of v2rayN, Clash, etc.) or use your own relay via `TELEGRAM_API_BASE`.
-4. `npm run notify:test` sends a test message.
+## Alerts and bots (Telegram / Bale)
+`src/messenger.mjs` (service `liateam-messenger`) runs a Bale bot and/or a Telegram bot. Each is switched on/off separately in the dashboard (Settings → «ربات‌های تلگرام و بله»), and people join with a one-time invite code made there (role: admin or viewer).
 
-An alert is sent in these cases. Each message includes the time, duration, products fetched, products written and products rejected.
+- **Push notifications:** catalog changes after every run (price, stock, new/removed products; large price moves flagged as unusual), failed runs, warnings, recovery, and stale data. Each person picks their own topics in the bot.
+- **In the bot:** status, last-24h changes, product search (photo, price, stock), low stock, personal notification settings. Admins also see cost and profit, can start a manual run and change the interval (3–24 h).
+- **The bots never contact Liateam.** Every answer comes from the database. Manual runs go through the worker, which keeps at least `MIN_GAP_MINUTES` (20) between runs and skips scheduled runs during `QUIET_HOURS` (1–7 Tehran time).
+- **Bale** works directly from Iran. **Telegram** needs `dashboard/deploy/cloudflare-telegram-relay.js` on a custom domain, then `TELEGRAM_API_BASE` in `.env`.
 
-| Situation | Exit code | `failure_kind` | Example message |
-|---|---|---|---|
-| Some products rejected by the price check | 2 | – | `• 547 پرفیوم...: price jumped 67% (9770000 -> 3200000)` |
-| A field read from a fallback path | 2 | – | `price از مسیر جایگزین «price»` |
-| Page structure changed, run stopped | 1 | `structure` | `فیلد قیمت پیدا نشد در صفحه‌ی 3، محصول 547 (مسیرهای امتحان‌شده: ...)` |
-| Fewer than 90% of products fetched | 1 | `coverage` | `فقط 150 از 226 محصول دریافت شد` |
-| Token expired and automatic re-login failed | 1 | `auth` | `لاگین دستی لازم است (npm run login)` |
-| Database down | 1 | `database` | `اتصال به Postgres برقرار نشد (ECONNREFUSED)` |
-| Any other error | 1 | `error` | The error message |
-
-All alerts are also written to `logs/alerts.log`. If Telegram is unreachable, the sync result is unaffected and only a warning is logged.
+Failures are also written to `logs/alerts.log` and the `sync_alerts` table (dashboard → «اجراها و هشدار»).
 
 ## How it works
 - **Fetching:** pages through `GET /categories?page=N&_rsc` with the `RSC: 1` header (19 products per page, ~12 pages), waiting 2–5 s between requests.
@@ -107,3 +97,12 @@ sudo certbot --nginx -d dash.example.com && sudo nginx -t && sudo systemctl relo
 
 ## اجرای محلی (بدون HTTPS)
 در `dashboard/.env` مقدار `COOKIE_SECURE=0` را بگذارید، سپس `npm run build && npm start` و آدرس http://127.0.0.1:3847 را باز کنید.
+
+## ربات‌های بله و تلگرام
+۱. **ساخت ربات بله:** در پیام‌رسان بله، `@BotFather` را باز کنید، یک ربات بسازید و توکنش را در `.env` سرور بگذارید: `BALE_BOT_TOKEN=...`
+۲. **تلگرام (اختیاری):** همین کار را در تلگرام انجام دهید (`TELEGRAM_BOT_TOKEN`). چون تلگرام در ایران فیلتر است، فایل `dashboard/deploy/cloudflare-telegram-relay.js` را روی یک دامنه‌ی Cloudflare بگذارید و `TELEGRAM_API_BASE` را تنظیم کنید. راهنمای کامل بالای همان فایل است.
+۳. سرویس را روشن کنید: `sudo cp dashboard/deploy/liateam-messenger.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now liateam-messenger`
+۴. دسترسی داشبورد به جدول کاربران ربات: `sudo -u postgres psql lia_sync < dashboard/deploy/dashboard-role-messenger.sql`
+۵. در داشبورد → تنظیمات → «ربات‌های تلگرام و بله»: ربات را روشن کنید، «ساخت کد دعوت» را بزنید و کد را برای ربات بفرستید.
+
+ربات‌ها هیچ‌وقت به لیاتیم درخواست نمی‌فرستند و همه‌ی جواب‌ها از دیتابیس است. اجرای خودکار بین ساعت ۱ تا ۷ بامداد انجام نمی‌شود، و بین هر دو اجرا (حتی دستی) حداقل ۲۰ دقیقه فاصله است.

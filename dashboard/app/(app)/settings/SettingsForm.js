@@ -87,13 +87,11 @@ export default function SettingsForm({ values, categories, pending, account }) {
 
         <div className="grid" style={{ alignContent: 'start' }}>
           <div className="card">
-            <h2>حساب لیاتیم و هشدار</h2>
+            <h2>حساب لیاتیم</h2>
             <div className="sub" style={{ marginTop: -6, marginBottom: 6 }}>فقط خواندنی — این مقادیر در .env سرور ربات هستند و از داشبورد تغییر نمی‌کنند.</div>
             <div className="kv"><div className="k">نام کاربری لیاتیم<small>برای لاگین خودکار ربات</small></div><span className="mono" dir="ltr">{account.username || '—'}</span></div>
             <div className="kv"><div className="k">رمز عبور لیاتیم<small>هیچ‌وقت نمایش داده نمی‌شود</small></div>
               <span className={`badge ${account.passwordSet ? 'b-ok' : 'b-bad'}`}>{account.passwordSet == null ? 'نامشخص' : account.passwordSet ? 'تنظیم‌شده' : 'تنظیم نشده'}</span></div>
-            <div className="kv"><div className="k">کانال هشدار<small>پیام شکست و خطا کجا برود</small></div>
-              <span className={`badge ${account.telegram ? 'b-ok' : 'b-warn'}`}>تلگرام {account.telegram ? 'فعال' : 'تنظیم نشده'}</span></div>
           </div>
           <div className="card">
             <h2>اجرای دستی</h2>

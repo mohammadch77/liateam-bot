@@ -28,7 +28,8 @@ export default async function RunsPage() {
   } catch (e) {
     return <DbError error={e} />;
   }
-  const tg = status.telegram?.configured;
+  const bots = [['bale', 'بله'], ['telegram', 'تلگرام']].filter(([p]) => status[`messenger_${p}`]?.enabled);
+  const connected = bots.filter(([p]) => status[`messenger_${p}`]?.ok);
   return (
     <>
       <div className="page-head">
@@ -47,8 +48,10 @@ export default async function RunsPage() {
         </div>
         <div className="card">
           <div className="stat-label">کانال هشدار</div>
-          <div className="stat-value" style={{ color: tg ? 'var(--ok)' : 'var(--warn)' }}>تلگرام {tg ? 'فعال' : 'تنظیم نشده'}</div>
-          <div className="stat-foot">{tg ? 'توکن و chat_id روی سرور ربات تنظیم است' : 'هشدارها فقط در logs/alerts.log ثبت می‌شوند'}</div>
+          <div className="stat-value" style={{ color: connected.length ? 'var(--ok)' : 'var(--warn)' }}>
+            {connected.length ? connected.map(([, l]) => l).join(' و ') : bots.length ? 'قطع' : 'خاموش'}
+          </div>
+          <div className="stat-foot">{connected.length ? 'اعلان‌ها به کاربران متصل فرستاده می‌شود' : 'از تنظیمات، ربات بله یا تلگرام را روشن کنید'}</div>
         </div>
       </div>
 

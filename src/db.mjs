@@ -98,6 +98,30 @@ CREATE TABLE IF NOT EXISTS run_requests (
   requested_by TEXT NOT NULL,
   picked_at    TIMESTAMPTZ
 );
+ALTER TABLE run_requests ADD COLUMN IF NOT EXISTS notified_at TIMESTAMPTZ;  -- result sent back to the messenger user who asked
+-- People linked to the Telegram / Bale bots (via a one-time invite code from the dashboard).
+CREATE TABLE IF NOT EXISTS messenger_chats (
+  id           SERIAL PRIMARY KEY,
+  platform     TEXT NOT NULL,                -- telegram | bale
+  chat_id      BIGINT NOT NULL,
+  display_name TEXT,
+  role         TEXT NOT NULL DEFAULT 'viewer', -- admin (sees cost/profit, manual run, interval) | viewer
+  notify       BOOLEAN NOT NULL DEFAULT true,
+  kinds        TEXT[] NOT NULL DEFAULT '{price,stock,catalog,errors}',
+  linked_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen_at TIMESTAMPTZ,
+  UNIQUE (platform, chat_id)
+);
+CREATE TABLE IF NOT EXISTS messenger_invites (
+  id         SERIAL PRIMARY KEY,
+  code_hash  TEXT NOT NULL,                  -- sha256 of the 6-digit code; the code itself is never stored
+  role       TEXT NOT NULL DEFAULT 'viewer',
+  created_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  used_by    TEXT
+);
 -- Non-secret health facts written by the bot (session expiry, telegram configured, worker heartbeat).
 CREATE TABLE IF NOT EXISTS bot_status (
   key        TEXT PRIMARY KEY,
@@ -186,7 +210,18 @@ export const SETTING_KEYS = {
   sellableOverrides: (v) => Array.isArray(v) && v.every(Number.isInteger),
   priceJumpLimit: (v) => typeof v === 'number' && v > 0 && v <= 10,
   intervalHours: (v) => typeof v === 'number' && v >= 0.25 && v <= 168,
+  telegramEnabled: (v) => typeof v === 'boolean',
+  baleEnabled: (v) => typeof v === 'boolean',
 };
+
+/** Connection pool for long-running processes (messenger); runs the schema once. */
+export async function openPool() {
+  const first = await openDb();
+  await first.end();
+  const pool = new pg.Pool({ connectionString: config.databaseUrl, max: 4 });
+  pool.on('error', () => {}); // idle client errors are retried on next use
+  return pool;
+}
 
 /** Overlays valid DB settings onto `config` (in place). Returns the keys that came from the DB. */
 export async function applySettings(db, config) {

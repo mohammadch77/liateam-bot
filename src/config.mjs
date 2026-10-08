@@ -23,6 +23,13 @@ export const config = {
   sellableOverrides: [],
   // Hours between scheduled runs of src/worker.mjs. The settings table (dashboard) overrides all of the above.
   intervalHours: Number(env.SYNC_INTERVAL_HOURS || 4),
+  // Messenger bots are switched on/off from the dashboard; tokens live only in .env.
+  telegramEnabled: false,
+  baleEnabled: false,
+  // Behave like a person: no scheduled runs in these Tehran hours ("1-7" = 01:00–06:59), and
+  // at least this many minutes between any two runs (manual ones included).
+  quietHours: env.QUIET_HOURS ?? '1-7',
+  minGapMinutes: Number(env.MIN_GAP_MINUTES || 20),
 };
 
 export function requireCredentials() {

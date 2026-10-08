@@ -1,4 +1,4 @@
-// One sync run: fetch -> normalize -> sanity check -> Postgres + products.json -> Telegram alert if needed.
+// One sync run: fetch -> normalize -> sanity check -> Postgres + products.json (+ alerts table for the messenger).
 // Exit codes: 0 ok, 2 warning (rejected products / fallback paths), 1 failed (nothing written).
 // Designed to be launched by any scheduler (Task Scheduler via run-sync.cmd, cron, NestJS @Cron, ...).
 import fs from 'node:fs';
@@ -8,7 +8,6 @@ import { login, hasSession, AuthError } from './auth.mjs';
 import { fetchAllProducts } from './source.mjs';
 import { StructureError } from './rsc.mjs';
 import { checkProduct } from './sanity.mjs';
-import { notify, telegramConfigured } from './notify.mjs';
 import { openDb, loadPrevious, upsertProducts, upsertCategories, recordRun, diffCatalog, recordEvents, applySettings, setStatus } from './db.mjs';
 
 class CoverageError extends Error {}
@@ -150,7 +149,6 @@ async function main() {
     run.durationMs = Date.now() - startedAt.getTime();
     if (db) {
       await setStatus(db, 'session', { ...sessionInfo(), ok: run.failureKind !== 'auth', checked_at: new Date().toISOString() }).catch(() => {});
-      await setStatus(db, 'telegram', { configured: telegramConfigured() }).catch(() => {});
       await setStatus(db, 'config', effectiveConfig()).catch(() => {});
       await setStatus(db, 'credentials', { username_masked: maskUser(config.username), password_set: Boolean(config.password) }).catch(() => {});
       await recordRun(db, run, alertLines).catch((e) => log.warn('Could not record run', { error: e.message }));
@@ -158,11 +156,7 @@ async function main() {
     }
   }
 
-  if (alertLines.length) {
-    const label = run.status === 'failed' ? 'شکست' : 'هشدار';
-    const header = `🛰 liateam-sync — ${label}\n${startedAt.toLocaleString('fa-IR', { timeZone: 'Asia/Tehran' })} · ${(run.durationMs / 1000).toFixed(0)}s · دریافت: ${run.fetched} · نوشته: ${run.written} · رد: ${run.rejected}`;
-    await notify(`${header}\n\n${alertLines.join('\n')}`);
-  }
+  // Alerts reach people through src/messenger.mjs (Telegram / Bale), which reads sync_runs + sync_alerts.
   process.exitCode = run.status === 'ok' ? 0 : run.status === 'warning' ? 2 : 1;
 }
 

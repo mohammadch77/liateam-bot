@@ -132,3 +132,25 @@ test('api login session state is a lia-token cookie with the server expiry', asy
   assert.equal(st.cookies[0].expires, Math.floor(Date.parse('2027-11-12T10:00:00+03:30') / 1000));
   assert.equal(sessionState('abc', 'garbage').cookies[0].expires, -1);
 });
+
+test('quiet hours use Tehran time and wrap past midnight', async () => {
+  const { inQuietHours } = await import('../src/schedule.mjs');
+  // 2026-10-08T00:00Z = 03:30 Tehran
+  assert.equal(inQuietHours('1-7', new Date('2026-10-08T00:00:00Z')), true);
+  assert.equal(inQuietHours('1-7', new Date('2026-10-08T06:00:00Z')), false); // 09:30
+  assert.equal(inQuietHours('23-6', new Date('2026-10-07T20:00:00Z')), true); // 23:30
+  assert.equal(inQuietHours('', new Date()), false);
+});
+
+test('notification text groups changes and flags unusual price moves', async () => {
+  const { eventSections } = await import('../src/messenger-text.mjs');
+  const text = eventSections([
+    { kind: 'price', name: 'A', old_value: '1000000', new_value: '1300000' },
+    { kind: 'price', name: 'B', old_value: '1000000', new_value: '1020000' },
+    { kind: 'out_of_stock', name: 'C', old_value: '4', new_value: '0' },
+  ]);
+  assert.match(text, /تغییر قیمت فروش \(۲\)/);
+  assert.match(text, /A[\s\S]*غیرعادی/);
+  assert.doesNotMatch(text, /B[^\n]*\n[^\n]*غیرعادی/);
+  assert.match(text, /ناموجود شد \(۱\)/);
+});

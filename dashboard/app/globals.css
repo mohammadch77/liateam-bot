@@ -123,3 +123,4 @@ textarea.input { min-height: 64px; resize: vertical; direction: ltr; text-align:
 .thumb { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; background: var(--panel-2); border: 1px solid var(--border); flex-shrink: 0; }
 .thumb.empty-thumb { display: grid; place-items: center; color: var(--muted); font-size: 16px; }
 .prod-cell { display: flex; gap: 10px; align-items: center; }
+.invite-code { font-size: 40px; font-weight: 800; letter-spacing: 6px; margin: 12px 0; color: var(--accent); }
