@@ -534,6 +534,52 @@ async function auditReport() {
   ].join('\n') }));
 }
 
+// ---------------------------------------------------------------- admin actions (panel + both bots)
+function actorLabel(actor) {
+  const [platform, ...rest] = String(actor).split(':');
+  if (platform === 'bale' || platform === 'telegram') return `${rest.join(':')} در ${platform === 'bale' ? 'بله' : 'تلگرام'}`;
+  return `پنل مدیریت (${actor})`;
+}
+const listText = (v) => (Array.isArray(v) ? (v.length ? v.map((x) => T.num(x)).join('، ') : 'خالی') : String(v ?? '—'));
+function actionText(a) {
+  const o = a.old_value, n = a.new_value;
+  switch (a.action) {
+    case 'intervalHours': return `فاصله‌ی اجرای خودکار را ${o != null ? `از هر ${T.num(o)} ساعت ` : ''}به هر ${T.num(n)} ساعت تغییر داد`;
+    case 'manual_run': return 'یک اجرای دستی شروع کرد';
+    case 'priceJumpLimit': return `آستانه‌ی جهش قیمت را ${o != null ? `از ${T.num(Math.round(o * 100))}٪ ` : ''}به ${T.num(Math.round(n * 100))}٪ تغییر داد`;
+    case 'excludedCategories': return `دسته‌های کنارگذاشته را تغییر داد: ${listText(o)} ← ${listText(n)}`;
+    case 'sellableOverrides': return `محصولات استثنا را تغییر داد: ${listText(o)} ← ${listText(n)}`;
+    case 'telegramEnabled': return `ربات تلگرام را ${n ? 'روشن' : 'خاموش'} کرد`;
+    case 'baleEnabled': return `ربات بله را ${n ? 'روشن' : 'خاموش'} کرد`;
+    case 'messenger_invite': return `یک کد دعوت (${n === 'admin' ? 'مدیر' : 'بیننده'}) برای ربات‌ها ساخت`;
+    case 'messenger_role': return `نقش یک کاربر ربات را تغییر داد: ${n}`;
+    case 'messenger_remove': return `کاربر ${o} را از ربات‌ها حذف کرد`;
+    default: return `تنظیم «${a.action}» را تغییر داد`;
+  }
+}
+
+/** Every change made from the panel or either bot is told to the other admins on both platforms. */
+async function notifyAdminActions(cursor) {
+  if (cursor.audit_id == null) {
+    cursor.audit_id = (await q('SELECT COALESCE(max(id), 0) AS id FROM settings_audit'))[0].id;
+    return;
+  }
+  const actions = await q('SELECT * FROM settings_audit WHERE id > $1 ORDER BY id', [cursor.audit_id]);
+  if (!actions.length) return;
+  cursor.audit_id = actions.at(-1).id;
+  const platforms = Object.keys(clients).filter(enabled);
+  if (!platforms.length) return;
+  const admins = await q(`SELECT * FROM messenger_chats WHERE role = 'admin' AND notify AND platform = ANY($1)`, [platforms]);
+  for (const a of actions) {
+    const text = `🔔 ${actorLabel(a.actor)} ${actionText(a)}.
+${T.time(a.at)}`;
+    for (const chat of admins) {
+      if (a.actor === `${chat.platform}:${chat.display_name}`) continue; // not to the person who did it
+      await send(clients[chat.platform], chat.chat_id, text).catch((e) => log.warn('messenger: admin notice failed', { error: e.message }));
+    }
+  }
+}
+
 async function notifierLoop() {
   const st = await statusMap();
   const cursor = st.notify_cursor ?? (await q(
@@ -547,6 +593,7 @@ async function notifierLoop() {
       await notifyStale(cursor);
       await dailyReport(cursor);
       await auditReport();
+      await notifyAdminActions(cursor);
       await setStatus(pool, 'notify_cursor', cursor);
     } catch (e) {
       log.warn('messenger: notifier failed', { error: e.message });
