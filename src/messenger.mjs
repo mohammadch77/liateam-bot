@@ -356,6 +356,7 @@ async function pollLoop(name) {
   let offset = 0;
   let me = null;
   let backoff = 5_000;
+  let timeouts = 0; // consecutive polling timeouts (normal now and then over the relay)
   for (;;) {
     if (!enabled(name)) {
       me = null;
@@ -372,6 +373,7 @@ async function pollLoop(name) {
       const updates = await client.call('getUpdates', { offset, timeout: wait, allowed_updates: ['message', 'callback_query'] }, (wait + 15) * 1000);
       await reportPlatform(name, { ok: true, username: me.username ?? null, error: null });
       backoff = 5_000;
+      timeouts = 0;
       for (const u of updates) {
         offset = u.update_id + 1;
         try {
@@ -382,11 +384,17 @@ async function pollLoop(name) {
         }
       }
     } catch (e) {
+      // A lone timeout while waiting for messages: just ask again shortly, stay "connected".
+      if (/getUpdates: network TimeoutError/.test(e.message) && ++timeouts < 3) {
+        await sleep(2_000);
+        continue;
+      }
+      timeouts = 0;
       log.warn(`messenger ${name}: polling failed`, { error: e.message });
       lastStatusWrite[name] = 0;
       await reportPlatform(name, { ok: false, username: me?.username ?? null, error: e.message });
       await sleep(backoff);
-      backoff = Math.min(backoff * 2, 5 * 60_000);
+      backoff = Math.min(backoff * 2, 60_000);
     }
   }
 }
