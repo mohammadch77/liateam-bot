@@ -45,6 +45,19 @@ CREATE TABLE IF NOT EXISTS categories (
   parent_code INTEGER,
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS missing_since TIMESTAMPTZ;  -- set while the supplier no longer lists it
+-- What changed in the catalog, run by run (shown in the dashboard; not only failures).
+CREATE TABLE IF NOT EXISTS product_events (
+  id         SERIAL PRIMARY KEY,
+  at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  product_id INTEGER NOT NULL,
+  name       TEXT NOT NULL,
+  kind       TEXT NOT NULL,                  -- new | removed | returned | price | cost | out_of_stock | back_in_stock | name
+  old_value  TEXT,
+  new_value  TEXT
+);
+CREATE INDEX IF NOT EXISTS product_events_at ON product_events (at DESC);
 -- Product + category names; unnamed/unknown categories show as their code (never an error).
 -- CREATE OR REPLACE (not DROP) keeps the dashboard role's grant; new columns may only be appended at the end.
 CREATE OR REPLACE VIEW product_catalog AS
@@ -52,7 +65,8 @@ SELECT p.id, p.uuid, p.name, p.price, p.cost_price, p.stock, p.category, p.is_av
        p.first_seen_at, p.updated_at, p.last_seen_at,
        COALESCE((SELECT array_agg(COALESCE(c.name, '#' || x.code) ORDER BY x.ord)
                    FROM unnest(p.category) WITH ORDINALITY AS x(code, ord)
-                   LEFT JOIN categories c ON c.code = x.code), '{}') AS category_names
+                   LEFT JOIN categories c ON c.code = x.code), '{}') AS category_names,
+       p.image_url, p.missing_since
   FROM supplier_products p;
 
 -- Alert lines of each run (also in logs/alerts.log); read by the dashboard.
@@ -99,7 +113,7 @@ export async function openDb() {
 }
 
 export async function loadPrevious(db) {
-  const { rows } = await db.query('SELECT id, price, cost_price, stock FROM supplier_products');
+  const { rows } = await db.query('SELECT id, name, price, cost_price, stock, missing_since FROM supplier_products');
   return new Map(rows.map((r) => [r.id, r]));
 }
 
@@ -108,17 +122,18 @@ export async function upsertProducts(db, products) {
   try {
     for (const p of products) {
       const { rows } = await db.query(
-        `INSERT INTO supplier_products (id, uuid, name, price, cost_price, stock, category, is_available, is_sellable)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        `INSERT INTO supplier_products (id, uuid, name, price, cost_price, stock, category, is_available, is_sellable, image_url)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
          ON CONFLICT (id) DO UPDATE SET
            uuid=EXCLUDED.uuid, name=EXCLUDED.name, price=EXCLUDED.price, cost_price=EXCLUDED.cost_price,
            stock=EXCLUDED.stock, category=EXCLUDED.category, is_available=EXCLUDED.is_available, is_sellable=EXCLUDED.is_sellable,
-           last_seen_at=now(),
+           image_url=COALESCE(EXCLUDED.image_url, supplier_products.image_url),
+           last_seen_at=now(), missing_since=NULL,
            updated_at = CASE WHEN (supplier_products.price, supplier_products.cost_price, supplier_products.stock)
                                 IS DISTINCT FROM (EXCLUDED.price, EXCLUDED.cost_price, EXCLUDED.stock)
                              THEN now() ELSE supplier_products.updated_at END
          RETURNING (xmax = 0) AS inserted, updated_at = now() AS changed`,
-        [p.id, p.uuid, p.name, p.price, p.cost_price, p.stock, p.category, p.is_available, p.is_sellable],
+        [p.id, p.uuid, p.name, p.price, p.cost_price, p.stock, p.category, p.is_available, p.is_sellable, p.image_url ?? null],
       );
       if (rows[0].inserted || rows[0].changed) {
         await db.query(
@@ -170,7 +185,7 @@ export const SETTING_KEYS = {
   excludedCategories: (v) => Array.isArray(v) && v.every(Number.isInteger),
   sellableOverrides: (v) => Array.isArray(v) && v.every(Number.isInteger),
   priceJumpLimit: (v) => typeof v === 'number' && v > 0 && v <= 10,
-  intervalHours: (v) => typeof v === 'number' && v >= 0.5 && v <= 168,
+  intervalHours: (v) => typeof v === 'number' && v >= 0.25 && v <= 168,
 };
 
 /** Overlays valid DB settings onto `config` (in place). Returns the keys that came from the DB. */
@@ -191,4 +206,37 @@ export async function setStatus(db, key, value) {
     `INSERT INTO bot_status (key, value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()`,
     [key, JSON.stringify(value)],
   );
+}
+
+/**
+ * Catalog changes between the stored state (`prev`, loaded before the upsert) and this run.
+ * `accepted` = products written this run; `seenIds` = every product the source listed.
+ * The very first run (empty table) produces no events, otherwise all 226 would be "new".
+ */
+export function diffCatalog(prev, accepted, seenIds) {
+  const events = [];
+  if (prev.size === 0) return events;
+  const ev = (p, kind, o, n) => events.push({ product_id: p.id, name: p.name, kind, old_value: o == null ? null : String(o), new_value: n == null ? null : String(n) });
+  for (const p of accepted) {
+    const o = prev.get(p.id);
+    if (!o) { ev(p, 'new', null, p.price); continue; }
+    if (o.missing_since) ev(p, 'returned', null, null);
+    if (Number(o.price) !== p.price) ev(p, 'price', o.price, p.price);
+    if (Number(o.cost_price) !== p.cost_price) ev(p, 'cost', o.cost_price, p.cost_price);
+    if (o.stock > 0 && p.stock <= 0) ev(p, 'out_of_stock', o.stock, p.stock);
+    if (o.stock <= 0 && p.stock > 0) ev(p, 'back_in_stock', o.stock, p.stock);
+    if (o.name !== p.name) ev(p, 'name', o.name, p.name);
+  }
+  for (const [id, o] of prev) {
+    if (!seenIds.has(id) && !o.missing_since) ev({ id, name: o.name }, 'removed', null, null);
+  }
+  return events;
+}
+
+export async function recordEvents(db, events, removedIds) {
+  for (const e of events) {
+    await db.query('INSERT INTO product_events (product_id, name, kind, old_value, new_value) VALUES ($1,$2,$3,$4,$5)',
+      [e.product_id, e.name, e.kind, e.old_value, e.new_value]);
+  }
+  if (removedIds.length) await db.query('UPDATE supplier_products SET missing_since = now() WHERE id = ANY($1) AND missing_since IS NULL', [removedIds]);
 }

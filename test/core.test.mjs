@@ -96,3 +96,30 @@ test('liateam category objects are found wherever they sit (real payload shape)'
   assert.equal(cats.get(131).name, 'ماسک تخصصی');
   assert.equal(cats.has(547), false);
 });
+
+test('catalog diff: new, price, stock, removed, returned; none on first run', async () => {
+  const { diffCatalog } = await import('../src/db.mjs');
+  const prev = new Map([
+    [1, { id: 1, name: 'a', price: '1000', cost_price: '900', stock: 5, missing_since: null }],
+    [2, { id: 2, name: 'b', price: '2000', cost_price: '1800', stock: 0, missing_since: null }],
+    [3, { id: 3, name: 'c', price: '3000', cost_price: '2700', stock: 1, missing_since: null }],
+    [4, { id: 4, name: 'd', price: '4000', cost_price: '3600', stock: 1, missing_since: new Date() }],
+  ]);
+  const accepted = [
+    { id: 1, name: 'a', price: 1100, cost_price: 900, stock: 0 },
+    { id: 2, name: 'b', price: 2000, cost_price: 1800, stock: 7 },
+    { id: 4, name: 'd', price: 4000, cost_price: 3600, stock: 1 },
+    { id: 5, name: 'e', price: 500, cost_price: 450, stock: 3 },
+  ];
+  const ev = diffCatalog(prev, accepted, new Set([1, 2, 4, 5]));
+  const kinds = ev.map((e) => `${e.product_id}:${e.kind}`).sort();
+  assert.deepEqual(kinds, ['1:out_of_stock', '1:price', '2:back_in_stock', '3:removed', '4:returned', '5:new']);
+  assert.deepEqual(diffCatalog(new Map(), accepted, new Set([1])), []);
+});
+
+test('image url is picked from the first http path, absence is fine', async () => {
+  const { normalize } = await import('../src/normalize.mjs');
+  const base = { code: 9, title: 'x', pricing: { price: 1, payable_price: 1 }, inventory: { total_inventory: 1 } };
+  assert.equal(normalize({ ...base, home_page_image: 'https://s3.liateam.ir/a.png' }).product.image_url, 'https://s3.liateam.ir/a.png');
+  assert.equal(normalize({ ...base, image: 'not-a-url' }).product.image_url, null);
+});

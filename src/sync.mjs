@@ -9,7 +9,7 @@ import { fetchAllProducts } from './source.mjs';
 import { StructureError } from './rsc.mjs';
 import { checkProduct } from './sanity.mjs';
 import { notify, telegramConfigured } from './notify.mjs';
-import { openDb, loadPrevious, upsertProducts, upsertCategories, recordRun, applySettings, setStatus } from './db.mjs';
+import { openDb, loadPrevious, upsertProducts, upsertCategories, recordRun, diffCatalog, recordEvents, applySettings, setStatus } from './db.mjs';
 
 class CoverageError extends Error {}
 class LoginError extends Error {} // login itself failed -> needs a human
@@ -96,7 +96,15 @@ async function main() {
     }
     for (const r of rejected) log.alert(`Product ${r.id} not updated: ${r.problems.join('; ')}`, { id: r.id, name: r.name });
 
+    const seenIds = new Set(products.map((p) => p.id));
+    const events = diffCatalog(prev, accepted, seenIds);
     await upsertProducts(db, accepted);
+    await recordEvents(db, events, events.filter((e) => e.kind === 'removed').map((e) => e.product_id));
+    if (events.length) {
+      const byKind = events.reduce((m, e) => ({ ...m, [e.kind]: (m[e.kind] || 0) + 1 }), {});
+      log.info(`catalog changes: ${events.length}`, byKind);
+    }
+    log.info(`images: ${accepted.filter((p) => p.image_url).length}/${accepted.length} products have a picture`);
     run.written = accepted.length;
     run.rejected = rejected.length;
 
@@ -116,8 +124,7 @@ async function main() {
     fs.writeFileSync(config.outputJson + '.tmp', JSON.stringify(out, null, 2));
     fs.renameSync(config.outputJson + '.tmp', config.outputJson);
 
-    const seen = new Set(products.map((p) => p.id));
-    const missing = [...prev.keys()].filter((id) => !seen.has(id));
+    const missing = [...prev.keys()].filter((id) => !seenIds.has(id));
     if (missing.length) log.warn(`${missing.length} previously known products not in source anymore`, { ids: missing });
 
     if (rejected.length) {

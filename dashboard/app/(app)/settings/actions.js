@@ -8,7 +8,7 @@ const VALID = {
   excludedCategories: (v) => Array.isArray(v) && v.length <= 500 && v.every((x) => Number.isInteger(x) && x > 0),
   sellableOverrides: (v) => Array.isArray(v) && v.length <= 2000 && v.every((x) => Number.isInteger(x) && x > 0),
   priceJumpLimit: (v) => typeof v === 'number' && v > 0 && v <= 10,
-  intervalHours: (v) => typeof v === 'number' && v >= 0.5 && v <= 168,
+  intervalHours: (v) => typeof v === 'number' && v >= 0.25 && v <= 168,
 };
 
 export async function saveSetting(key, value) {

@@ -1,11 +1,12 @@
 import { q } from '@/lib/db';
 import { getHealth } from '@/lib/health';
 import { LOW_STOCK } from '@/lib/products';
-import { num, pct, ago, duration, countdown, tomanShort, toman, shortDate } from '@/lib/format';
+import { num, pct, ago, duration, countdown, tomanShort, shortDate } from '@/lib/format';
 import RunsChart from '../components/RunsChart';
 import DbError from '../components/DbError';
 import FreshPill from '../components/FreshPill';
 import { RunBadge } from '../components/badges';
+import { EventRow } from '../components/events';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,16 +25,9 @@ async function load() {
               avg((price - cost_price)::numeric / NULLIF(price, 0)) FILTER (WHERE is_sellable) AS avg_margin,
               count(*) FILTER (WHERE is_sellable AND price > cost_price)::int AS profitable
          FROM supplier_products`, [LOW_STOCK]),
-    q(`SELECT * FROM (
-         SELECT h.product_id, p.name, h.recorded_at, h.price,
-                lag(h.price) OVER (PARTITION BY h.product_id ORDER BY h.recorded_at) AS prev
-           FROM supplier_price_history h JOIN supplier_products p ON p.id = h.product_id) t
-        WHERE prev IS NOT NULL AND prev <> price ORDER BY recorded_at DESC LIMIT 8`),
-    q(`SELECT count(*)::int AS n FROM (
-         SELECT h.recorded_at, h.price, lag(h.price) OVER (PARTITION BY h.product_id ORDER BY h.recorded_at) AS prev
-           FROM supplier_price_history h) t
-        WHERE prev IS NOT NULL AND prev <> price
-          AND recorded_at >= date_trunc('day', now() AT TIME ZONE 'Asia/Tehran') AT TIME ZONE 'Asia/Tehran'`),
+    q('SELECT * FROM product_events ORDER BY id DESC LIMIT 8').catch(() => []),
+    q(`SELECT count(*)::int AS n FROM product_events
+        WHERE at >= date_trunc('day', now() AT TIME ZONE 'Asia/Tehran') AT TIME ZONE 'Asia/Tehran'`).catch(() => [{ n: 0 }]),
     q(`SELECT started_at, status, fetched, sellable, rejected FROM sync_runs ORDER BY started_at DESC LIMIT 20`),
   ]);
   const alerts = health.last && health.last.status !== 'ok'
@@ -92,19 +86,8 @@ export default async function Overview() {
 
       <div className="grid g2 section">
         <div className="card">
-          <div className="card-head"><h2>تغییرات اخیر قیمت</h2><span className="badge b-info">{num(d.today)} مورد امروز</span></div>
-          {changes.length === 0 ? <div className="empty">تغییری ثبت نشده</div> : changes.map((c, i) => {
-            const delta = (c.price - c.prev) / c.prev;
-            return (
-              <div className="alert-row" key={i}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="ellipsis">{c.name} <span className="sub tnum">#{num(c.product_id)}</span></div>
-                  <div className="sub tnum">از <bdi>{toman(c.prev)}</bdi> به <b><bdi>{toman(c.price)}</bdi></b> تومان · <bdi>{ago(c.recorded_at)}</bdi></div>
-                </div>
-                <span className={`tnum ${delta > 0 ? 'neg' : 'pos'}`} dir="ltr">{pct(Math.abs(delta))}{delta > 0 ? '+' : '−'}</span>
-              </div>
-            );
-          })}
+          <div className="card-head"><h2>تغییرات اخیر محصولات</h2><a className="badge b-info" href="/changes">{num(d.today)} مورد امروز · همه</a></div>
+          {changes.length === 0 ? <div className="empty">هنوز تغییری ثبت نشده (از اجرای بعدی ثبت می‌شود)</div> : changes.map((e) => <EventRow key={e.id} e={e} />)}
         </div>
         <div className="grid" style={{ alignContent: 'start' }}>
           <div className="card">

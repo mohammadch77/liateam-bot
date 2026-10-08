@@ -1,7 +1,7 @@
 import 'server-only';
 import { q } from './db';
 
-export const CATALOG_SQL = `SELECT id, name, price, cost_price, stock, category, category_names, is_available, is_sellable, updated_at
+export const CATALOG_SQL = `SELECT id, name, price, cost_price, stock, category, category_names, is_available, is_sellable, updated_at, image_url
   FROM product_catalog ORDER BY name`;
 
 export const getProducts = () => q(CATALOG_SQL);

@@ -12,6 +12,15 @@ export const FIELD_PATHS = {
   cost_price: ['pricing.payable_price', 'payable_price', 'pricing.final_price', 'pricing.user_price'],
   stock: ['inventory.total_inventory', 'total_inventory', 'inventory.limit_buy_inventory', 'inventory.count', 'stock'],
 };
+// Optional: product picture. First http(s) URL found wins; absence is never an error.
+export const IMAGE_PATHS = ['home_page_image', 'image', 'thumbnail', 'main_image', 'cover', 'images.0.url', 'images.0', 'media.0.url'];
+export function imageOf(raw) {
+  for (const path of IMAGE_PATHS) {
+    const v = get(raw, path);
+    if (typeof v === 'string' && /^https?:\/\//.test(v)) return v;
+  }
+  return null;
+}
 const FIELD_LABEL = { name: 'نام', price: 'قیمت', cost_price: 'قیمت تمام‌شده (payable_price)', stock: 'موجودی' };
 
 const get = (obj, path) => path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
@@ -66,6 +75,7 @@ export function normalize(raw, ctx = {}) {
       stock: toInt(fields.stock),
       category,
       is_available: raw.inventory?.is_available ?? null,
+      image_url: imageOf(raw),
       is_sellable: isSellable(raw.code, category),
     },
     fallbacks,

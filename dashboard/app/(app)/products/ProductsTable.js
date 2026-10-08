@@ -8,6 +8,13 @@ const UI_COLUMNS = COLUMNS.filter((c) => c.key !== 'id');
 
 const STATUS_CLS = { in: 'b-ok', out: 'b-bad', hidden: 'b-hidden' };
 
+// Product picture; falls back to a placeholder when missing or when the image fails to load.
+function Thumb({ src }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) return <span className="thumb empty-thumb" aria-hidden>▦</span>;
+  return <img className="thumb" src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} />;
+}
+
 export default function ProductsTable({ products, categories }) {
   const [f, setF] = useState({ q: '', cat: '', status: '', sort: 'name', dir: 'asc' });
   const rows = useMemo(() => applyFilters(products, f), [products, f]);
@@ -77,7 +84,12 @@ export default function ProductsTable({ products, categories }) {
               const low = isLow(p);
               return (
                 <tr key={p.id} className={st === 'out' ? 'row-out' : st === 'hidden' ? 'row-hidden' : ''}>
-                  <td className="wrap">{p.name}<div className="sub tnum">کد {num(p.id)}</div></td>
+                  <td className="wrap">
+                    <div className="prod-cell">
+                      <Thumb src={p.image_url} />
+                      <div>{p.name}<div className="sub tnum">کد {num(p.id)}</div></div>
+                    </div>
+                  </td>
                   <td className="num">{toman(p.price)}</td>
                   <td className="num">{toman(p.cost_price)}</td>
                   <td className={`num ${pr < 0 ? 'neg' : ''}`}>{toman(pr)}<div className="sub">{pct(margin(p), 0)}</div></td>
