@@ -1,0 +1,14 @@
+# /etc/systemd/system/liateam-dashboard.service
+[Unit]
+Description=Liateam sync dashboard (Next.js, 127.0.0.1:3847)
+After=network.target docker.service
+
+[Service]
+WorkingDirectory=/opt/liateam-bot/dashboard
+ExecStart=/usr/bin/npm start
+Environment=NODE_ENV=production PORT=3847 HOST=127.0.0.1
+Restart=on-failure
+User=liateam
+
+[Install]
+WantedBy=multi-user.target

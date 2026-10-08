@@ -1,0 +1,13 @@
+# /etc/systemd/system/liateam-worker.service  - runs the sync on the dashboard's interval + manual runs
+[Unit]
+Description=Liateam sync worker
+After=network.target docker.service
+
+[Service]
+WorkingDirectory=/opt/liateam-bot
+ExecStart=/usr/bin/node src/worker.mjs
+Restart=always
+User=liateam
+
+[Install]
+WantedBy=multi-user.target

@@ -46,9 +46,10 @@ CREATE TABLE IF NOT EXISTS categories (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 -- Product + category names; unnamed/unknown categories show as their code (never an error).
-DROP VIEW IF EXISTS product_catalog;
-CREATE VIEW product_catalog AS
-SELECT p.*,
+-- CREATE OR REPLACE (not DROP) keeps the dashboard role's grant; new columns may only be appended at the end.
+CREATE OR REPLACE VIEW product_catalog AS
+SELECT p.id, p.uuid, p.name, p.price, p.cost_price, p.stock, p.category, p.is_available, p.is_sellable,
+       p.first_seen_at, p.updated_at, p.last_seen_at,
        COALESCE((SELECT array_agg(COALESCE(c.name, '#' || x.code) ORDER BY x.ord)
                    FROM unnest(p.category) WITH ORDINALITY AS x(code, ord)
                    LEFT JOIN categories c ON c.code = x.code), '{}') AS category_names

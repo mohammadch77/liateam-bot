@@ -60,6 +60,10 @@ function sessionInfo() {
   }
 }
 
+// Settings in effect (config.mjs defaults overlaid with the settings table), shown in the dashboard.
+const effectiveConfig = () => ({ excludedCategories: config.excludedCategories, sellableOverrides: config.sellableOverrides,
+  priceJumpLimit: config.priceJumpLimit, intervalHours: config.intervalHours });
+
 async function main() {
   const startedAt = new Date();
   const run = { startedAt, status: 'failed', fetched: 0, written: 0, sellable: 0, rejected: 0, failureKind: null, message: null };
@@ -137,6 +141,7 @@ async function main() {
     if (db) {
       await setStatus(db, 'session', { ...sessionInfo(), ok: run.failureKind !== 'auth', checked_at: new Date().toISOString() }).catch(() => {});
       await setStatus(db, 'telegram', { configured: telegramConfigured() }).catch(() => {});
+      await setStatus(db, 'config', effectiveConfig()).catch(() => {});
       await recordRun(db, run, alertLines).catch((e) => log.warn('Could not record run', { error: e.message }));
       await db.end();
     }
