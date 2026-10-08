@@ -33,7 +33,7 @@ export default async function AuditCard({ total }) {
       </div>
       <div className="sub" style={{ marginBottom: 10 }}>
         صفحه‌ی هر محصول یک‌بار جداگانه بررسی می‌شود: مدل‌ها و رنگ‌ها، قیمت جدا برای هر مدل، و یکی بودن قیمت با فهرست.
-        در هر اجرای ربات فقط ۵ محصول، و بعد از اتمام دیگر تکرار نمی‌شود.
+        در هر اجرای ربات فقط ۱۰ محصول، و بعد از اتمام دیگر تکرار نمی‌شود.
       </div>
       <div className="fresh">
         <div className="fresh-bar"><span style={{ width: `${Math.max(3, pct)}%`, background: complete && !clean ? 'var(--warn)' : 'var(--ok)' }} /></div>

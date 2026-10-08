@@ -8,7 +8,10 @@ import { parseCategories } from './categories.mjs';
 import { AuthError } from './auth.mjs';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const jitter = () => config.delayMinMs + Math.random() * (config.delayMaxMs - config.delayMinMs);
+// Reading time like a person: 4–12 s per page, and now and then (~1 in 7) a long look of 15–35 s.
+// A whole visit (12 listing pages + a few product pages) takes roughly 3–6 minutes, never the same twice.
+const jitter = () =>
+  config.delayMinMs + Math.random() * (config.delayMaxMs - config.delayMinMs) + (Math.random() < 0.15 ? 15000 + Math.random() * 20000 : 0);
 
 /** Top-level field names plus those inside pricing / inventory (values are never kept). */
 export function shapeKeys(raw) {
@@ -105,7 +108,7 @@ export async function fetchProductPages(codes) {
   const out = new Map();
   try {
     for (const code of codes) {
-      await sleep(3000 + Math.random() * 3000);
+      await sleep(6000 + Math.random() * 12000); // opening a product and looking at it
       try {
         const res = await ctx.get(`/products/${code}?_rsc`);
         if (res.status() !== 200) { out.set(code, null); continue; }

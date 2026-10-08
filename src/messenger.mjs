@@ -329,7 +329,7 @@ async function onCallback(client, cb) {
     const st = await statusMap();
     const alive = st.worker?.heartbeat && Date.now() - new Date(st.worker.heartbeat).getTime() < 120_000;
     return show(client, chat.chat_id, mid, alive
-      ? '⏳ در صف اجرا قرار گرفت. معمولاً ۱ تا ۲ دقیقه طول می‌کشد؛ نتیجه را همین‌جا خبر می‌دهم.'
+      ? '⏳ در صف اجرا قرار گرفت. معمولاً ۳ تا ۶ دقیقه طول می‌کشد (ربات مثل یک آدم با حوصله صفحه‌ها را می‌خواند)؛ نتیجه را همین‌جا خبر می‌دهم.'
       : '⚠️ در صف قرار گرفت، ولی سرویس زمان‌بندی (worker) روشن نیست؛ تا روشن نشود اجرا انجام نمی‌شود.', inline([]));
   }
   if (cmd === 'ivm') return intervalMenu(client, chat, mid);
