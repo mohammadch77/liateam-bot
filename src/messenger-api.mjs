@@ -1,6 +1,6 @@
 // Minimal Bot API client. Telegram and Bale speak the same protocol (Bale: tapi.bale.ai).
 // Tokens come only from .env and never appear in errors or logs.
-import { fetch, ProxyAgent } from 'undici';
+import { fetch, ProxyAgent, Agent } from 'undici';
 
 const env = process.env;
 export const PLATFORMS = {
@@ -23,8 +23,19 @@ export class ApiError extends Error {}
 
 export function createClient(name) {
   const p = PLATFORMS[name];
-  const dispatcher = p.proxy ? new ProxyAgent(p.proxy) : undefined;
+  // IPv4 only: on some servers IPv6 to Cloudflare is announced but does not work, and a request
+  // that picks it just hangs until it times out (curl falls back to IPv4, Node does not).
+  const dispatcher = p.proxy ? new ProxyAgent(p.proxy) : new Agent({ connect: { family: 4, timeout: 10_000 } });
   async function call(method, params = {}, timeoutMs = 20_000) {
+    try {
+      return await once(method, params, timeoutMs);
+    } catch (e) {
+      // One retry for sends that failed on the network (never for long polling).
+      if (method === 'getUpdates' || !/network/.test(e.message)) throw e;
+      return once(method, params, timeoutMs);
+    }
+  }
+  async function once(method, params, timeoutMs) {
     let res;
     try {
       res = await fetch(`${p.base}/bot${p.token}/${method}`, {
