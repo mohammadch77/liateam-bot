@@ -1,0 +1,7 @@
+.env
+node_modules/
+explore/output/
+.auth/
+logs/
+products.json
+products.json.tmp

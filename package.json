@@ -1,0 +1,24 @@
+{
+  "name": "liateam-sync",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "explore": "node explore/explore.mjs",
+    "login": "node src/login.mjs",
+    "sync": "node src/sync.mjs",
+    "db:up": "docker compose up -d postgres",
+    "test": "node --test test/*.test.mjs",
+    "notify:test": "node src/test-notify.mjs",
+    "schedule:install": "powershell -ExecutionPolicy Bypass -File scripts/schedule.ps1 install",
+    "schedule:status": "powershell -ExecutionPolicy Bypass -File scripts/schedule.ps1 status",
+    "schedule:disable": "powershell -ExecutionPolicy Bypass -File scripts/schedule.ps1 disable",
+    "schedule:enable": "powershell -ExecutionPolicy Bypass -File scripts/schedule.ps1 enable",
+    "schedule:uninstall": "powershell -ExecutionPolicy Bypass -File scripts/schedule.ps1 uninstall"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "pg": "^8.23.1",
+    "playwright": "^1.48.0",
+    "undici": "^8.11.2"
+  }
+}
