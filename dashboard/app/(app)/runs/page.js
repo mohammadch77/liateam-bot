@@ -35,7 +35,7 @@ export default async function RunsPage() {
       <div className="page-head">
         <div><h1>اجراها و هشدار</h1><div className="sub">تاریخچه‌ی اجرای ربات و هشدارهای ارسال‌شده</div></div>
       </div>
-      <div className="grid g4" style={{ gridTemplateColumns: 'repeat(3, minmax(0,1fr))' }}>
+      <div className="grid g3">
         <div className="card">
           <div className="stat-label">اجراهای موفق (۷ روز)</div>
           <div className="stat-value">{num(week.good)} / {num(week.total)}</div>
@@ -67,7 +67,7 @@ export default async function RunsPage() {
                 <div className="sub tnum">{summary(r)}</div>
                 {r.status === 'failed' && r.message && <div className="sub ellipsis" title={r.message}>{r.message}</div>}
               </div>
-              <span className="sub tnum" style={{ whiteSpace: 'nowrap' }}>{ago(r.started_at)}</span>
+              <span className="sub tnum row-time">{ago(r.started_at)}</span>
             </div>
           ))}
         </div>
@@ -77,7 +77,7 @@ export default async function RunsPage() {
             <div className="alert-row" key={a.id}>
               <span className={`badge ${a.level === 'failed' ? 'b-bad' : 'b-warn'}`}>{a.level === 'failed' ? 'شکست' : 'هشدار'}</span>
               <div style={{ flex: 1 }}>{a.message}</div>
-              <span className="sub tnum" style={{ whiteSpace: 'nowrap' }}>{ago(a.started_at ?? a.created_at)}</span>
+              <span className="sub tnum row-time">{ago(a.started_at ?? a.created_at)}</span>
             </div>
           ))}
         </div>

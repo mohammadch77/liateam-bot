@@ -25,6 +25,12 @@ export default async function AppLayout({ children }) {
           <form action={logout}><button className="btn btn-sm" style={{ width: '100%' }}>خروج</button></form>
         </div>
       </aside>
+      <header className="mobile-top">
+        <div className="brand" style={{ padding: 0 }}><span className="brand-dot" />ربات لیاتیم</div>
+        <LiveRefresh />
+        <ThemeToggle compact />
+        <form action={logout}><button className="btn btn-sm">خروج</button></form>
+      </header>
       <main className="main">{children}</main>
     </div>
   );

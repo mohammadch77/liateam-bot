@@ -93,13 +93,20 @@ textarea.input { min-height: 64px; resize: vertical; direction: ltr; text-align:
 .empty { color: var(--muted); padding: 20px; text-align: center; }
 
 @media (max-width: 1100px) { .g4 { grid-template-columns: repeat(2, minmax(0,1fr)); } .g2 { grid-template-columns: 1fr; } }
-@media (max-width: 760px) {
-  .shell { grid-template-columns: 1fr; }
-  .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; padding: 10px; }
-  .brand { padding: 4px 8px; width: 100%; } .side-foot { display: none; }
-  .main { padding: 16px; } .g4 { grid-template-columns: 1fr 1fr; }
-  .stat-value { font-size: 17px; overflow-wrap: anywhere; }
-}
+
+.mobile-top { display: none; }
+.nav-short { display: none; }
+.g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.m-list { display: none; }
+.m-card { display: flex; gap: 10px; align-items: flex-start; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px; position: relative; }
+.m-card .thumb { width: 56px; height: 56px; }
+.m-body { flex: 1; min-width: 0; }
+.m-title { font-weight: 600; padding-inline-end: 64px; }
+.m-badge { position: absolute; top: 12px; inset-inline-end: 12px; }
+.m-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+.m-grid b { display: block; color: var(--text); font-size: 13.5px; font-weight: 600; }
+.m-grid small { color: var(--muted); font-weight: 400; }
+.m-sort { order: -1; }
 .badge-big { font-size: 15px; padding: 4px 14px; }
 .fresh-pill { font-size: 13px; padding: 5px 14px; font-weight: 500; }
 .card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
@@ -129,3 +136,43 @@ textarea.input { min-height: 64px; resize: vertical; direction: ltr; text-align:
 .live.off .live-dot { background: var(--bad); animation: none; }
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(63,185,80,.5); } 70% { box-shadow: 0 0 0 6px rgba(63,185,80,0); } 100% { box-shadow: 0 0 0 0 rgba(63,185,80,0); } }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+
+/* Phones (kept last so it overrides the base rules above) */
+@media (max-width: 760px) {
+  .shell { grid-template-columns: 1fr; }
+  /* Sidebar becomes a fixed bottom tab bar */
+  .side { position: fixed; bottom: 0; inset-inline: 0; top: auto; height: auto; z-index: 40; flex-direction: row; gap: 0;
+          padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); border-inline-end: 0; border-top: 1px solid var(--border); }
+  .side .brand, .side-foot { display: none; }
+  .nav-link { flex: 1; flex-direction: column; gap: 2px; padding: 6px 2px; font-size: 11px; position: relative; text-align: center; }
+  .nav-link .nav-icon { font-size: 18px; line-height: 1; }
+  .nav-link .nav-label { display: none; }
+  .nav-link .nav-short { display: block; }
+  .nav-count { position: absolute; top: 2px; inset-inline-start: 50%; margin: 0; font-size: 10px; padding: 0 5px; min-width: 16px; }
+  .mobile-top { display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 30; padding: 10px 16px;
+                background: var(--panel); border-bottom: 1px solid var(--border); }
+  .mobile-top .brand { margin-inline-end: auto; font-size: 15px; }
+  .main { padding: 16px 14px 90px; }
+  h1 { font-size: 18px; }
+  .g4 { grid-template-columns: 1fr 1fr; gap: 10px; } .g3 { grid-template-columns: 1fr; }
+  .card { padding: 14px; }
+  .stat-value { font-size: 17px; overflow-wrap: anywhere; }
+  .page-head { margin-bottom: 12px; }
+  /* Rows: time under the content */
+  .alert-row, .run-item { flex-wrap: wrap; }
+  .row-time { flex-basis: 100%; text-align: start; padding-inline-start: 2px; }
+  /* Settings rows stack */
+  .kv { flex-direction: column; align-items: stretch; }
+  .chip-add { flex-wrap: wrap; }
+  .select { max-width: 100%; }
+  .chip-add .select { width: 100%; min-width: 0; }
+  html, body { overflow-x: hidden; }
+  .modal { padding: 16px; }
+  .invite-code { font-size: 32px; }
+  .fresh { flex-direction: column; align-items: stretch; gap: 8px; }
+  .fresh .tnum { min-width: 0 !important; }
+  /* Products: cards instead of the wide table */
+  .desktop-only { display: none; }
+  .m-list { display: flex; flex-direction: column; gap: 10px; }
+  .toolbar .input { flex-basis: 100% !important; }
+}

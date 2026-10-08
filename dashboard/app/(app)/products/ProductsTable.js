@@ -18,6 +18,7 @@ function Thumb({ src }) {
 export default function ProductsTable({ products, categories }) {
   const [f, setF] = useState({ q: '', cat: '', status: '', sort: 'name', dir: 'asc' });
   const rows = useMemo(() => applyFilters(products, f), [products, f]);
+  const [mobileLimit, setMobileLimit] = useState(40);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const sortBy = (key) => setF({ ...f, sort: key, dir: f.sort === key && f.dir === 'asc' ? 'desc' : 'asc' });
   const exportUrl = (fmt) => `/api/export?${new URLSearchParams({ ...f, fmt })}`;
@@ -64,7 +65,43 @@ export default function ProductsTable({ products, categories }) {
         </select>
         <span className="sub tnum">{num(rows.length)} نتیجه</span>
       </div>
-      <div className="table-wrap">
+      <div className="m-list">
+        {rows.length === 0 && <div className="empty card">محصولی با این فیلترها نیست</div>}
+        {rows.slice(0, mobileLimit).map((p) => {
+          const st = statusOf(p);
+          const low = isLow(p);
+          const pr = profit(p);
+          return (
+            <div key={p.id} className={`m-card${st === 'out' ? ' row-out' : st === 'hidden' ? ' row-hidden' : ''}`}>
+              <Thumb src={p.image_url} />
+              <div className="m-body">
+                <div className="m-title">{p.name}</div>
+                <div className="sub tnum">کد {num(p.id)} · {p.category_names.join('، ')}</div>
+                <div className="m-grid tnum">
+                  <span>فروش<b>{toman(p.price)}</b></span>
+                  <span>تمام‌شده<b>{toman(p.cost_price)}</b></span>
+                  <span>سود<b className={pr < 0 ? 'neg' : ''}>{toman(pr)} <small>{pct(margin(p), 0)}</small></b></span>
+                  <span>موجودی<b className={st === 'out' ? 'stock-out' : low ? 'stock-low' : ''}>{num(p.stock)}{low && ' ⚠'}</b></span>
+                </div>
+              </div>
+              <span className={`badge ${STATUS_CLS[st]} m-badge`}>{STATUS[st]}</span>
+            </div>
+          );
+        })}
+        {rows.length > mobileLimit && (
+          <button type="button" className="btn" style={{ width: '100%' }} onClick={() => setMobileLimit(mobileLimit + 40)}>
+            نمایش {num(Math.min(40, rows.length - mobileLimit))} محصول دیگر ({num(rows.length - mobileLimit)} باقی‌مانده)
+          </button>
+        )}
+        <select className="select m-sort" value={`${f.sort}:${f.dir}`} aria-label="مرتب‌سازی"
+          onChange={(e) => { const [sort, dir] = e.target.value.split(':'); setF({ ...f, sort, dir }); }}>
+          {COLUMNS.filter((c) => c.key !== 'category').flatMap((c) => [
+            <option key={c.key + 'a'} value={`${c.key}:asc`}>مرتب‌سازی: {c.label.replace(/ \(تومان\)/, '')} (صعودی)</option>,
+            <option key={c.key + 'd'} value={`${c.key}:desc`}>مرتب‌سازی: {c.label.replace(/ \(تومان\)/, '')} (نزولی)</option>,
+          ])}
+        </select>
+      </div>
+      <div className="table-wrap desktop-only">
         <table>
           <thead>
             <tr>

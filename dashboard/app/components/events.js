@@ -37,7 +37,7 @@ export function EventRow({ e, showTime = true }) {
         <div className="ellipsis">{e.name} <span className="sub tnum">#{num(e.product_id)}</span></div>
         <div className="sub tnum">{detail(e)}</div>
       </div>
-      {showTime && <span className="sub tnum" style={{ whiteSpace: 'nowrap' }}>{ago(e.at)}</span>}
+      {showTime && <span className="sub tnum row-time">{ago(e.at)}</span>}
     </div>
   );
 }

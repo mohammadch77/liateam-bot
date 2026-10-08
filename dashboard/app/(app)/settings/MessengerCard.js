@@ -76,8 +76,8 @@ export default function MessengerCard({ status, enabled, chats }) {
         <div className="k" style={{ marginBottom: 8 }}>افزودن کاربر<small>یک کد یک‌بارمصرف ۳۰ دقیقه‌ای بسازید؛ کاربر آن را برای ربات می‌فرستد و وصل می‌شود.</small></div>
         <div className="chip-add" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <select className="select" value={role} onChange={(e) => setRole(e.target.value)} aria-label="نقش">
-            <option value="viewer">بیننده — قیمت فروش، موجودی، تغییرات</option>
-            <option value="admin">مدیر — به‌علاوه‌ی قیمت تمام‌شده، سود، اجرای دستی، فاصله‌ی اجرا</option>
+            <option value="viewer">بیننده (قیمت فروش، موجودی، تغییرات)</option>
+            <option value="admin">مدیر (+ قیمت تمام‌شده، سود، اجرای دستی)</option>
           </select>
           <button type="button" className="btn btn-primary btn-sm" onClick={newInvite} disabled={busy || !anyOn}>ساخت کد دعوت</button>
           {!anyOn && <span className="sub">اول یکی از ربات‌ها را روشن کنید.</span>}
