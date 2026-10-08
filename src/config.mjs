@@ -10,8 +10,8 @@ export const config = {
   storageStatePath: '.auth/state.json',
   outputJson: env.OUTPUT_JSON || 'products.json',
   databaseUrl: env.DATABASE_URL || 'postgres://lia:lia@localhost:5433/lia_sync',
-  delayMinMs: Number(env.DELAY_MIN_MS || 1000),
-  delayMaxMs: Number(env.DELAY_MAX_MS || 3000),
+  delayMinMs: Number(env.DELAY_MIN_MS || 2000),
+  delayMaxMs: Number(env.DELAY_MAX_MS || 5000),
   maxPages: Number(env.MAX_PAGES || 50), // hard stop against runaway pagination
   priceJumpLimit: Number(env.PRICE_JUMP_LIMIT || 0.5), // 50%
   minCoverage: Number(env.MIN_COVERAGE || 0.9), // fetched / reported total

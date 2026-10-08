@@ -44,7 +44,7 @@ An alert is sent in these cases. Each message includes the time, duration, produ
 All alerts are also written to `logs/alerts.log`. If Telegram is unreachable, the sync result is unaffected and only a warning is logged.
 
 ## How it works
-- **Fetching:** pages through `GET /categories?page=N&_rsc` with the `RSC: 1` header (19 products per page, ~12 pages), waiting 1–3 s between requests.
+- **Fetching:** pages through `GET /categories?page=N&_rsc` with the `RSC: 1` header (19 products per page, ~12 pages), waiting 2–5 s between requests.
 - **Field paths:** each field is read from a list of candidate paths, defined in `FIELD_PATHS` in `src/normalize.mjs`.
   - If the primary path is missing, the fallbacks are tried and their use triggers an alert.
   - If no path exists, the run stops with `StructureError` and nothing is written.

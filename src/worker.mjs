@@ -8,6 +8,9 @@ import { log } from './logger.mjs';
 import { openDb, applySettings, setStatus } from './db.mjs';
 
 const POLL_MS = 30_000;
+// Scheduled runs drift by up to ±10% of the interval so requests to the supplier never land on a fixed clock.
+const JITTER = 0.1;
+let jitterFactor = 1 + (Math.random() * 2 - 1) * JITTER; // re-drawn after every run
 const syncScript = fileURLToPath(new URL('./sync.mjs', import.meta.url));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -22,7 +25,7 @@ async function tick() {
   try {
     await applySettings(db, config);
     const { rows: [last] } = await db.query('SELECT max(started_at) AS at FROM sync_runs');
-    const nextAt = last.at ? new Date(last.at.getTime() + config.intervalHours * 3600_000) : new Date();
+    const nextAt = last.at ? new Date(last.at.getTime() + config.intervalHours * 3600_000 * jitterFactor) : new Date();
     await setStatus(db, 'worker', { heartbeat: new Date().toISOString(), interval_hours: config.intervalHours, next_run_at: nextAt.toISOString() });
 
     // Claim all pending manual requests at once; several clicks still mean one run.
@@ -34,6 +37,7 @@ async function tick() {
     await db.end();
   }
   const code = await runSync();
+  jitterFactor = 1 + (Math.random() * 2 - 1) * JITTER;
   log.info(`worker: sync exited with ${code}`);
 }
 
