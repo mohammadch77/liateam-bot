@@ -22,7 +22,7 @@ export function extractAll(text, key) {
 }
 
 // Returns end index (exclusive) of the [...] or {...} starting at `i`, or `i` if not a container.
-function scanValue(s, i) {
+export function scanValue(s, i) {
   const open = s[i];
   if (open !== '[' && open !== '{') return i;
   let depth = 0, inStr = false;

@@ -85,3 +85,14 @@ test('category tree is read from nested and flat shapes, products are ignored', 
   assert.equal(categoryLabel(124, cats), '#124');
   assert.equal(parseCategories('<html>no tree</html>').size, 0);
 });
+
+test('liateam category objects are found wherever they sit (real payload shape)', async () => {
+  const { parseCategories } = await import('../src/categories.mjs');
+  const text = `0:{"x":"$L1"} 5:["$","div",null,{"data":[{"id":"aa-1","code":131,"type":"product","title":"ماسک تخصصی","alt_banner_image":"ماسک","parent_code":null},` +
+    `{"id":"f51f248c-39c2-4617-9a38-743f4921e2d2","code":151,"type":"product","title":"عطر","image":"https://x/a.png","alt_image":"عطر ، خوشبوکننده","parent_code":131}]}]` +
+    ` 7:{"products":[{"id":"c28c","code":547,"product_code":547,"title":"پرفیوم","category_codes":[151],"pricing":{"id":"p1","code":547,"price":9770000}}],"total":1}`;
+  const cats = parseCategories(text);
+  assert.deepEqual(cats.get(151), { code: 151, name: 'عطر', parent_code: 131 });
+  assert.equal(cats.get(131).name, 'ماسک تخصصی');
+  assert.equal(cats.has(547), false);
+});
