@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import { config } from './config.mjs';
 import { log } from './logger.mjs';
 import { openPool, applySettings, setStatus } from './db.mjs';
-import { createClient } from './messenger-api.mjs';
+import { createClient, PLATFORMS } from './messenger-api.mjs';
 import { inQuietHours } from './schedule.mjs';
 import * as T from './messenger-text.mjs';
 
@@ -365,7 +365,11 @@ async function pollLoop(name) {
     }
     try {
       me ??= await client.call('getMe');
-      const updates = await client.call('getUpdates', { offset, timeout: 25, allowed_updates: ['message', 'callback_query'] }, 40_000);
+      // Through a relay (Cloudflare Worker) long-held requests get cut on the way from Iran, so wait at
+      // most 5 s per request there; direct connections use the normal 25 s long poll.
+      const relayed = name === 'telegram' && PLATFORMS.telegram.base !== 'https://api.telegram.org';
+      const wait = Number(process.env[`${name.toUpperCase()}_POLL_SECONDS`] || (relayed ? 5 : 25));
+      const updates = await client.call('getUpdates', { offset, timeout: wait, allowed_updates: ['message', 'callback_query'] }, (wait + 15) * 1000);
       await reportPlatform(name, { ok: true, username: me.username ?? null, error: null });
       backoff = 5_000;
       for (const u of updates) {
