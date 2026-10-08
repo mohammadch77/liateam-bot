@@ -25,6 +25,17 @@ for (const code of targets) {
   console.log('page     : HTTP', res.status(), 'len', t.length);
   const keys = [...new Set([...t.matchAll(/"([a-zA-Z_]*(?:sku|variant|color|option)[a-zA-Z_]*)":/gi)].map((m) => m[1]))];
   console.log('keys     :', keys.join(', ') || 'none');
+  // Sibling models of this product: are they all products we already sync?
+  const variants = extractAll(t, 'variant_products').filter(Array.isArray).sort((a, b) => b.length - a.length)[0] ?? [];
+  console.log(`variant_products: ${variants.length}`);
+  for (const v of variants.slice(0, 8)) {
+    const code = v?.code ?? v?.product_code;
+    console.log('   ', code, String(v?.title ?? v?.name ?? '').slice(0, 40), '| fields:', Object.keys(v ?? {}).slice(0, 12).join(','));
+  }
+  if (variants.length) console.log('    all variant codes:', variants.map((v) => v?.code ?? v?.product_code).join(', '));
+  // Same product's price/stock as shown on its own page (cross-check of the listing).
+  const self = extractAll(t, 'pricing').find((p) => p && (p.code === code || p.product_code === code));
+  if (self) console.log('page     :', JSON.stringify(pick(self, ['price', 'payable_price'])));
   for (const key of ['skus', 'product_skus', 'variants', 'items', 'options']) {
     const lists = extractAll(t, key).filter((v) => Array.isArray(v) && v.length && typeof v[0] === 'object');
     if (!lists.length) continue;
