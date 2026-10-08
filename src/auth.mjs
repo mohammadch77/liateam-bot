@@ -10,7 +10,8 @@ export class AuthError extends Error {}
 export async function login() {
   requireCredentials();
   log.info('Logging in to liateam.ir');
-  const browser = await chromium.launch({ headless: !config.headful });
+  // CHROMIUM_PATH: use a system Chromium (e.g. from apt) where Playwright's own download is blocked.
+  const browser = await chromium.launch({ headless: !config.headful, executablePath: process.env.CHROMIUM_PATH || undefined });
   try {
     const context = await browser.newContext({ locale: 'fa-IR' });
     const page = await context.newPage();
