@@ -64,6 +64,9 @@ function sessionInfo() {
 const effectiveConfig = () => ({ excludedCategories: config.excludedCategories, sellableOverrides: config.sellableOverrides,
   priceJumpLimit: config.priceJumpLimit, intervalHours: config.intervalHours });
 
+// Only a masked username leaves the bot (e.g. 0912••••47); the password is reported as set / not set.
+const maskUser = (u) => (!u ? null : u.length >= 7 ? `${u.slice(0, 4)}••••${u.slice(-2)}` : '••••');
+
 async function main() {
   const startedAt = new Date();
   const run = { startedAt, status: 'failed', fetched: 0, written: 0, sellable: 0, rejected: 0, failureKind: null, message: null };
@@ -142,6 +145,7 @@ async function main() {
       await setStatus(db, 'session', { ...sessionInfo(), ok: run.failureKind !== 'auth', checked_at: new Date().toISOString() }).catch(() => {});
       await setStatus(db, 'telegram', { configured: telegramConfigured() }).catch(() => {});
       await setStatus(db, 'config', effectiveConfig()).catch(() => {});
+      await setStatus(db, 'credentials', { username_masked: maskUser(config.username), password_set: Boolean(config.password) }).catch(() => {});
       await recordRun(db, run, alertLines).catch((e) => log.warn('Could not record run', { error: e.message }));
       await db.end();
     }

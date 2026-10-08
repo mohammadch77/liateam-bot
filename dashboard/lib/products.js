@@ -1,6 +1,9 @@
 // Product status, filtering and sorting: shared by the table (client) and the export route (server).
 export const STATUS = { in: 'موجود', out: 'ناموجود', hidden: 'مخفی' };
-export const LOW_STOCK = Number(process.env.NEXT_PUBLIC_LOW_STOCK || 10);
+// "Running low" = in stock but below this many units.
+export const LOW_STOCK = Number(process.env.NEXT_PUBLIC_LOW_STOCK || 5);
+export const isLow = (p) => statusOf(p) === 'in' && p.stock < LOW_STOCK;
+const toToman = (v) => (v == null ? null : Math.round(v / 10));
 
 export function statusOf(p) {
   if (!p.is_sellable) return 'hidden';
@@ -8,14 +11,15 @@ export function statusOf(p) {
   return 'in';
 }
 
+export const margin = (p) => (p.price > 0 && p.cost_price != null ? (p.price - p.cost_price) / p.price : null);
 export const profit = (p) => (p.price == null || p.cost_price == null ? null : p.price - p.cost_price);
 
 export const COLUMNS = [
-  { key: 'name', label: 'نام', get: (p) => p.name },
+  { key: 'name', label: 'محصول', get: (p) => p.name },
   { key: 'id', label: 'کد', get: (p) => p.id, num: true },
-  { key: 'price', label: 'قیمت فروش (ریال)', get: (p) => p.price, num: true },
-  { key: 'cost_price', label: 'قیمت تمام‌شده (ریال)', get: (p) => p.cost_price, num: true },
-  { key: 'profit', label: 'سود (ریال)', get: profit, num: true },
+  { key: 'price', label: 'قیمت فروش (تومان)', get: (p) => toToman(p.price), num: true },
+  { key: 'cost_price', label: 'قیمت تمام‌شده (تومان)', get: (p) => toToman(p.cost_price), num: true },
+  { key: 'profit', label: 'سود (تومان)', get: (p) => toToman(profit(p)), num: true },
   { key: 'stock', label: 'موجودی', get: (p) => p.stock, num: true },
   { key: 'category', label: 'دسته', get: (p) => p.category_names.join('، ') },
   { key: 'status', label: 'وضعیت', get: (p) => STATUS[statusOf(p)] },

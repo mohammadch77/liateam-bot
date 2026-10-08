@@ -7,7 +7,10 @@ const securityHeaders = [
   { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
 ];
 
+import pkg from './package.json' with { type: 'json' };
+
 export default {
+  env: { BUILD_TIME: new Date().toISOString(), APP_VERSION: pkg.version },
   outputFileTracingRoot: import.meta.dirname,
   turbopack: { root: import.meta.dirname },
   poweredByHeader: false,

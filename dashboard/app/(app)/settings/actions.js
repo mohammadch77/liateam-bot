@@ -15,13 +15,16 @@ export async function saveSetting(key, value) {
   const user = await requireUser();
   if (!VALID[key]?.(value)) return { error: 'مقدار نامعتبر است' };
   await tx(async (c) => {
-    const { rows } = await c.query('SELECT value FROM settings WHERE key = $1 FOR UPDATE', [key]);
+    // Old value = saved setting, else what the bot last reported in effect (config.mjs default).
+    const { rows } = await c.query(
+      `SELECT COALESCE((SELECT value FROM settings WHERE key = $1 FOR UPDATE),
+                       (SELECT value -> $1 FROM bot_status WHERE key = 'config')) AS value`, [key]);
     await c.query(
       `INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
       [key, JSON.stringify(value)],
     );
     await c.query('INSERT INTO settings_audit (actor, action, old_value, new_value) VALUES ($1,$2,$3,$4)',
-      [user, key, rows[0] ? JSON.stringify(rows[0].value) : null, JSON.stringify(value)]);
+      [user, key, rows[0].value == null ? null : JSON.stringify(rows[0].value), JSON.stringify(value)]);
   });
   revalidatePath('/settings');
   return { ok: true };

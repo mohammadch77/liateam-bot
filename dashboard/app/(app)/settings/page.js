@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 // config.mjs defaults, used only until the bot reports its effective config.
 const DEFAULTS = { excludedCategories: [199, 124], sellableOverrides: [], priceJumpLimit: 0.5, intervalHours: 4 };
 const LABEL = { excludedCategories: 'دسته‌های مستثنا', sellableOverrides: 'استثناهای قابل‌فروش', priceJumpLimit: 'آستانه‌ی جهش قیمت', intervalHours: 'فاصله‌ی اجرا (ساعت)', manual_run: 'اجرای دستی' };
-const show = (v) => (v == null ? '—' : Array.isArray(v) ? (v.length ? v.join('، ') : 'خالی') : String(v));
+const show = (v, key) => (v == null ? '—' : Array.isArray(v) ? (v.length ? v.join('، ') : 'خالی') : key === 'priceJumpLimit' ? `${Math.round(v * 100)}٪` : key === 'intervalHours' ? `${v} ساعت` : String(v));
 
 export default async function SettingsPage() {
   let status, saved, categories, audit, [pending] = [];
@@ -35,7 +35,8 @@ export default async function SettingsPage() {
           worker ربات فعال نیست (آخرین علامت: {ago(status.worker?.heartbeat)}). «اجرای دستی» و «فاصله‌ی اجرا» فقط با <span className="mono">npm run worker</span> اعمال می‌شوند.
         </div>
       )}
-      <SettingsForm values={values} categories={categories} pending={pending ? { at: dateTime(pending.requested_at), by: pending.requested_by } : null} />
+      <SettingsForm values={values} categories={categories} pending={pending ? { at: dateTime(pending.requested_at), by: pending.requested_by } : null}
+        account={{ username: status.credentials?.username_masked ?? null, passwordSet: status.credentials?.password_set ?? null, telegram: Boolean(status.telegram?.configured) }} />
 
       <div className="card section">
         <h2>گزارش تغییرات (audit)</h2>
@@ -47,7 +48,7 @@ export default async function SettingsPage() {
                 {audit.map((a) => (
                   <tr key={a.id}>
                     <td className="tnum">{dateTime(a.at)}</td><td>{a.actor}</td><td>{LABEL[a.action] || a.action}</td>
-                    <td className="mono sub">{show(a.old_value)}</td><td className="mono">{show(a.new_value)}</td>
+                    <td className="mono sub">{show(a.old_value, a.action)}</td><td className="mono">{show(a.new_value, a.action)}</td>
                   </tr>
                 ))}
               </tbody>
