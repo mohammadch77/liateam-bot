@@ -1,6 +1,6 @@
 -- Restricted role for the dashboard: reads everything, writes only settings, settings_audit, run_requests.
 -- Run once after the bot has created its tables (npm run sync), as the database owner:
---   docker compose exec -T postgres psql -U lia lia_sync < dashboard/deploy/dashboard-role.sql
+--   sudo -u postgres psql lia_sync < dashboard/deploy/dashboard-role.sql   (or: docker compose exec -T postgres psql -U lia lia_sync < ...)
 CREATE ROLE lia_dashboard LOGIN PASSWORD 'CHANGE_ME';
 GRANT CONNECT ON DATABASE lia_sync TO lia_dashboard;
 GRANT USAGE ON SCHEMA public TO lia_dashboard;

@@ -4,11 +4,12 @@ Description=Liateam sync dashboard (Next.js, 127.0.0.1:3847)
 After=network.target postgresql.service
 
 [Service]
-WorkingDirectory=/opt/liateam-bot/dashboard
-ExecStart=/usr/bin/env npm start
-Environment=NODE_ENV=production PORT=3847 HOST=127.0.0.1
-Restart=on-failure
 User=liateam
+WorkingDirectory=/opt/liateam-bot/app/dashboard
+Environment=NODE_ENV=production PORT=3847 HOST=127.0.0.1 HOME=/opt/liateam-bot
+ExecStart=/usr/bin/env npm start
+Restart=on-failure
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target

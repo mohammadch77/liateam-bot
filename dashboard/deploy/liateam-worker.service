@@ -4,13 +4,13 @@ Description=Liateam sync worker
 After=network.target postgresql.service
 
 [Service]
-WorkingDirectory=/opt/liateam-bot
+User=liateam
+WorkingDirectory=/opt/liateam-bot/app
+# Home of the liateam user (Playwright keeps its files there)
+Environment=HOME=/opt/liateam-bot
 ExecStart=/usr/bin/env node src/worker.mjs
 Restart=always
-EnvironmentFile=-/opt/liateam-bot/.env
-# Login browser needs a writable HOME for its profile
-Environment=HOME=/opt/liateam-bot
-User=liateam
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
