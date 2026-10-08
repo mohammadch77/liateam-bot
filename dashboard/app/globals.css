@@ -124,3 +124,8 @@ textarea.input { min-height: 64px; resize: vertical; direction: ltr; text-align:
 .thumb.empty-thumb { display: grid; place-items: center; color: var(--muted); font-size: 16px; }
 .prod-cell { display: flex; gap: 10px; align-items: center; }
 .invite-code { font-size: 40px; font-weight: 800; letter-spacing: 6px; margin: 12px 0; color: var(--accent); }
+.live { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 0 var(--ok); animation: pulse 2s infinite; }
+.live.off .live-dot { background: var(--bad); animation: none; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(63,185,80,.5); } 70% { box-shadow: 0 0 0 6px rgba(63,185,80,0); } 100% { box-shadow: 0 0 0 0 rgba(63,185,80,0); } }
+@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }

@@ -2,6 +2,7 @@ import { requireUser } from '@/lib/auth';
 import { q } from '@/lib/db';
 import Nav from '../components/Nav';
 import ThemeToggle from '../components/ThemeToggle';
+import LiveRefresh from '../components/LiveRefresh';
 import { logout } from '../login/actions';
 
 export default async function AppLayout({ children }) {
@@ -14,6 +15,7 @@ export default async function AppLayout({ children }) {
         <div className="brand"><span className="brand-dot" /><div>ربات لیاتیم<div className="side-meta" style={{ fontWeight: 400 }}>همگام‌ساز قیمت و موجودی</div></div></div>
         <Nav recentIds={recentIds} />
         <div className="side-foot">
+          <LiveRefresh />
           <div className="side-meta">
             آخرین دیپلوی: {new Date(process.env.BUILD_TIME).toLocaleDateString('fa-IR', { timeZone: 'Asia/Tehran', dateStyle: 'long' })}<br />
             نسخه {String(process.env.APP_VERSION).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d])}{process.env.SERVER_LABEL ? ` · ${process.env.SERVER_LABEL}` : ''}
