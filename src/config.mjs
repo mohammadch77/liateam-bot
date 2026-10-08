@@ -21,6 +21,8 @@ export const config = {
   excludedCategories: [199, 124],
   // Product codes that stay sellable even if they sit in an excluded category.
   sellableOverrides: [],
+  // Hours between scheduled runs of src/worker.mjs. The settings table (dashboard) overrides all of the above.
+  intervalHours: Number(env.SYNC_INTERVAL_HOURS || 4),
 };
 
 export function requireCredentials() {

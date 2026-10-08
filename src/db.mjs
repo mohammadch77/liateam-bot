@@ -36,7 +36,59 @@ ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS is_sellable BOOLEAN NOT N
 ALTER TABLE sync_runs ADD COLUMN IF NOT EXISTS duration_ms INTEGER;
 ALTER TABLE sync_runs ADD COLUMN IF NOT EXISTS sellable INTEGER;
 ALTER TABLE sync_runs ADD COLUMN IF NOT EXISTS failure_kind TEXT;   -- auth | structure | coverage | database | error
-UPDATE sync_runs SET status = 'warning' WHERE status = 'partial';`;
+UPDATE sync_runs SET status = 'warning' WHERE status = 'partial';
+
+-- Supplier category tree. name is NULL for codes seen on products but never named by the supplier.
+CREATE TABLE IF NOT EXISTS categories (
+  code        INTEGER PRIMARY KEY,
+  name        TEXT,
+  parent_code INTEGER,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- Product + category names; unnamed/unknown categories show as their code (never an error).
+DROP VIEW IF EXISTS product_catalog;
+CREATE VIEW product_catalog AS
+SELECT p.*,
+       COALESCE((SELECT array_agg(COALESCE(c.name, '#' || x.code) ORDER BY x.ord)
+                   FROM unnest(p.category) WITH ORDINALITY AS x(code, ord)
+                   LEFT JOIN categories c ON c.code = x.code), '{}') AS category_names
+  FROM supplier_products p;
+
+-- Alert lines of each run (also in logs/alerts.log); read by the dashboard.
+CREATE TABLE IF NOT EXISTS sync_alerts (
+  id         SERIAL PRIMARY KEY,
+  run_id     INTEGER REFERENCES sync_runs(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  level      TEXT NOT NULL,                  -- warning | failed
+  message    TEXT NOT NULL
+);
+-- Runtime settings edited from the dashboard; missing keys fall back to src/config.mjs.
+CREATE TABLE IF NOT EXISTS settings (
+  key        TEXT PRIMARY KEY,               -- excludedCategories | sellableOverrides | priceJumpLimit | intervalHours
+  value      JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS settings_audit (
+  id        SERIAL PRIMARY KEY,
+  at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  actor     TEXT NOT NULL,
+  action    TEXT NOT NULL,                   -- setting key, or 'manual_run'
+  old_value JSONB,
+  new_value JSONB
+);
+-- Manual run requests from the dashboard, picked up by src/worker.mjs.
+CREATE TABLE IF NOT EXISTS run_requests (
+  id           SERIAL PRIMARY KEY,
+  requested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  requested_by TEXT NOT NULL,
+  picked_at    TIMESTAMPTZ
+);
+-- Non-secret health facts written by the bot (session expiry, telegram configured, worker heartbeat).
+CREATE TABLE IF NOT EXISTS bot_status (
+  key        TEXT PRIMARY KEY,
+  value      JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`;
 
 export async function openDb() {
   const client = new pg.Client({ connectionString: config.databaseUrl });
@@ -81,10 +133,61 @@ export async function upsertProducts(db, products) {
   }
 }
 
-export async function recordRun(db, run) {
-  await db.query(
+export async function recordRun(db, run, alerts = []) {
+  const { rows } = await db.query(
     `INSERT INTO sync_runs (started_at, status, fetched, written, sellable, rejected, duration_ms, failure_kind, message)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
     [run.startedAt, run.status, run.fetched, run.written, run.sellable, run.rejected, run.durationMs, run.failureKind, run.message],
+  );
+  for (const line of alerts) {
+    await db.query('INSERT INTO sync_alerts (run_id, level, message) VALUES ($1,$2,$3)', [rows[0].id, run.status, line]);
+  }
+}
+
+/**
+ * Stores named categories, plus a nameless row for every code used by a product so the join is total.
+ * A name already known is never overwritten with NULL (a page that omits the tree must not erase it).
+ */
+export async function upsertCategories(db, named, usedCodes) {
+  const all = new Map([...usedCodes].map((code) => [code, { code, name: null, parent_code: null }]));
+  for (const [code, c] of named) all.set(code, c);
+  for (const c of all.values()) {
+    await db.query(
+      `INSERT INTO categories (code, name, parent_code) VALUES ($1,$2,$3)
+       ON CONFLICT (code) DO UPDATE SET
+         name = COALESCE(EXCLUDED.name, categories.name),
+         parent_code = COALESCE(EXCLUDED.parent_code, categories.parent_code),
+         updated_at = CASE WHEN EXCLUDED.name IS NOT NULL THEN now() ELSE categories.updated_at END`,
+      [c.code, c.name, c.parent_code],
+    );
+  }
+  return all.size;
+}
+
+// Keys the dashboard may change, with validators. Anything else in the table is ignored.
+export const SETTING_KEYS = {
+  excludedCategories: (v) => Array.isArray(v) && v.every(Number.isInteger),
+  sellableOverrides: (v) => Array.isArray(v) && v.every(Number.isInteger),
+  priceJumpLimit: (v) => typeof v === 'number' && v > 0 && v <= 10,
+  intervalHours: (v) => typeof v === 'number' && v >= 0.5 && v <= 168,
+};
+
+/** Overlays valid DB settings onto `config` (in place). Returns the keys that came from the DB. */
+export async function applySettings(db, config) {
+  const { rows } = await db.query('SELECT key, value FROM settings');
+  const applied = [];
+  for (const { key, value } of rows) {
+    if (SETTING_KEYS[key]?.(value)) {
+      config[key] = value;
+      applied.push(key);
+    }
+  }
+  return applied;
+}
+
+export async function setStatus(db, key, value) {
+  await db.query(
+    `INSERT INTO bot_status (key, value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()`,
+    [key, JSON.stringify(value)],
   );
 }

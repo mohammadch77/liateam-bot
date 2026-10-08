@@ -8,8 +8,8 @@ import { login, hasSession, AuthError } from './auth.mjs';
 import { fetchAllProducts } from './source.mjs';
 import { StructureError } from './rsc.mjs';
 import { checkProduct } from './sanity.mjs';
-import { notify } from './notify.mjs';
-import { openDb, loadPrevious, upsertProducts, recordRun } from './db.mjs';
+import { notify, telegramConfigured } from './notify.mjs';
+import { openDb, loadPrevious, upsertProducts, upsertCategories, recordRun, applySettings, setStatus } from './db.mjs';
 
 class CoverageError extends Error {}
 class LoginError extends Error {} // login itself failed -> needs a human
@@ -49,6 +49,17 @@ function classify(e) {
   return ['error', '❌ اجرای sync شکست خورد'];
 }
 
+// Non-secret session facts for the dashboard: whether a session exists and when its token cookie expires.
+function sessionInfo() {
+  try {
+    const state = JSON.parse(fs.readFileSync(config.storageStatePath, 'utf8'));
+    const token = state.cookies?.find((c) => c.name === 'lia-token');
+    return { present: Boolean(token), expires_at: token?.expires > 0 ? new Date(token.expires * 1000).toISOString() : null };
+  } catch {
+    return { present: false, expires_at: null };
+  }
+}
+
 async function main() {
   const startedAt = new Date();
   const run = { startedAt, status: 'failed', fetched: 0, written: 0, sellable: 0, rejected: 0, failureKind: null, message: null };
@@ -59,7 +70,9 @@ async function main() {
       const code = e.code ?? e.errors?.[0]?.code ?? e.name; // pg throws an AggregateError with empty message
       throw new DatabaseError(`اتصال به Postgres برقرار نشد (${code})${e.message ? ': ' + e.message : ''}`);
     });
-    const { products, total, fallbacks } = await fetchWithSession();
+    const fromDb = await applySettings(db, config);
+    if (fromDb.length) log.info('Settings from database', { keys: fromDb });
+    const { products, total, fallbacks, categories } = await fetchWithSession();
     run.fetched = products.length;
 
     if (products.length < total * config.minCoverage) {
@@ -80,10 +93,15 @@ async function main() {
     run.written = accepted.length;
     run.rejected = rejected.length;
 
+    const usedCodes = new Set(products.flatMap((p) => p.category));
+    const catCount = await upsertCategories(db, categories, usedCodes);
+    const unnamed = [...usedCodes].filter((c) => !categories.has(c));
+    log.info(`categories: ${categories.size} named in source, ${catCount} stored`, unnamed.length ? { unnamedThisRun: unnamed } : undefined);
+
     // products.json mirrors the accepted, sellable state in the DB (rejected products keep their last good values;
     // excluded-category products stay in the DB with is_sellable=false).
     const { rows } = await db.query(
-      'SELECT id, uuid, name, price, cost_price, stock, category, is_available, updated_at, last_seen_at FROM supplier_products WHERE is_sellable ORDER BY id',
+      'SELECT id, uuid, name, price, cost_price, stock, category, category_names, is_available, updated_at, last_seen_at FROM product_catalog WHERE is_sellable ORDER BY id',
     );
     run.sellable = rows.length;
     const out = { synced_at: new Date().toISOString(), currency: 'IRR', count: rows.length,
@@ -117,7 +135,9 @@ async function main() {
   } finally {
     run.durationMs = Date.now() - startedAt.getTime();
     if (db) {
-      await recordRun(db, run).catch((e) => log.warn('Could not record run', { error: e.message }));
+      await setStatus(db, 'session', { ...sessionInfo(), ok: run.failureKind !== 'auth', checked_at: new Date().toISOString() }).catch(() => {});
+      await setStatus(db, 'telegram', { configured: telegramConfigured() }).catch(() => {});
+      await recordRun(db, run, alertLines).catch((e) => log.warn('Could not record run', { error: e.message }));
       await db.end();
     }
   }

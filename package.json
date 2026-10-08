@@ -6,6 +6,8 @@
     "explore": "node explore/explore.mjs",
     "login": "node src/login.mjs",
     "sync": "node src/sync.mjs",
+    "worker": "node src/worker.mjs",
+    "probe:categories": "node explore/probe-categories.mjs",
     "db:up": "docker compose up -d postgres",
     "test": "node --test test/*.test.mjs",
     "notify:test": "node src/test-notify.mjs",

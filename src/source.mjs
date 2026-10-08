@@ -4,12 +4,13 @@ import { config } from './config.mjs';
 import { log } from './logger.mjs';
 import { parseCategoriesPage } from './rsc.mjs';
 import { normalize } from './normalize.mjs';
+import { parseCategories } from './categories.mjs';
 import { AuthError } from './auth.mjs';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const jitter = () => config.delayMinMs + Math.random() * (config.delayMaxMs - config.delayMinMs);
 
-/** @returns { products: normalized[], total, fallbacks: string[] } */
+/** @returns { products: normalized[], total, fallbacks: string[], categories: Map<code,{code,name,parent_code}> } */
 export async function fetchAllProducts() {
   const ctx = await request.newContext({
     baseURL: config.baseUrl,
@@ -24,6 +25,7 @@ export async function fetchAllProducts() {
   try {
     const byCode = new Map();
     const fallbacks = new Set();
+    const categories = new Map();
     let total = null;
     for (let page = 1; page <= config.maxPages; page++) {
       if (page > 1) await sleep(jitter());
@@ -37,7 +39,10 @@ export async function fetchAllProducts() {
       }
       if (status !== 200) throw new Error(`HTTP ${status} در /categories?page=${page}${location ? ' -> ' + location : ''}`);
 
-      const parsed = parseCategoriesPage(await res.text(), page);
+      const text = await res.text();
+      const parsed = parseCategoriesPage(text, page);
+      // Category names ride along in the same payload; no extra request to the supplier.
+      for (const [code, c] of parseCategories(text)) if (!categories.has(code)) categories.set(code, c);
       // Logged-out responses come back 200 but with pricing:null and stock capped at 20.
       if (parsed.products.every((p) => p.pricing == null)) {
         throw new AuthError(`قیمت‌ها خالی است در صفحه‌ی ${page} - سشن منقضی شده (نمای خارج از حساب)`);
@@ -57,7 +62,7 @@ export async function fetchAllProducts() {
       if (byCode.size >= total || parsed.products.length === 0) break;
     }
     if (fallbacks.size) log.warn('Fallback field paths used - source structure may be drifting', { fallbacks: [...fallbacks] });
-    return { products: [...byCode.values()], total, fallbacks: [...fallbacks] };
+    return { products: [...byCode.values()], total, fallbacks: [...fallbacks], categories };
   } finally {
     await ctx.dispose();
   }

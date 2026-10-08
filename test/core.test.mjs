@@ -71,3 +71,17 @@ test('logged-out list (pricing:null) is still recognised as a product list', () 
   const text = `"products":[{"code":1,"price":5,"pricing":null}],"total":1,"current":1`;
   assert.equal(parseCategoriesPage(text, 1).products.length, 1);
 });
+
+test('category tree is read from nested and flat shapes, products are ignored', async () => {
+  const { parseCategories, categoryLabel } = await import('../src/categories.mjs');
+  const text = `"categories":[{"code":199,"title":"ابزارها و سمپل فروش","children":[{"code":124,"title":"  "},{"code":125,"title":"تستر"}]},` +
+    `{"code":131,"name":"آرایشی","parent_code":null}],"products":[{"code":547,"title":"پرفیوم","pricing":{"price":1},"category_codes":[131]}]`;
+  const cats = parseCategories(text);
+  assert.deepEqual(cats.get(199), { code: 199, name: 'ابزارها و سمپل فروش', parent_code: null });
+  assert.equal(cats.get(125).parent_code, 199);
+  assert.equal(cats.get(131).name, 'آرایشی');
+  assert.equal(cats.has(124), false); // unnamed
+  assert.equal(cats.has(547), false); // product, not a category
+  assert.equal(categoryLabel(124, cats), '#124');
+  assert.equal(parseCategories('<html>no tree</html>').size, 0);
+});
