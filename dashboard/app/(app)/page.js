@@ -7,6 +7,7 @@ import DbError from '../components/DbError';
 import FreshPill from '../components/FreshPill';
 import { RunBadge } from '../components/badges';
 import { EventRow } from '../components/events';
+import AuditCard from '../components/AuditCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,6 +84,8 @@ export default async function Overview() {
         <div className="card"><div className="stat-label">میانگین حاشیه سود</div><div className="stat-value">{pct(s.avg_margin, 0)}</div><div className="stat-foot">{num(s.profitable)} کالا پورسانت‌دار</div></div>
         <div className="card"><div className="stat-label">رو به اتمام</div><div className="stat-value" style={{ color: s.low ? 'var(--warn)' : undefined }}>{num(s.low)}</div><div className="stat-foot">موجودی زیر {num(LOW_STOCK)} عدد</div></div>
       </div>
+
+      <AuditCard total={s.total} />
 
       <div className="grid g2 section">
         <div className="card">

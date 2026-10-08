@@ -515,6 +515,25 @@ async function dailyReport(cursor) {
   await broadcast('daily', () => ({ text, extra: { reply_markup: inline([[{ text: '📊 وضعیت', callback_data: 'st' }, { text: '🔔 تغییرات', callback_data: 'ch:0' }]]) } }));
 }
 
+/** When the one-time product audit has finished: one final report. */
+async function auditReport() {
+  const st = await statusMap();
+  if (!st.audit?.complete || st.audit.reported) return;
+  const [[r]] = await Promise.all([q(`SELECT count(*)::int AS total,
+      count(*) FILTER (WHERE array_length(prices, 1) > 1)::int AS multi,
+      count(*) FILTER (WHERE array_length(missing_variants, 1) > 0)::int AS missing,
+      count(*) FILTER (WHERE price_matches = false)::int AS mismatch FROM product_audit WHERE ok`)]);
+  const clean = !r.multi && !r.missing && !r.mismatch;
+  await setStatus(pool, 'audit', { ...st.audit, reported: true });
+  await broadcast('errors', () => ({ text: [
+    '🔎 بازبینی کامل محصولات تمام شد', T.LINE,
+    `صفحه‌ی همه‌ی ${T.num(r.total)} محصول یک‌بار جداگانه بررسی شد.`,
+    clean ? '✅ همه‌چیز درست است: هیچ محصولی مدل‌هایی با قیمت جدا ندارد، هیچ مدلی از قلم نیفتاده و قیمت‌ها با صفحه‌ی خود محصول یکی است.'
+      : [`⚠️ ${T.num(r.multi)} محصول با چند مدل و قیمت جدا`, `⚠️ ${T.num(r.missing)} محصول با مدل‌های خارج از فهرست`, `⚠️ ${T.num(r.mismatch)} محصول با قیمت متفاوت`].join('\n') + '\nجزئیات در پنل → نمای کلی.',
+    '', 'این بازبینی دیگر تکرار نمی‌شود؛ فقط محصولات جدید لیاتیم یک‌بار بررسی می‌شوند.',
+  ].join('\n') }));
+}
+
 async function notifierLoop() {
   const st = await statusMap();
   const cursor = st.notify_cursor ?? (await q(
@@ -527,6 +546,7 @@ async function notifierLoop() {
       await notifyManualResults();
       await notifyStale(cursor);
       await dailyReport(cursor);
+      await auditReport();
       await setStatus(pool, 'notify_cursor', cursor);
     } catch (e) {
       log.warn('messenger: notifier failed', { error: e.message });

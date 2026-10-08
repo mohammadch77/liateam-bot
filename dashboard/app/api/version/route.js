@@ -13,7 +13,8 @@ export async function GET() {
         (SELECT max(updated_at) FROM settings), (SELECT max(updated_at) FROM supplier_products),
         (SELECT count(*) FROM run_requests WHERE picked_at IS NULL),
         (SELECT max(updated_at) FROM bot_status WHERE key <> 'worker'),
-        (SELECT count(*) || ':' || COALESCE(max(last_seen_at)::text, '') FROM messenger_chats)) AS v`);
+        (SELECT count(*) || ':' || COALESCE(max(last_seen_at)::text, '') FROM messenger_chats),
+        (SELECT max(checked_at) FROM product_audit)) AS v`);
     return Response.json({ v: r.v }, { headers: { 'Cache-Control': 'no-store' } });
   } catch {
     return Response.json({ v: 'db-down' }, { headers: { 'Cache-Control': 'no-store' } });

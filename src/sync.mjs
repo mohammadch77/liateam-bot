@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import { config } from './config.mjs';
 import { log } from './logger.mjs';
 import { login, hasSession, AuthError } from './auth.mjs';
-import { fetchAllProducts, fetchProductPrices } from './source.mjs';
+import { fetchAllProducts, fetchProductPages } from './source.mjs';
 import { StructureError } from './rsc.mjs';
 import { checkProduct } from './sanity.mjs';
 import { openDb, loadPrevious, upsertProducts, upsertCategories, recordRun, diffCatalog, recordEvents, applySettings, setStatus } from './db.mjs';
@@ -147,7 +147,7 @@ async function main() {
     if (lastCheck?.value?.date !== today) {
       const pool = accepted.filter((p) => p.is_sellable);
       const sample = [...pool].sort(() => Math.random() - 0.5).slice(0, 3);
-      const page = await fetchProductPrices(sample.map((p) => p.id));
+      const page = await fetchProductPages(sample.map((p) => p.id));
       const checked = [], mismatched = [];
       for (const p of sample) {
         const v = page.get(p.id);
@@ -161,6 +161,41 @@ async function main() {
       }
       log.info(`cross-check: ${checked.length}/${sample.length} products verified on their own page, ${mismatched.length} mismatched`);
       await setStatus(db, 'crosscheck', { date: today, checked, mismatched: mismatched.map((m) => m.p.id), at: new Date().toISOString() });
+    }
+
+    // One-time audit, AUDIT_PER_RUN products per run until every product was checked once; then it
+    // stops by itself (only products Liateam adds later are checked, once each).
+    const AUDIT_PER_RUN = 10;
+    const { rows: done } = await db.query('SELECT product_id FROM product_audit WHERE ok OR attempts >= 3');
+    const doneSet = new Set(done.map((r) => r.product_id));
+    const todo = products.filter((p) => !doneSet.has(p.id)).slice(0, AUDIT_PER_RUN);
+    if (todo.length) {
+      const known = new Set(products.map((p) => p.id));
+      const pages = await fetchProductPages(todo.map((p) => p.id));
+      const problems = [];
+      for (const p of todo) {
+        const v = pages.get(p.id);
+        if (!v) { await db.query('INSERT INTO product_audit (product_id, ok) VALUES ($1, false) ON CONFLICT (product_id) DO UPDATE SET ok = false, checked_at = now(), attempts = product_audit.attempts + 1', [p.id]); continue; }
+        const missing = v.variantCodes.filter((c) => !known.has(c));
+        const priceMatches = v.price === p.price && v.cost_price === p.cost_price;
+        await db.query(
+          `INSERT INTO product_audit (product_id, ok, price_matches, prices, variant_codes, missing_variants) VALUES ($1, true, $2, $3, $4, $5)
+           ON CONFLICT (product_id) DO UPDATE SET ok = true, checked_at = now(), price_matches = $2, prices = $3, variant_codes = $4, missing_variants = $5`,
+          [p.id, priceMatches, v.prices, v.variantCodes, missing]);
+        if (v.prices.length > 1) problems.push(`• ${p.id} ${p.name}: چند مدل با قیمت‌های متفاوت (${v.prices.join('، ')})`);
+        if (missing.length) problems.push(`• ${p.id} ${p.name}: مدل‌هایی که در فهرست لیاتیم نیستند: ${missing.join('، ')}`);
+        if (!priceMatches) problems.push(`• ${p.id} ${p.name}: قیمت صفحه (${v.price}) با فهرست (${p.price}) فرق دارد`);
+      }
+      if (problems.length) alertLines.push('🔎 بازبینی محصولات چیزی پیدا کرد که باید بررسی شود:', ...problems);
+      const { rows: [{ n }] } = await db.query('SELECT count(*)::int AS n FROM product_audit WHERE ok OR attempts >= 3');
+      log.info(`audit: ${todo.length} products checked this run, ${n}/${products.length} done, ${problems.length} issue(s)`);
+      const { rows: [prevAudit] } = await db.query(`SELECT value FROM bot_status WHERE key = 'audit'`);
+      const complete = n >= products.length;
+      await setStatus(db, 'audit', {
+        done: n, total: products.length, complete,
+        completed_at: complete ? (prevAudit?.value?.completed_at ?? new Date().toISOString()) : null,
+        reported: complete ? (prevAudit?.value?.reported ?? false) : false,
+      });
     }
 
     if (rejected.length) {

@@ -123,6 +123,17 @@ CREATE TABLE IF NOT EXISTS messenger_invites (
   used_at    TIMESTAMPTZ,
   used_by    TEXT
 );
+-- One-time audit: every product checked once on its own page (models / own prices / listing match).
+CREATE TABLE IF NOT EXISTS product_audit (
+  product_id       INTEGER PRIMARY KEY,
+  checked_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ok               BOOLEAN NOT NULL,            -- false = page could not be read (retried later)
+  price_matches    BOOLEAN,
+  prices           BIGINT[],                    -- distinct selling prices found for this code on its page
+  variant_codes    INTEGER[],
+  missing_variants INTEGER[],                   -- sibling models we do not sync (should stay empty)
+  attempts         INTEGER NOT NULL DEFAULT 1   -- unreadable pages are retried, at most 3 times
+);
 -- Non-secret health facts written by the bot (session expiry, telegram configured, worker heartbeat).
 CREATE TABLE IF NOT EXISTS bot_status (
   key        TEXT PRIMARY KEY,

@@ -84,11 +84,14 @@ export async function fetchAllProducts() {
 }
 
 /**
- * Cross-check: reads a few products from their own page and returns the price there, so the
- * listing can be verified. Errors never fail the run (null for that product).
- * @returns {Map<code, {price, cost_price} | null>}
+ * Reads products from their own page (cross-check + one-time audit). Per product:
+ *   price / cost_price  - this product's pricing on its page
+ *   prices              - distinct selling prices of every pricing block for this code (>1 = models with own prices)
+ *   variantCodes        - codes listed under variant_products (sibling models)
+ * Errors never fail the run (null for that product). 3–6 s pause before each page, like a person.
+ * @returns {Map<code, {price, cost_price, prices: number[], variantCodes: number[]} | null>}
  */
-export async function fetchProductPrices(codes) {
+export async function fetchProductPages(codes) {
   const ctx = await request.newContext({
     baseURL: config.baseUrl,
     storageState: config.storageStatePath,
@@ -102,11 +105,19 @@ export async function fetchProductPrices(codes) {
   const out = new Map();
   try {
     for (const code of codes) {
-      await sleep(3000 + Math.random() * 3000); // like a person opening a few product pages
+      await sleep(3000 + Math.random() * 3000);
       try {
         const res = await ctx.get(`/products/${code}?_rsc`);
-        const p = res.status() === 200 ? extractAll(await res.text(), 'pricing').find((x) => x && (x.code === code || x.product_code === code)) : null;
-        out.set(code, p ? { price: Number(p.price), cost_price: Number(p.payable_price) } : null);
+        if (res.status() !== 200) { out.set(code, null); continue; }
+        const text = await res.text();
+        const own = extractAll(text, 'pricing').filter((x) => x && (x.code === code || x.product_code === code));
+        const variants = extractAll(text, 'variant_products').filter(Array.isArray).flat();
+        out.set(code, own.length ? {
+          price: Number(own[0].price),
+          cost_price: Number(own[0].payable_price),
+          prices: [...new Set(own.map((x) => Number(x.price)).filter(Number.isFinite))],
+          variantCodes: [...new Set(variants.map((v) => v?.code ?? v?.product_code).filter((c) => typeof c === 'number' && c !== code))],
+        } : null);
       } catch {
         out.set(code, null);
       }
