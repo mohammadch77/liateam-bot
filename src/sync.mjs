@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import { config } from './config.mjs';
 import { log } from './logger.mjs';
 import { login, hasSession, AuthError } from './auth.mjs';
-import { fetchAllProducts } from './source.mjs';
+import { fetchAllProducts, fetchProductPrices } from './source.mjs';
 import { StructureError } from './rsc.mjs';
 import { checkProduct } from './sanity.mjs';
 import { openDb, loadPrevious, upsertProducts, upsertCategories, recordRun, diffCatalog, recordEvents, applySettings, setStatus } from './db.mjs';
@@ -140,6 +140,28 @@ async function main() {
       }
     }
     await setStatus(db, 'payload_shape', { keys: shape, at: new Date().toISOString() });
+
+    // Once a day: verify 3 random products against their own product page (3 extra requests).
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
+    const { rows: [lastCheck] } = await db.query(`SELECT value FROM bot_status WHERE key = 'crosscheck'`);
+    if (lastCheck?.value?.date !== today) {
+      const pool = accepted.filter((p) => p.is_sellable);
+      const sample = [...pool].sort(() => Math.random() - 0.5).slice(0, 3);
+      const page = await fetchProductPrices(sample.map((p) => p.id));
+      const checked = [], mismatched = [];
+      for (const p of sample) {
+        const v = page.get(p.id);
+        if (!v) continue;
+        checked.push(p.id);
+        if (v.price !== p.price || v.cost_price !== p.cost_price) mismatched.push({ p, v });
+      }
+      if (mismatched.length) {
+        alertLines.push('🔍 بررسی دوطرفه: قیمت این محصولات در صفحه‌ی خودشان با فهرست لیاتیم فرق دارد (احتمالاً خواندن قیمت جایی اشتباه است):');
+        for (const { p, v } of mismatched) alertLines.push(`• ${p.id} ${p.name}: فهرست ${p.price} / صفحه ${v.price}`);
+      }
+      log.info(`cross-check: ${checked.length}/${sample.length} products verified on their own page, ${mismatched.length} mismatched`);
+      await setStatus(db, 'crosscheck', { date: today, checked, mismatched: mismatched.map((m) => m.p.id), at: new Date().toISOString() });
+    }
 
     if (rejected.length) {
       alertLines.push(`⚠️ ${rejected.length} محصول رد شد و مقدار قبلی‌اش حفظ شد:`);

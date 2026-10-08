@@ -504,6 +504,9 @@ async function dailyReport(cursor) {
     `🔄 اجراها (۲۴ ساعت): ${T.num(runs.ok)} موفق · ${T.num(runs.warning)} با هشدار · ${T.num(runs.failed)} ناموفق`,
     `🗂 آخرین به‌روزرسانی موفق: ${good ? T.ago(good.started_at) : '—'}`,
     `🔐 ورود به لیاتیم: ${st.session?.ok === false ? '❌ نیاز به بررسی' : 'برقرار'}`,
+    st.crosscheck?.checked?.length
+      ? `🔍 بررسی دوطرفه‌ی قیمت: ${T.num(st.crosscheck.checked.length)} محصول با صفحه‌ی خودشان مقایسه شد — ${st.crosscheck.mismatched?.length ? `⚠️ ${T.num(st.crosscheck.mismatched.length)} مورد فرق داشت` : 'همه درست'}`
+      : '🔍 بررسی دوطرفه‌ی قیمت: هنوز انجام نشده',
     T.LINE,
     changes.length ? `🔔 تغییرات ۲۴ ساعت:\n${changes.join('\n')}` : '🔔 در ۲۴ ساعت گذشته تغییری در محصولات نبود.',
     T.LINE,

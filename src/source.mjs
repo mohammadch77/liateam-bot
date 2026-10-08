@@ -2,7 +2,7 @@
 import { request } from 'playwright';
 import { config } from './config.mjs';
 import { log } from './logger.mjs';
-import { parseCategoriesPage } from './rsc.mjs';
+import { parseCategoriesPage, extractAll } from './rsc.mjs';
 import { normalize } from './normalize.mjs';
 import { parseCategories } from './categories.mjs';
 import { AuthError } from './auth.mjs';
@@ -81,4 +81,38 @@ export async function fetchAllProducts() {
   } finally {
     await ctx.dispose();
   }
+}
+
+/**
+ * Cross-check: reads a few products from their own page and returns the price there, so the
+ * listing can be verified. Errors never fail the run (null for that product).
+ * @returns {Map<code, {price, cost_price} | null>}
+ */
+export async function fetchProductPrices(codes) {
+  const ctx = await request.newContext({
+    baseURL: config.baseUrl,
+    storageState: config.storageStatePath,
+    extraHTTPHeaders: {
+      RSC: '1',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36',
+      'Accept-Language': 'fa-IR,fa;q=0.9',
+    },
+    maxRedirects: 0,
+  });
+  const out = new Map();
+  try {
+    for (const code of codes) {
+      await sleep(3000 + Math.random() * 3000); // like a person opening a few product pages
+      try {
+        const res = await ctx.get(`/products/${code}?_rsc`);
+        const p = res.status() === 200 ? extractAll(await res.text(), 'pricing').find((x) => x && (x.code === code || x.product_code === code)) : null;
+        out.set(code, p ? { price: Number(p.price), cost_price: Number(p.payable_price) } : null);
+      } catch {
+        out.set(code, null);
+      }
+    }
+  } finally {
+    await ctx.dispose();
+  }
+  return out;
 }
