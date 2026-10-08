@@ -15,7 +15,9 @@ export async function login() {
   try {
     const context = await browser.newContext({ locale: 'fa-IR' });
     const page = await context.newPage();
-    await page.goto(config.signInUrl, { waitUntil: 'domcontentloaded' });
+    // Wait until the page's scripts are running: clicking earlier makes the browser submit the form
+    // natively as a GET, which puts username/password into the URL (and the site's analytics).
+    await page.goto(config.signInUrl, { waitUntil: 'networkidle' });
 
     const user = page.locator('input[name="username"]');
     const pass = page.locator('input[type="password"]');
@@ -28,6 +30,8 @@ export async function login() {
     await pass.fill(config.password);
 
     const loginResponse = page.waitForResponse((r) => r.url().includes('/api/v1/client/login'), { timeout: 20000 });
+    // Last guard against a native (non-JS) form submit leaking credentials into the URL.
+    await page.evaluate(() => document.querySelectorAll('form').forEach((f) => f.addEventListener('submit', (e) => e.preventDefault())));
     await page.locator('button[type="submit"]').first().click();
     const res = await loginResponse.catch(() => null);
     if (!res) throw new AuthError('No response from /api/v1/client/login (captcha/OTP or form changed?)');
