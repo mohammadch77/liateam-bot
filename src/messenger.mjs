@@ -30,18 +30,25 @@ const nameOf = (from) => [from?.first_name, from?.last_name].filter(Boolean).joi
 const BTN = {
   status: '📊 وضعیت', changes: '🔔 تغییرات ۲۴ ساعت', search: '🔎 جست‌وجوی محصول',
   low: '📉 رو به اتمام', prefs: '⚙️ اعلان‌های من', run: '🔄 اجرای دستی', help: 'ℹ️ راهنما',
+  interval: '⏱ فاصله‌ی اجرا',
 };
 const mainKeyboard = (chat) => ({
   keyboard: [
     [{ text: BTN.status }, { text: BTN.changes }],
     [{ text: BTN.search }, { text: BTN.low }],
     isAdmin(chat) ? [{ text: BTN.prefs }, { text: BTN.run }] : [{ text: BTN.prefs }, { text: BTN.help }],
-    ...(isAdmin(chat) ? [[{ text: BTN.help }]] : []),
+    ...(isAdmin(chat) ? [[{ text: BTN.interval }, { text: BTN.help }]] : []),
   ],
   resize_keyboard: true,
   is_persistent: true,
 });
 const inline = (rows) => ({ inline_keyboard: rows });
+
+// Bale replaces the bottom menu with a lone «شروع مجدد» as soon as a message with inline buttons arrives
+// (it ignores is_persistent). So on Bale, messages whose buttons only repeat menu actions (status,
+// changes, notifications) carry the main menu instead; Telegram keeps its inline buttons.
+const isBale = (client) => client.name === 'bale';
+const menuOr = (client, chat, rows) => (isBale(client) ? mainKeyboard(chat) : inline(rows));
 
 async function send(client, chatId, text, extra = {}) {
   return client.call('sendMessage', { chat_id: chatId, text: T.clip(text), ...extra });
@@ -132,6 +139,8 @@ async function statusScreen(client, chat, messageId) {
   ];
   const buttons = [[{ text: '🔄 به‌روزرسانی', callback_data: 'st' }, { text: '🔔 تغییرات', callback_data: 'ch:0' }]];
   if (isAdmin(chat)) buttons.push([{ text: `⏱ فاصله‌ی اجرا (هر ${T.num(interval)} ساعت)`, callback_data: 'ivm' }]);
+  // On Bale a fresh message with the menu (an edit cannot carry it); «📊 وضعیت» in the menu refreshes it.
+  if (isBale(client)) return send(client, chat.chat_id, lines.join('\n'), { reply_markup: mainKeyboard(chat) });
   return show(client, chat.chat_id, messageId, lines.join('\n'), inline(buttons));
 }
 
@@ -295,6 +304,7 @@ async function onMessage(client, msg) {
     case BTN.help: case '/help': return send(client, chat.chat_id, HELP, { reply_markup: mainKeyboard(chat) });
     case BTN.search: return send(client, chat.chat_id, '🔎 اسم یا کد محصول را بنویسید (مثلاً «پرفیوم» یا «۵۴۷»):');
     case BTN.run: return isAdmin(chat) ? runConfirm(client, chat) : send(client, chat.chat_id, 'این گزینه فقط برای مدیر فعال است.');
+    case BTN.interval: return isAdmin(chat) ? intervalMenu(client, chat) : send(client, chat.chat_id, 'این گزینه فقط برای مدیر فعال است.');
     default: return search(client, chat, text);
   }
 }
@@ -319,7 +329,11 @@ async function onCallback(client, cb) {
     return prefsScreen(client, next[0], mid);
   }
   if (!isAdmin(chat)) return;
-  if (cmd === 'run' && arg === 'no') return show(client, chat.chat_id, mid, '✖️ اجرای دستی لغو شد.', inline([]));
+  // Last step of an inline flow: on Bale, send the result as a new message with the menu so it comes back.
+  const done = (text, rows = []) => (isBale(client)
+    ? send(client, chat.chat_id, text, { reply_markup: mainKeyboard(chat) })
+    : show(client, chat.chat_id, mid, text, inline(rows)));
+  if (cmd === 'run' && arg === 'no') return done('✖️ اجرای دستی لغو شد.');
   if (cmd === 'run' && arg === 'yes') {
     const [pending] = await q('SELECT 1 FROM run_requests WHERE picked_at IS NULL LIMIT 1');
     if (!pending) {
@@ -328,9 +342,9 @@ async function onCallback(client, cb) {
     }
     const st = await statusMap();
     const alive = st.worker?.heartbeat && Date.now() - new Date(st.worker.heartbeat).getTime() < 120_000;
-    return show(client, chat.chat_id, mid, alive
+    return done(alive
       ? '⏳ در صف اجرا قرار گرفت. معمولاً ۳ تا ۶ دقیقه طول می‌کشد (ربات مثل یک آدم با حوصله صفحه‌ها را می‌خواند)؛ نتیجه را همین‌جا خبر می‌دهم.'
-      : '⚠️ در صف قرار گرفت، ولی سرویس زمان‌بندی (worker) روشن نیست؛ تا روشن نشود اجرا انجام نمی‌شود.', inline([]));
+      : '⚠️ در صف قرار گرفت، ولی سرویس زمان‌بندی (worker) روشن نیست؛ تا روشن نشود اجرا انجام نمی‌شود.');
   }
   if (cmd === 'ivm') return intervalMenu(client, chat, mid);
   if (cmd === 'iv') {
@@ -340,7 +354,7 @@ async function onCallback(client, cb) {
     await q(`INSERT INTO settings (key, value) VALUES ('intervalHours', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [JSON.stringify(h)]);
     await audit(chat, 'intervalHours', old, h);
     config.intervalHours = h;
-    return show(client, chat.chat_id, mid, `✅ از این به بعد ربات هر ${T.num(h)} ساعت یک‌بار قیمت‌ها را به‌روز می‌کند.`, inline([[{ text: '📊 وضعیت', callback_data: 'st' }]]));
+    return done(`✅ از این به بعد ربات هر ${T.num(h)} ساعت یک‌بار قیمت‌ها را به‌روز می‌کند.`, [[{ text: '📊 وضعیت', callback_data: 'st' }]]);
   }
 }
 
@@ -410,8 +424,11 @@ async function broadcast(group, build) {
   for (const chat of await recipients(group)) {
     const msg = build(chat);
     if (!msg) continue;
+    const client = clients[chat.platform];
+    // Notification buttons only repeat menu actions; on Bale send the menu instead (see menuOr).
+    const extra = isBale(client) ? { ...msg.extra, reply_markup: mainKeyboard(chat) } : msg.extra;
     try {
-      await send(clients[chat.platform], chat.chat_id, msg.text, msg.extra);
+      await send(client, chat.chat_id, msg.text, extra);
     } catch (e) {
       log.warn('messenger: notify failed', { platform: chat.platform, error: e.message });
     }
@@ -453,7 +470,8 @@ async function notifyEvents(cursor) {
       `${T.num(mine.length)} تغییر در محصولات${unusual ? ` · ⚠️ ${T.num(unusual)} تغییر قیمت غیرعادی` : ''}`,
       T.eventSections(mine)].join('\n');
     try {
-      await send(clients[chat.platform], chat.chat_id, text, { reply_markup: inline([[{ text: '📋 همه‌ی تغییرات', callback_data: 'ch:0' }]]) });
+      const client = clients[chat.platform];
+      await send(client, chat.chat_id, text, { reply_markup: menuOr(client, chat, [[{ text: '📋 همه‌ی تغییرات', callback_data: 'ch:0' }]]) });
     } catch (e) {
       log.warn('messenger: notify failed', { platform: chat.platform, error: e.message });
     }
@@ -474,7 +492,9 @@ async function notifyManualResults() {
     const text = r.status === 'failed'
       ? `🚨 اجرای دستی ناموفق بود: ${T.FAILURE[r.failure_kind] || T.FAILURE.error}`
       : `✅ اجرای دستی انجام شد${r.status === 'warning' ? ' (با هشدار)' : ''}.\n${r.changes ? `${T.num(r.changes)} تغییر پیدا شد؛ جزئیات در پیام به‌روزرسانی.` : 'تغییری در قیمت و موجودی نبود.'}`;
-    await send(clients[platform], chatId, text).catch((e) => log.warn('messenger: manual result failed', { error: e.message }));
+    const [chat] = platform === 'bale' ? await q('SELECT * FROM messenger_chats WHERE platform = $1 AND chat_id = $2', [platform, chatId]) : [];
+    await send(clients[platform], chatId, text, chat ? { reply_markup: mainKeyboard(chat) } : {})
+      .catch((e) => log.warn('messenger: manual result failed', { error: e.message }));
   }
 }
 
