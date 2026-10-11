@@ -12,6 +12,8 @@ const VALID = {
   intervalHours: (v) => typeof v === 'number' && v >= 0.25 && v <= 168,
   telegramEnabled: (v) => typeof v === 'boolean',
   baleEnabled: (v) => typeof v === 'boolean',
+  ordersDryRun: (v) => typeof v === 'boolean',
+  limitedStock: (v) => Number.isInteger(v) && v >= 0 && v <= 1000,
 };
 const ROLES = ['admin', 'viewer'];
 

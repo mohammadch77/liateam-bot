@@ -329,6 +329,17 @@ async function onCallback(client, cb) {
     return prefsScreen(client, next[0], mid);
   }
   if (!isAdmin(chat)) return;
+  if (cmd === 'op') {
+    const orderId = Number(arg);
+    const [o] = await q('SELECT status FROM shop_orders WHERE id = $1', [orderId]);
+    if (!o || o.status !== 'queued') return send(client, chat.chat_id, `سفارش #${orderId} دیگر در صف ثبت نیست (${o?.status ?? 'پیدا نشد'}).`);
+    const [pending] = await q(`SELECT 1 FROM order_jobs WHERE kind = 'place' AND done_at IS NULL AND payload->>'order_id' = $1`, [String(orderId)]);
+    if (!pending) {
+      await q(`INSERT INTO order_jobs (kind, payload, requested_by) VALUES ('place', $1, $2)`, [{ order_id: orderId }, `${chat.platform}:${chat.display_name}`]);
+      await audit(chat, 'place_order', null, orderId);
+    }
+    return send(client, chat.chat_id, `⏳ در حال ثبت سفارش #${orderId} در لیاتیم… چند ثانیه صبر کنید؛ لینک پرداخت همین‌جا می‌آید.`);
+  }
   // Last step of an inline flow: on Bale, send the result as a new message with the menu so it comes back.
   const done = (text, rows = []) => (isBale(client)
     ? send(client, chat.chat_id, text, { reply_markup: mainKeyboard(chat) })
@@ -612,6 +623,35 @@ ${T.time(a.at)}`;
   }
 }
 
+// ---------------------------------------------------------------- shop orders (written by src/orders.mjs)
+// Events go to admins only (they contain customer orders and our margin). A new or waiting order
+// carries the «ثبت و پرداخت» button; a placed one carries the Liateam payment link.
+const ORDER_PLACE_KINDS = new Set(['new', 'reminder', 'canceled']);
+async function notifyShopOrders() {
+  // Claim atomically: the 30 s loop and LISTEN may run this at the same time.
+  const events = await q(`WITH claimed AS (
+      UPDATE shop_order_events SET notified_at = now()
+       WHERE id IN (SELECT id FROM shop_order_events WHERE notified_at IS NULL ORDER BY id LIMIT 50 FOR UPDATE SKIP LOCKED)
+       RETURNING *)
+    SELECT c.*, o.status AS order_status FROM claimed c LEFT JOIN shop_orders o ON o.id = c.order_id ORDER BY c.id`);
+  if (!events.length) return;
+  const platforms = Object.keys(clients).filter(enabled);
+  const admins = platforms.length ? await q(`SELECT * FROM messenger_chats WHERE role = 'admin' AND platform = ANY($1)`, [platforms]) : [];
+  for (const e of events) {
+    let rows = [];
+    if (e.order_id && ORDER_PLACE_KINDS.has(e.kind) && e.order_status === 'queued') {
+      rows = [[{ text: '✅ ثبت و پرداخت', callback_data: `op:${e.order_id}` }]];
+    } else if (e.kind === 'placed' && e.data?.payment_url) {
+      rows = [[{ text: '💳 پرداخت در لیاتیم', url: e.data.payment_url }]];
+    }
+    for (const chat of admins) {
+      const client = clients[chat.platform];
+      await send(client, chat.chat_id, e.message, rows.length ? { reply_markup: inline(rows) } : { reply_markup: menuOr(client, chat, []) })
+        .catch((err) => log.warn('messenger: order notify failed', { platform: chat.platform, error: err.message }));
+    }
+  }
+}
+
 async function notifierLoop() {
   const st = await statusMap();
   const cursor = st.notify_cursor ?? (await q(
@@ -626,12 +666,25 @@ async function notifierLoop() {
       await dailyReport(cursor);
       await auditReport();
       await notifyAdminActions(cursor);
+      await notifyShopOrders();
       await setStatus(pool, 'notify_cursor', cursor);
     } catch (e) {
       log.warn('messenger: notifier failed', { error: e.message });
     }
-    await sleep(NOTIFY_EVERY_MS);
+    await new Promise((r) => { wakeNotifier = r; setTimeout(r, NOTIFY_EVERY_MS); });
+    wakeNotifier = null;
   }
+}
+
+// Order events (payment link!) should arrive in seconds, not on the next 30 s round.
+let wakeNotifier = null;
+{
+  const { default: pg } = await import('pg');
+  const listener = new pg.Client({ connectionString: config.databaseUrl });
+  await listener.connect();
+  listener.on('notification', () => notifyShopOrders().catch((e) => log.warn('messenger: order notify failed', { error: e.message })));
+  listener.on('error', (e) => { log.warn('messenger: listener lost, exiting for restart', { error: e.message }); process.exit(1); });
+  await listener.query('LISTEN shop_order_events');
 }
 
 await applySettings(pool, config);

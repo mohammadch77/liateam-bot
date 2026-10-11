@@ -30,6 +30,11 @@ export const config = {
   // at least this many minutes between any two runs (manual ones included).
   quietHours: env.QUIET_HOURS ?? '1-7',
   minGapMinutes: Number(env.MIN_GAP_MINUTES || 20),
+  // Orders (src/orders.mjs). Dry run stays on until switched off in the dashboard.
+  ordersDryRun: true,
+  limitedStock: 5,
+  // Liateam bank gateway used for supplier payments (id from GET /payment/payments); empty = first one.
+  ordersPaymentId: env.ORDERS_PAYMENT_ID || '',
 };
 
 export function requireCredentials() {

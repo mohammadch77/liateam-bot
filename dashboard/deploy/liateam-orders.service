@@ -1,0 +1,15 @@
+# /etc/systemd/system/liateam-orders.service - shop orders: review, queue, placing at Liateam, tracking
+[Unit]
+Description=Liateam orders service
+After=network.target postgresql.service
+
+[Service]
+User=liateam
+WorkingDirectory=/opt/liateam-bot/app
+Environment=HOME=/opt/liateam-bot
+ExecStart=/usr/bin/env node src/orders.mjs
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

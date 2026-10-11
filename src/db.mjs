@@ -139,7 +139,93 @@ CREATE TABLE IF NOT EXISTS bot_status (
   key        TEXT PRIMARY KEY,
   value      JSONB NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);`;
+);
+
+-- ---------------------------------------------------------------- shop orders (src/orders.mjs)
+-- Work for the orders service. Writers (dashboard, messenger, later the NestJS site) only INSERT here;
+-- the orders service is the only process that talks to Liateam about orders and writes the tables below.
+CREATE TABLE IF NOT EXISTS order_jobs (
+  id           SERIAL PRIMARY KEY,
+  kind         TEXT NOT NULL,                  -- review | create | place
+  payload      JSONB NOT NULL DEFAULT '{}',
+  requested_by TEXT NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  picked_at    TIMESTAMPTZ,
+  done_at      TIMESTAMPTZ,
+  ok           BOOLEAN,
+  result       JSONB
+);
+CREATE INDEX IF NOT EXISTS order_jobs_pending ON order_jobs (id) WHERE picked_at IS NULL;
+CREATE OR REPLACE FUNCTION order_jobs_notify() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN PERFORM pg_notify('order_jobs', NEW.id::text); RETURN NEW; END $$;
+DROP TRIGGER IF EXISTS order_jobs_notify ON order_jobs;
+CREATE TRIGGER order_jobs_notify AFTER INSERT ON order_jobs FOR EACH ROW EXECUTE FUNCTION order_jobs_notify();
+
+CREATE TABLE IF NOT EXISTS shop_orders (
+  id                  SERIAL PRIMARY KEY,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- queued: customer paid, waiting for an admin to place it | placing | awaiting_payment: placed at
+  -- Liateam, payment link sent | supplier_paid | sent | refunded (nothing could be placed) | canceled
+  status              TEXT NOT NULL DEFAULT 'queued',
+  urgent              BOOLEAN NOT NULL DEFAULT false, -- has an item with little stock: place it soon
+  customer_first_name TEXT NOT NULL,
+  customer_last_name  TEXT NOT NULL,
+  customer_mobile     TEXT NOT NULL,
+  province_id         INTEGER NOT NULL,
+  city_id             INTEGER NOT NULL,
+  postal_code         TEXT NOT NULL,
+  address             TEXT NOT NULL,
+  plate               TEXT NOT NULL,
+  unit                TEXT,
+  items_total         BIGINT NOT NULL,         -- RIAL, what the customer paid for goods
+  shipping_price      BIGINT NOT NULL,         -- RIAL, what the customer paid for shipping
+  refunded_total      BIGINT NOT NULL DEFAULT 0,
+  liateam_order_code  TEXT,
+  liateam_address_id  TEXT,
+  liateam_total       BIGINT,                  -- what we pay Liateam (goods + shipping)
+  payment_url         TEXT,
+  placed_at           TIMESTAMPTZ,
+  placed_by           TEXT,
+  supplier_paid_at    TIMESTAMPTZ,
+  sent_at             TIMESTAMPTZ,
+  tracking            JSONB,
+  reminded_at         TIMESTAMPTZ,
+  last_error          TEXT,
+  dry_run_result      JSONB
+);
+CREATE TABLE IF NOT EXISTS shop_order_items (
+  id          SERIAL PRIMARY KEY,
+  order_id    INTEGER NOT NULL REFERENCES shop_orders(id) ON DELETE CASCADE,
+  product_id  INTEGER NOT NULL,
+  name        TEXT NOT NULL,
+  quantity    INTEGER NOT NULL CHECK (quantity > 0),
+  unit_price  BIGINT NOT NULL,                 -- RIAL charged to the customer
+  unit_cost   BIGINT,                          -- RIAL paid to Liateam when placed
+  status      TEXT NOT NULL DEFAULT 'ok'       -- ok | refunded (not available when placing)
+);
+-- Simulated customer wallet until the real site exists: + refund, - spend.
+CREATE TABLE IF NOT EXISTS wallet_ledger (
+  id              SERIAL PRIMARY KEY,
+  at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+  customer_mobile TEXT NOT NULL,
+  amount          BIGINT NOT NULL,
+  reason          TEXT NOT NULL,
+  order_id        INTEGER REFERENCES shop_orders(id)
+);
+-- What happened to an order; the messenger sends these to admins (notified_at) - payment link included.
+CREATE TABLE IF NOT EXISTS shop_order_events (
+  id          SERIAL PRIMARY KEY,
+  at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  order_id    INTEGER REFERENCES shop_orders(id) ON DELETE CASCADE,
+  kind        TEXT NOT NULL,                   -- new | placed | paid | sent | refund | price | reminder | error | canceled
+  message     TEXT NOT NULL,
+  data        JSONB,
+  notified_at TIMESTAMPTZ
+);
+CREATE OR REPLACE FUNCTION shop_order_events_notify() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN PERFORM pg_notify('shop_order_events', NEW.id::text); RETURN NEW; END $$;
+DROP TRIGGER IF EXISTS shop_order_events_notify ON shop_order_events;
+CREATE TRIGGER shop_order_events_notify AFTER INSERT ON shop_order_events FOR EACH ROW EXECUTE FUNCTION shop_order_events_notify();`;
 
 export async function openDb() {
   const client = new pg.Client({ connectionString: config.databaseUrl });
@@ -224,6 +310,10 @@ export const SETTING_KEYS = {
   intervalHours: (v) => typeof v === 'number' && v >= 0.25 && v <= 168,
   telegramEnabled: (v) => typeof v === 'boolean',
   baleEnabled: (v) => typeof v === 'boolean',
+  // Orders: true = every step runs except the final POST /order/orders (default until switched off).
+  ordersDryRun: (v) => typeof v === 'boolean',
+  // At or below this live stock an item is "limited" and its order is flagged urgent (never hidden).
+  limitedStock: (v) => Number.isInteger(v) && v >= 0 && v <= 1000,
 };
 
 /** Connection pool for long-running processes (messenger); runs the schema once. */
