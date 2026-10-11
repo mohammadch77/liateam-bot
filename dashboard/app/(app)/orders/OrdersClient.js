@@ -125,7 +125,7 @@ function TestCheckout({ products }) {
       {review && (
         <>
           <h3>۳. مرور سفارش (قیمت و موجودی همین لحظه)</h3>
-          <table>
+          <div className="table-wrap"><table>
             <thead><tr><th>محصول</th><th>تعداد</th><th>قیمت واحد (تومان)</th><th>جمع</th><th></th></tr></thead>
             <tbody>
               {review.items.map((it) => (
@@ -142,7 +142,7 @@ function TestCheckout({ products }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           <p>ارسال: {review.shipping ? `${review.shipping.title} · ${toman(review.shipping.price)} تومان` : '—'} · <b>جمع کل: {toman(review.total)} تومان</b></p>
           {!review.ok && <div className="banner bad">{review.reason}</div>}
           {review.ok && (
@@ -184,7 +184,7 @@ export default function OrdersClient({ products, orders, events, dryRun }) {
       <div className="card">
         <h2>صف سفارش‌ها</h2>
         {orders.length === 0 ? <p className="sub">هنوز سفارشی ثبت نشده است.</p> : (
-          <table>
+          <div className="table-wrap"><table>
             <thead><tr><th>#</th><th>زمان</th><th>مشتری</th><th>اقلام</th><th>مبلغ (تومان)</th><th>وضعیت</th><th></th></tr></thead>
             <tbody>
               {orders.map((o) => (
@@ -205,7 +205,7 @@ export default function OrdersClient({ products, orders, events, dryRun }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
       <TestCheckout products={products} />
