@@ -64,7 +64,7 @@ function TestCheckout({ products }) {
   const items = basket.filter((b) => b.product_id).map((b) => ({ product_id: Number(b.product_id), quantity: Number(toLatin(b.quantity)) || 1 }));
   const doReview = () => start(async () => {
     setMsg({ text: '⏳ در حال بررسی موجودی و قیمت در لیاتیم…' });
-    const r = await api('/api/test/review', { city_id: Number(addr.city_id), items });
+    const r = await api('/api/test/review', { city_id: Number(addr.city_id), items, replaces_review_id: review?.id });
     setReview(r.ok ? { id: r.job_id, ...r.data } : null);
     setMsg(r.ok ? null : { bad: true, text: r.error });
   });
@@ -152,7 +152,7 @@ function TestCheckout({ products }) {
                 <option value="wallet">کیف پول</option>
               </select>
               <button type="button" className="btn btn-primary" disabled={busy} onClick={pay}>پرداخت و ثبت سفارش</button>
-              <span className="sub">این مرور ۱۵ دقیقه معتبر است.</span>
+              <span className="sub">این تعداد ۱۵ دقیقه برای این مشتری نگه داشته می‌شود.</span>
             </div>
           )}
         </>

@@ -45,11 +45,18 @@ async function event(orderId, kind, message, data = null) {
   await q('INSERT INTO shop_order_events (order_id, kind, message, data) VALUES ($1,$2,$3,$4)', [orderId, kind, message, data]);
 }
 
-/** Quantities already promised to queued orders (not yet at Liateam): shown stock minus these. */
-async function reserved(exceptOrderId = 0) {
+/**
+ * Quantities already promised inside our system: queued orders (paid, not yet at Liateam) plus
+ * live review holds of other customers. Shown stock = Liateam stock minus these.
+ */
+async function reserved(exceptReviewId = 0) {
   const rows = await q(
-    `SELECT i.product_id, sum(i.quantity)::int AS n FROM shop_order_items i JOIN shop_orders o ON o.id = i.order_id
-      WHERE o.status IN ('queued','placing') AND i.status = 'ok' AND o.id <> $1 GROUP BY i.product_id`, [exceptOrderId]);
+    `SELECT product_id, sum(n)::int AS n FROM (
+       SELECT i.product_id, i.quantity AS n FROM shop_order_items i JOIN shop_orders o ON o.id = i.order_id
+        WHERE o.status IN ('queued','placing') AND i.status = 'ok'
+       UNION ALL
+       SELECT product_id, quantity FROM review_holds WHERE expires_at > now() AND review_id <> $1
+     ) x GROUP BY product_id`, [exceptReviewId]);
   return new Map(rows.map((r) => [r.product_id, r.n]));
 }
 
@@ -71,8 +78,10 @@ async function applyPriceChange(p, live, source) {
 }
 
 // ---------------------------------------------------------------- review
-async function review(payload) {
+async function review(payload, requestedBy, job) {
   const cityId = int(payload.city_id, 'شهر');
+  // The same customer reviewing again (changed basket/address): release the previous hold first.
+  if (payload.replaces_review_id) await q('DELETE FROM review_holds WHERE review_id = $1', [int(payload.replaces_review_id, 'مرور قبلی')]);
   const wanted = (payload.items ?? []).map((i) => ({ product_id: int(i.product_id, 'کد محصول'), quantity: int(i.quantity, 'تعداد', 1, MAX_QTY) }));
   if (!wanted.length || wanted.length > MAX_ITEMS) throw new InputError('سبد خالی است یا اقلامش زیاد است');
   const ids = [...new Set(wanted.map((i) => i.product_id))];
@@ -122,6 +131,12 @@ async function review(payload) {
 
   const items_total = items.reduce((s, i) => s + (i.line_total ?? 0), 0);
   const placeable = items.some((i) => i.quantity > 0);
+  const expiresAt = new Date(Date.now() + REVIEW_TTL_MS);
+  if (placeable && shipping) {
+    for (const it of items.filter((i) => i.quantity > 0)) {
+      await q('INSERT INTO review_holds (review_id, product_id, quantity, expires_at) VALUES ($1,$2,$3,$4)', [job.id, it.product_id, it.quantity, expiresAt]);
+    }
+  }
   return {
     ok: placeable && Boolean(shipping),
     reason: !placeable ? 'هیچ‌کدام از اقلام سبد موجود نیست' : !shipping ? 'ارسال پستی به این شهر ممکن نیست' : null,
@@ -132,7 +147,7 @@ async function review(payload) {
     items_total,
     total: items_total + (shipping?.price ?? 0),
     urgent: items.some((i) => i.limited),
-    expires_at: new Date(Date.now() + REVIEW_TTL_MS).toISOString(),
+    expires_at: expiresAt.toISOString(),
   };
 }
 
@@ -186,6 +201,7 @@ async function create(payload, requestedBy) {
         [customer.mobile, -r.total, order.id]);
     }
     await client.query(`UPDATE order_jobs SET result = result || jsonb_build_object('order_id', $2::int) WHERE id = $1`, [reviewId, order.id]);
+    await client.query('DELETE FROM review_holds WHERE review_id = $1', [reviewId]); // the queued order holds it now
     await client.query('COMMIT');
 
     const lines = r.items.filter((i) => i.quantity > 0).map((i) => `• ${i.name} × ${i.quantity}${i.limited ? ' ⚡️' : ''}`);
@@ -386,7 +402,7 @@ async function runPendingJobs() {
     try {
       const handler = HANDLERS[job.kind];
       if (!handler) throw new InputError(`نوع کار ناشناخته: ${job.kind}`);
-      result = await handler(job.payload, job.requested_by);
+      result = await handler(job.payload, job.requested_by, job);
       ok = true;
     } catch (e) {
       result = { error: e instanceof InputError ? e.message : e instanceof AuthError ? `سشن لیاتیم: ${e.message}` : e.message, kind: e.constructor.name };
@@ -457,6 +473,7 @@ for (;;) {
   try {
     await applySettings(pool, config);
     await runPendingJobs();
+    await q('DELETE FROM review_holds WHERE expires_at < now()');
     if (Date.now() - lastTrack > 120_000) {
       lastTrack = Date.now();
       await track();

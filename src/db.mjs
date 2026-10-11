@@ -203,6 +203,15 @@ CREATE TABLE IF NOT EXISTS shop_order_items (
   unit_cost   BIGINT,                          -- RIAL paid to Liateam when placed
   status      TEXT NOT NULL DEFAULT 'ok'       -- ok | refunded (not available when placing)
 );
+-- Cinema-style hold: quantities shown in an order review are kept for that customer until the
+-- review expires (15 min) or turns into an order. Only inside our system - Liateam holds nothing.
+CREATE TABLE IF NOT EXISTS review_holds (
+  review_id  INTEGER NOT NULL REFERENCES order_jobs(id) ON DELETE CASCADE,
+  product_id INTEGER NOT NULL,
+  quantity   INTEGER NOT NULL CHECK (quantity > 0),
+  expires_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (review_id, product_id)
+);
 -- Simulated customer wallet until the real site exists: + refund, - spend.
 CREATE TABLE IF NOT EXISTS wallet_ledger (
   id              SERIAL PRIMARY KEY,
