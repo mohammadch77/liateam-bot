@@ -311,7 +311,11 @@ async function place(payload, requestedBy) {
     await pause();
     createdAtLiateam = true; // set before the call: a timeout may still have created the order
     const created = await L.createOrder(body);
-    let code = created?.code ?? created?.order_code ?? created?.order?.code ?? null;
+    // Captured response: {"link": "/agamemnon/api/v1/payments/{payment_id}/orders/{code}/send-payment"}
+    // The link works without a Liateam login (307 straight to the bank), so it can go to a phone.
+    const link = typeof created?.link === 'string' ? created.link : null;
+    let code = link?.match(/\/orders\/(\d+)\/send-payment/)?.[1] ?? created?.code ?? created?.order_code ?? null;
+    if (!link) log.warn('orders: createOrder response has no link - shape changed?', { keys: Object.keys(created ?? {}) });
     if (!code) {
       // Response shape not captured yet: find the order we just made (same total, last 3 minutes).
       const list = await L.listOrders(5);
@@ -324,7 +328,7 @@ async function place(payload, requestedBy) {
       return { order_id: orderId, status: 'awaiting_payment', payment_url: null };
     }
 
-    const url = L.paymentUrl(payment.id, code);
+    const url = link ? new URL(link, config.baseUrl).href : L.paymentUrl(payment.id, code);
     for (const r of refunds) {
       await refund(order, r.missing * Number(r.it.unit_price), `برگشت وجه: «${r.it.name}» در لیاتیم تمام شد`);
       if (r.missing === r.it.quantity) await q(`UPDATE shop_order_items SET status = 'refunded' WHERE id = $1`, [r.it.id]);

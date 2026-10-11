@@ -52,6 +52,27 @@ await context.route('**/*', (route) => {
 
 const log = [];
 let n = 0;
+
+// The order request and the send-payment page are followed by an instant jump to the bank, which
+// lost their bodies last time. Fetch them ourselves, save the body, then hand the same response
+// to the page. Saved to final-*.txt (masked).
+for (const pattern of ['**/api/v1/client/order/orders', '**/send-payment*']) {
+  await context.route(pattern, async (route) => {
+    const req = route.request();
+    if (pattern.includes('order/orders') && req.method() !== 'POST') return route.fallback();
+    const res = await route.fetch({ maxRedirects: 0 }); // never follow on to the bank from here
+    const body = await res.text();
+    const name = pattern.includes('order/orders') ? 'final-order-response' : 'final-send-payment';
+    fs.writeFileSync(path.join(OUT, `${name}.txt`), [
+      `${req.method()} ${scrub(req.url())} -> ${res.status()}`,
+      `content-type: ${res.headers()['content-type'] ?? ''}`,
+      `location: ${res.headers().location ?? ''}`,
+      `request: ${scrub(req.postData()) ?? ''}`, '', scrub(body),
+    ].join('\n'));
+    console.log(`\n✅ captured ${name} (${res.status()}, ${body.length} bytes)`);
+    return route.fulfill({ response: res, body });
+  });
+}
 const page = await context.newPage();
 
 context.on('response', async (res) => {

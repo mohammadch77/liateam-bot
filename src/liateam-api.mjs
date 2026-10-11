@@ -116,12 +116,12 @@ export async function addAddress(a) {
 
 export const deleteAddress = (id) => call('DELETE', `/user/user-addresses/${encodeURIComponent(id)}`);
 
-/** Places the order. Returns the raw response data (shape not captured yet - caller resolves the code). */
+/** Places the order. Returns {link: "/agamemnon/api/v1/payments/{payment_id}/orders/{code}/send-payment"}. */
 export const createOrder = (body) => call('POST', '/order/orders', body);
 
 export const listOrders = (pageSize = 10) => call('GET', `/order/orders?current=1&pageSize=${pageSize}`);
 export const getOrder = (code) => call('GET', `/order/orders/${encodeURIComponent(code)}`);
 
-/** The page that forwards to the bank gateway (opened by a person; we only build the link). */
+/** Fallback payment link (normally createOrder returns it). Needs no Liateam login: 307 to the bank. */
 export const paymentUrl = (paymentId, orderCode) =>
   `${config.baseUrl}/agamemnon/api/v1/payments/${encodeURIComponent(paymentId)}/orders/${encodeURIComponent(orderCode)}/send-payment`;
