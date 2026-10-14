@@ -43,6 +43,11 @@ Failures are also written to `logs/alerts.log` and the `sync_alerts` table (dash
 - **Excluded categories:** products in `excludedCategories` (`src/config.mjs`) are stored with `is_sellable=false` and left out of `products.json`. `sellableOverrides` keeps individual products sellable.
 - **Per-product sanity check:** if the price or cost is zero or empty, jumps more than 50%, or the stock is invalid, that product keeps its old values.
 - **Categories:** the category tree (code, name, parent) is read from the same `/categories` payload (no extra request) into the `categories` table. `product_catalog` joins names onto products; a category with no name shows as `#code`. `npm run probe:categories` lists what the payload carries.
+- **Brand and description:** read from each product's own page (`/products/{code}?_rsc`, `src/product-details.mjs`), at most `DETAILS_PER_RUN` (default 30) pages per run with 6–18 s pauses; products never read come first, then each is re-read every `DETAILS_MAX_AGE_DAYS` (7). Pages the cross-check and audit already read are reused.
+  - Field paths in `DETAIL_PATHS` (like `FIELD_PATHS`). A missing description is stored as empty and logged, never an error. If the product object is missing on most pages (layout change) an alert is raised and stored text is kept.
+  - The description is stored as plain structured text (`## ` headings, `• ` list items); the supplier's HTML is never stored or rendered.
+  - `brand` / `description` are written only when they changed (`details_updated_at`); `details_checked_at` only schedules the next visit. Price, stock and `updated_at` are never touched by this step.
+  - The shop reads them through `product_catalog`; its roles need `shop/deploy/shop-db-roles-003-catalog-details.sql` once.
 - **Settings from the dashboard:** `excludedCategories`, `sellableOverrides`, `priceJumpLimit` and `intervalHours` in the `settings` table override `src/config.mjs`.
 - **Run history:** the `sync_runs` table stores `started_at`, `status` (ok / warning / failed), `fetched`, `written`, `sellable`, `rejected`, `duration_ms`, `failure_kind` and `message`.
 

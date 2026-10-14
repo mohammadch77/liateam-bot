@@ -8,7 +8,7 @@ import { login, hasSession, AuthError } from './auth.mjs';
 import { fetchAllProducts, fetchProductPages } from './source.mjs';
 import { StructureError } from './rsc.mjs';
 import { checkProduct } from './sanity.mjs';
-import { openDb, loadPrevious, upsertProducts, upsertCategories, recordRun, diffCatalog, recordEvents, applySettings, setStatus } from './db.mjs';
+import { openDb, loadPrevious, upsertProducts, upsertCategories, recordRun, diffCatalog, recordEvents, applySettings, setStatus, detailsDue, saveDetails } from './db.mjs';
 
 class CoverageError extends Error {}
 class LoginError extends Error {} // login itself failed -> needs a human
@@ -141,16 +141,31 @@ async function main() {
     }
     await setStatus(db, 'payload_shape', { keys: shape, at: new Date().toISOString() });
 
+    // Brand + description come from product pages. Every page this run reads (cross-check, audit, and the
+    // details step below) is used for them; they are written only when the text changed.
+    const details = { read: new Set(), changed: [], unchanged: 0, noDescription: [], notFound: [] };
+    // Called for each product page as soon as it is read (fetchProductPages' onPage), so progress is saved
+    // page by page.
+    const keepDetails = async (id, entry) => {
+      if (!entry || details.read.has(id)) return; // page not loaded: keep old values, retry next time
+      details.read.add(id);
+      const d = entry.details;
+      if (!d.found) { details.notFound.push(id); return; } // structure changed: never wipe stored text
+      if (!d.description) details.noDescription.push(id);
+      if ((await saveDetails(db, id, d)) === 'changed') details.changed.push(id);
+      else details.unchanged++;
+    };
+
     // Once a day: verify 3 random products against their own product page (3 extra requests).
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
     const { rows: [lastCheck] } = await db.query(`SELECT value FROM bot_status WHERE key = 'crosscheck'`);
     if (lastCheck?.value?.date !== today) {
       const pool = accepted.filter((p) => p.is_sellable);
       const sample = [...pool].sort(() => Math.random() - 0.5).slice(0, 3);
-      const page = await fetchProductPages(sample.map((p) => p.id));
+      const page = await fetchProductPages(sample.map((p) => p.id), keepDetails);
       const checked = [], mismatched = [];
       for (const p of sample) {
-        const v = page.get(p.id);
+        const v = page.get(p.id)?.pricing;
         if (!v) continue;
         checked.push(p.id);
         if (v.price !== p.price || v.cost_price !== p.cost_price) mismatched.push({ p, v });
@@ -171,10 +186,10 @@ async function main() {
     const todo = products.filter((p) => !doneSet.has(p.id)).slice(0, AUDIT_PER_RUN);
     if (todo.length) {
       const known = new Set(products.map((p) => p.id));
-      const pages = await fetchProductPages(todo.map((p) => p.id));
+      const pages = await fetchProductPages(todo.map((p) => p.id), keepDetails);
       const problems = [];
       for (const p of todo) {
-        const v = pages.get(p.id);
+        const v = pages.get(p.id)?.pricing;
         if (!v) { await db.query('INSERT INTO product_audit (product_id, ok) VALUES ($1, false) ON CONFLICT (product_id) DO UPDATE SET ok = false, checked_at = now(), attempts = product_audit.attempts + 1', [p.id]); continue; }
         const missing = v.variantCodes.filter((c) => !known.has(c));
         const priceMatches = v.price === p.price && v.cost_price === p.cost_price;
@@ -196,6 +211,30 @@ async function main() {
         completed_at: complete ? (prevAudit?.value?.completed_at ?? new Date().toISOString()) : null,
         reported: complete ? (prevAudit?.value?.reported ?? false) : false,
       });
+    }
+
+    // Brand / description: a few product pages per run, never-read products first, then week-old ones.
+    if (config.detailsPerRun > 0) {
+      const due = (await detailsDue(db, config.detailsPerRun + details.read.size, config.detailsMaxAgeDays))
+        .filter((id) => !details.read.has(id))
+        .slice(0, config.detailsPerRun);
+      if (due.length) await fetchProductPages(due, keepDetails);
+    }
+    if (details.read.size) {
+      const { rows: [cov] } = await db.query(
+        `SELECT count(*) FILTER (WHERE description IS NOT NULL)::int AS described,
+                count(*) FILTER (WHERE brand IS NOT NULL)::int AS branded, count(*)::int AS total
+           FROM supplier_products WHERE missing_since IS NULL`);
+      log.info(`details: ${details.read.size} product pages read, ${details.changed.length} changed, ${details.unchanged} unchanged; ` +
+        `${cov.described}/${cov.total} have a description, ${cov.branded}/${cov.total} a brand`,
+        { changed: details.changed.slice(0, 20), noDescription: details.noDescription.slice(0, 20) });
+      if (details.noDescription.length) log.warn(`details: no description on ${details.noDescription.length} product page(s) (left empty)`, { ids: details.noDescription });
+      // Most pages without the product object = their page layout changed; stored text is kept untouched.
+      if (details.notFound.length > Math.max(2, details.read.size / 2)) {
+        alertLines.push(`🧩 صفحه‌ی محصولات لیاتیم عوض شده: برند/توضیحات ${details.notFound.length} محصول خوانده نشد (مقادیر قبلی حفظ شد).`);
+      } else if (details.notFound.length) {
+        log.warn(`details: product object not found on ${details.notFound.length} page(s)`, { ids: details.notFound });
+      }
     }
 
     if (rejected.length) {

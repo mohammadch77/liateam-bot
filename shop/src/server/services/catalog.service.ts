@@ -29,10 +29,40 @@ export type Category = { code: number; name: string; parentCode: number | null; 
 
 export type ProductView = ProductCardData & {
   id: number;
+  /** the supplier's brand (from the product page); null until the bot has read it */
+  brandName: string | null;
   categories: Array<{ code: number; name: string; href: string }>;
   stockCount: number;
   updatedAt: Date;
 };
+
+/** The stored description (plain text from the sync bot) as typed blocks: never rendered as HTML. */
+export type DescriptionBlock =
+  | { kind: 'heading'; text: string }
+  | { kind: 'paragraph'; lines: string[] }
+  | { kind: 'list'; items: string[] };
+
+/** "## " heading, "• " list item, blank line between blocks (format written by the bot's product-details.mjs). */
+export function descriptionBlocks(text: string | null): DescriptionBlock[] {
+  if (!text) return [];
+  const blocks: DescriptionBlock[] = [];
+  for (const chunk of text.split(/\n{2,}/)) {
+    const lines = chunk
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+    for (const line of lines) {
+      const last = blocks.at(-1);
+      if (line.startsWith('## ')) blocks.push({ kind: 'heading', text: line.slice(3) });
+      else if (line.startsWith('• ')) {
+        if (last?.kind === 'list') last.items.push(line.slice(2));
+        else blocks.push({ kind: 'list', items: [line.slice(2)] });
+      } else if (last?.kind === 'paragraph' && lines.indexOf(line) > 0) last.lines.push(line);
+      else blocks.push({ kind: 'paragraph', lines: [line] });
+    }
+  }
+  return blocks;
+}
 
 export type Listing = {
   items: ProductView[];
@@ -91,7 +121,9 @@ function toView(r: ProductRow, names: Map<number, string>): ProductView {
     id: r.id,
     href: productPath(r.id, clean(r.name)),
     name: clean(r.name),
-    brand: categories[0]?.name ?? null, // the supplier feed has no brand; the main category takes its place
+    brandName: r.brand,
+    // card label: the brand when the bot has read it, otherwise the main category
+    brand: r.brand ?? categories[0]?.name ?? null,
     imageUrl: r.image_url,
     priceRial: r.price,
     oldPriceRial: null, // the supplier feed has no list price, so no discount is ever shown
@@ -202,7 +234,12 @@ export const catalogService = {
           offset: 0,
         })
       : { rows: [] };
-    return { product, trail, related: related.rows.map((r) => toView(r, names)) };
+    return {
+      product,
+      description: descriptionBlocks(row.description),
+      trail,
+      related: related.rows.map((r) => toView(r, names)),
+    };
   },
 
   /** Canonical address of a category (for the URL check before rendering), or null if unknown. */

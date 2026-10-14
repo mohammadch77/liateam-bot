@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const brand = getConfig().BRAND_NAME;
   return {
     title: `${p.name} | ${brand}`,
-    description: `خرید ${p.name} اصل با قیمت ${formatTomanText(p.priceRial)}${p.brand ? ` در دسته‌ی ${p.brand}` : ''} از ${brand}.`,
+    description: `خرید ${p.name}${p.brandName ? ` از برند ${p.brandName}` : ''}، اصل با قیمت ${formatTomanText(p.priceRial)} از ${brand}.`,
     alternates: { canonical: p.href },
     openGraph: { title: p.name, images: p.imageUrl ? [{ url: p.imageUrl }] : undefined },
   };
@@ -50,10 +50,11 @@ export default async function ProductPage({ params }: Props) {
     );
   }
   if (!data) notFound();
-  const { product: p, trail, related } = data;
+  const { product: p, description, trail, related } = data;
 
   const main = p.categories[0];
   const out = p.stock === 'out';
+  const firstParagraph = description.find((b) => b.kind === 'paragraph');
   // Product structured data for search engines (price in toman as shown; the currency code IRR is rial).
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -61,6 +62,9 @@ export default async function ProductPage({ params }: Props) {
     name: p.name,
     sku: String(p.id),
     category: main?.name,
+    brand: p.brandName ? { '@type': 'Brand', name: p.brandName } : undefined,
+    description:
+      firstParagraph?.kind === 'paragraph' ? firstParagraph.lines.join(' ').slice(0, 300) : undefined,
     offers: {
       '@type': 'Offer',
       priceCurrency: 'IRR',
@@ -97,10 +101,15 @@ export default async function ProductPage({ params }: Props) {
         </div>
 
         <div className={s.info}>
-          {main && (
-            <Link href={main.href} className={s.category}>
-              {main.name}
-            </Link>
+          {/* brand when the sync bot has read it from the product page, otherwise the main category */}
+          {p.brandName ? (
+            <span className={s.category}>{p.brandName}</span>
+          ) : (
+            main && (
+              <Link href={main.href} className={s.category}>
+                {main.name}
+              </Link>
+            )
           )}
           <h1 className={s.name}>{p.name}</h1>
 
@@ -157,6 +166,12 @@ export default async function ProductPage({ params }: Props) {
                 مشخصات
               </h2>
               <dl className={s.specs}>
+                {p.brandName && (
+                  <div>
+                    <dt>برند</dt>
+                    <dd>{p.brandName}</dd>
+                  </div>
+                )}
                 <div>
                   <dt>دسته‌بندی</dt>
                   <dd>
@@ -177,6 +192,37 @@ export default async function ProductPage({ params }: Props) {
           )}
         </div>
       </article>
+
+      {description.length > 0 && (
+        <section className={s.description} aria-labelledby="description-title">
+          <h2 id="description-title" className={s.detailsTitle}>
+            توضیحات
+          </h2>
+          {/* typed blocks from plain text: the supplier's HTML is never rendered */}
+          <div className={s.prose}>
+            {description.map((b, i) =>
+              b.kind === 'heading' ? (
+                <h3 key={i}>{b.text}</h3>
+              ) : b.kind === 'list' ? (
+                <ul key={i}>
+                  {b.items.map((item, j) => (
+                    <li key={j}>{item}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p key={i}>
+                  {b.lines.map((line, j) => (
+                    <span key={j}>
+                      {j > 0 && <br />}
+                      {line}
+                    </span>
+                  ))}
+                </p>
+              ),
+            )}
+          </div>
+        </section>
+      )}
 
       {related.length > 0 && (
         <Section

@@ -10,7 +10,7 @@ import { query, queryOne } from '@/lib/db';
 const VISIBLE = `p.is_sellable AND p.price > 0 AND p.missing_since IS NULL`;
 
 const PRODUCT_COLS = `p.id, p.name, p.price, p.stock, p.category, p.category_names, p.image_url,
-  p.first_seen_at, p.updated_at`;
+  p.first_seen_at, p.updated_at, p.brand`;
 
 /**
  * The supplier attaches products to leaf categories only («سرم تخصصی صورت», not «سرم تخصصی»). A category
@@ -36,7 +36,11 @@ export type ProductRow = {
   image_url: string | null;
   first_seen_at: Date;
   updated_at: Date;
+  brand: string | null;
 };
+
+/** Product page only: the description can be several KB, so lists never select it. */
+export type ProductDetailRow = ProductRow & { description: string | null };
 
 export type CategoryRow = {
   code: number;
@@ -94,10 +98,10 @@ export const catalogRepository = {
     return { rows, total: rows[0]?.total ?? 0 };
   },
 
-  async getProduct(id: number): Promise<ProductRow | null> {
-    return queryOne<ProductRow>(
+  async getProduct(id: number): Promise<ProductDetailRow | null> {
+    return queryOne<ProductDetailRow>(
       'catalog.get_product',
-      `SELECT ${PRODUCT_COLS} FROM product_catalog p WHERE p.id = $1 AND ${VISIBLE}`,
+      `SELECT ${PRODUCT_COLS}, p.description FROM product_catalog p WHERE p.id = $1 AND ${VISIBLE}`,
       [id],
     );
   },

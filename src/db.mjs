@@ -47,6 +47,12 @@ CREATE TABLE IF NOT EXISTS categories (
 );
 ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS image_url TEXT;
 ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS missing_since TIMESTAMPTZ;  -- set while the supplier no longer lists it
+-- From each product's own page (product-details.mjs). Content columns change only when the text changes;
+-- details_checked_at only schedules the next visit (one product page per product per week, spread over runs).
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS description TEXT;            -- plain structured text, never HTML
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS brand TEXT;
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS details_checked_at TIMESTAMPTZ;
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS details_updated_at TIMESTAMPTZ;
 -- What changed in the catalog, run by run (shown in the dashboard; not only failures).
 CREATE TABLE IF NOT EXISTS product_events (
   id         SERIAL PRIMARY KEY,
@@ -66,7 +72,8 @@ SELECT p.id, p.uuid, p.name, p.price, p.cost_price, p.stock, p.category, p.is_av
        COALESCE((SELECT array_agg(COALESCE(c.name, '#' || x.code) ORDER BY x.ord)
                    FROM unnest(p.category) WITH ORDINALITY AS x(code, ord)
                    LEFT JOIN categories c ON c.code = x.code), '{}') AS category_names,
-       p.image_url, p.missing_since
+       p.image_url, p.missing_since,
+       p.description, p.brand
   FROM supplier_products p;
 
 -- Alert lines of each run (also in logs/alerts.log); read by the dashboard.
@@ -246,6 +253,38 @@ export async function openDb() {
 export async function loadPrevious(db) {
   const { rows } = await db.query('SELECT id, name, price, cost_price, stock, missing_since FROM supplier_products');
   return new Map(rows.map((r) => [r.id, r]));
+}
+
+/**
+ * Products whose page should be read for brand/description this run: never checked first, then the oldest
+ * check older than `maxAgeDays`. Only products still listed by the supplier.
+ */
+export async function detailsDue(db, limit, maxAgeDays) {
+  const { rows } = await db.query(
+    `SELECT id FROM supplier_products
+      WHERE missing_since IS NULL
+        AND (details_checked_at IS NULL OR details_checked_at < now() - make_interval(days => $2))
+      ORDER BY details_checked_at NULLS FIRST, id
+      LIMIT $1`,
+    [limit, maxAgeDays],
+  );
+  return rows.map((r) => r.id);
+}
+
+/**
+ * Stores brand/description only when they differ from what is stored (IS DISTINCT FROM), so an unchanged page
+ * rewrites nothing; details_checked_at alone records the visit. Price, stock, updated_at are never touched.
+ * @returns 'changed' | 'unchanged'
+ */
+export async function saveDetails(db, id, { brand, description }) {
+  const { rowCount } = await db.query(
+    `UPDATE supplier_products SET brand = $2, description = $3, details_updated_at = now(), details_checked_at = now()
+      WHERE id = $1 AND (brand IS DISTINCT FROM $2 OR description IS DISTINCT FROM $3)`,
+    [id, brand, description],
+  );
+  if (rowCount) return 'changed';
+  await db.query('UPDATE supplier_products SET details_checked_at = now() WHERE id = $1', [id]);
+  return 'unchanged';
 }
 
 export async function upsertProducts(db, products) {

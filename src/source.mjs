@@ -6,6 +6,7 @@ import { parseCategoriesPage, extractAll } from './rsc.mjs';
 import { normalize } from './normalize.mjs';
 import { parseCategories } from './categories.mjs';
 import { AuthError } from './auth.mjs';
+import { parseProductDetails } from './product-details.mjs';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Reading time like a person: 4–12 s per page, and now and then (~1 in 7) a long look of 15–35 s.
@@ -87,14 +88,17 @@ export async function fetchAllProducts() {
 }
 
 /**
- * Reads products from their own page (cross-check + one-time audit). Per product:
- *   price / cost_price  - this product's pricing on its page
- *   prices              - distinct selling prices of every pricing block for this code (>1 = models with own prices)
- *   variantCodes        - codes listed under variant_products (sibling models)
- * Errors never fail the run (null for that product). 3–6 s pause before each page, like a person.
- * @returns {Map<code, {price, cost_price, prices: number[], variantCodes: number[]} | null>}
+ * Reads products from their own page (cross-check, one-time audit, brand/description). Per product:
+ *   pricing  - { price, cost_price, prices, variantCodes } from this page, or null if no pricing block was found
+ *              (prices: distinct selling prices of every pricing block, >1 = models with own prices;
+ *               variantCodes: codes listed under variant_products)
+ *   details  - { found, brand, description, paths } (see product-details.mjs)
+ * The whole entry is null when the page could not be loaded. Errors never fail the run.
+ * 6–18 s pause before each page, like a person. `onPage(code, entry)` runs right after each page, so a long
+ * batch saves its progress page by page instead of losing it if the run stops halfway.
+ * @returns {Map<code, {pricing: object|null, details: object} | null>}
  */
-export async function fetchProductPages(codes) {
+export async function fetchProductPages(codes, onPage) {
   const ctx = await request.newContext({
     baseURL: config.baseUrl,
     storageState: config.storageStatePath,
@@ -111,19 +115,24 @@ export async function fetchProductPages(codes) {
       await sleep(6000 + Math.random() * 12000); // opening a product and looking at it
       try {
         const res = await ctx.get(`/products/${code}?_rsc`);
-        if (res.status() !== 200) { out.set(code, null); continue; }
+        if (res.status() !== 200) throw new Error(`HTTP ${res.status()}`);
         const text = await res.text();
         const own = extractAll(text, 'pricing').filter((x) => x && (x.code === code || x.product_code === code));
         const variants = extractAll(text, 'variant_products').filter(Array.isArray).flat();
-        out.set(code, own.length ? {
-          price: Number(own[0].price),
-          cost_price: Number(own[0].payable_price),
-          prices: [...new Set(own.map((x) => Number(x.price)).filter(Number.isFinite))],
-          variantCodes: [...new Set(variants.map((v) => v?.code ?? v?.product_code).filter((c) => typeof c === 'number' && c !== code))],
-        } : null);
+        out.set(code, {
+          pricing: own.length ? {
+            price: Number(own[0].price),
+            cost_price: Number(own[0].payable_price),
+            prices: [...new Set(own.map((x) => Number(x.price)).filter(Number.isFinite))],
+            variantCodes: [...new Set(variants.map((v) => v?.code ?? v?.product_code).filter((c) => typeof c === 'number' && c !== code))],
+          } : null,
+          details: parseProductDetails(text, code),
+        });
       } catch {
         out.set(code, null);
       }
+      // outside the try above: an error while saving is a real error (database), not a page problem
+      if (onPage) await onPage(code, out.get(code));
     }
   } finally {
     await ctx.dispose();

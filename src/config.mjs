@@ -15,6 +15,10 @@ export const config = {
   maxPages: Number(env.MAX_PAGES || 50), // hard stop against runaway pagination
   priceJumpLimit: Number(env.PRICE_JUMP_LIMIT || 0.5), // 50%
   minCoverage: Number(env.MIN_COVERAGE || 0.9), // fetched / reported total
+  // Brand + description from product pages: at most this many pages per run (each 6–18 s, like a person);
+  // 30 per 4-hour run covers all ~230 products in about a day, then each is re-read once a week.
+  detailsPerRun: Number(env.DETAILS_PER_RUN ?? 30),
+  detailsMaxAgeDays: Number(env.DETAILS_MAX_AGE_DAYS || 7),
   headful: env.LOGIN_HEADFUL === '1',
   // Products in these supplier categories are stored with is_sellable=false and left out of products.json.
   // 199 = «ابزارها و سمپل فروش» (bags, ribbons, brochures, testers, merch); 124 = unnamed subset of 199.
