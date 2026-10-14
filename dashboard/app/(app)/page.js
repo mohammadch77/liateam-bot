@@ -1,5 +1,6 @@
 import { q } from '@/lib/db';
 import { getHealth } from '@/lib/health';
+import { getShopHealth } from '@/lib/shopHealth';
 import { LOW_STOCK } from '@/lib/products';
 import { num, pct, ago, duration, countdown, tomanShort, shortDate } from '@/lib/format';
 import RunsChart from '../components/RunsChart';
@@ -11,11 +12,14 @@ import AuditCard from '../components/AuditCard';
 
 export const dynamic = 'force-dynamic';
 
+const SHOP_LABEL = { up: 'سالم', degraded: 'مشکل در دیتابیس', offline: 'خاموش' };
+const SHOP_COLOR = { up: 'var(--ok)', degraded: 'var(--warn)', offline: 'var(--bad)' };
+
 async function load() {
   const t0 = performance.now();
   await q('SELECT 1');
   const dbMs = Math.round(performance.now() - t0);
-  const [health, [summary], changes, [today], runs] = await Promise.all([
+  const [health, [summary], changes, [today], runs, shop] = await Promise.all([
     getHealth(),
     q(`SELECT count(*)::int AS total,
               count(*) FILTER (WHERE is_sellable)::int AS sellable,
@@ -30,10 +34,11 @@ async function load() {
     q(`SELECT count(*)::int AS n FROM product_events
         WHERE at >= date_trunc('day', now() AT TIME ZONE 'Asia/Tehran') AT TIME ZONE 'Asia/Tehran'`).catch(() => [{ n: 0 }]),
     q(`SELECT started_at, status, fetched, sellable, rejected FROM sync_runs ORDER BY started_at DESC LIMIT 20`),
+    getShopHealth(),
   ]);
   const alerts = health.last && health.last.status !== 'ok'
     ? await q('SELECT message FROM sync_alerts WHERE run_id = $1 ORDER BY id', [health.last.id]) : [];
-  return { dbMs, health, summary, changes, today: today.n, runs: runs.reverse(), alerts };
+  return { dbMs, health, summary, changes, today: today.n, runs: runs.reverse(), alerts, shop };
 }
 
 export default async function Overview() {
@@ -75,6 +80,21 @@ export default async function Overview() {
           <div className="stat-value" style={{ color: 'var(--ok)' }}>برقرار</div>
           <div className="stat-foot tnum">PostgreSQL · {num(d.dbMs)}ms</div>
         </div>
+      </div>
+
+      <h2 className="section">وضعیت سایت فروشگاه</h2>
+      <div className="grid g4">
+        {d.shop.map((x) => (
+          <div className="card" key={x.label}>
+            <div className="stat-label">{x.label}</div>
+            <div className="stat-value" style={{ color: SHOP_COLOR[x.state] }}>{SHOP_LABEL[x.state]}</div>
+            <div className="stat-foot tnum">
+              {x.state === 'offline'
+                ? 'سرویس اجرا نمی‌شود یا پاسخ نمی‌دهد'
+                : `دیتابیس: ${x.dbStatus === 'up' ? 'وصل' : 'قطع'}${x.dbMs != null ? ` · ${num(x.dbMs)}ms` : ''}${x.code ? ` · ${x.code}` : ''}`}
+            </div>
+          </div>
+        ))}
       </div>
 
       <h2 className="section">خلاصه‌ی کاتالوگ</h2>
