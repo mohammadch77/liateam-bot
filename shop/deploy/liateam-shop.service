@@ -1,0 +1,26 @@
+# /etc/systemd/system/liateam-shop.service — shop PRODUCTION (Next.js, 127.0.0.1:3849)
+# Own user, own code checkout, own env file, own DB role/schema: shares nothing writable with
+# liateam-worker / -messenger / -dashboard / -orders or the other site on this server.
+[Unit]
+Description=Liateam shop (production)
+After=network.target postgresql.service
+
+[Service]
+User=liateam-shop
+Group=liateam-shop
+WorkingDirectory=/opt/liateam-shop/production/app/shop
+EnvironmentFile=/opt/liateam-shop/env/production.env
+Environment=NODE_ENV=production HOME=/opt/liateam-shop
+ExecStart=/usr/bin/env npm start
+Restart=on-failure
+RestartSec=10
+# A config error exits with code 1: do not restart-loop on it, just show it in `systemctl status`.
+RestartPreventExitStatus=1
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
