@@ -47,11 +47,12 @@
     inset 0 -2px 0 rgba(201, 147, 122, 0.45),
     0 10px 18px -10px rgba(138, 28, 74, 0.25);
 }
-.image {
+/* Product shot standing on the pedestal (style sheet: PNGs on an oval pedestal, warm radial backdrop). */
+.imageBox {
   position: absolute;
   inset: 6% 10% 15%;
-  width: 80%;
-  height: 79%;
+}
+.image {
   object-fit: contain;
   object-position: center bottom;
   mix-blend-mode: multiply; /* white supplier backgrounds melt into the stage */
@@ -235,6 +236,10 @@
 }
 .favOn {
   color: var(--color-primary);
+}
+/* Placeholder controls (cart/favourites arrive in phase 2): same look, no pointer affordance. */
+.placeholder {
+  cursor: not-allowed;
 }
 .notify {
   display: flex;

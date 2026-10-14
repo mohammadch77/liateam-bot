@@ -1,7 +1,10 @@
 import 'server-only';
 import { getConfig } from '@/lib/config';
 import type { CurrentUser } from '@/server/services/session.service';
-import type { BottomNavItem, FooterProps, HeaderProps } from '@/ui';
+import { toAppError } from '@/lib/errors';
+import { logger } from '@/lib/logger';
+import { catalogService } from '@/server/services/catalog.service';
+import type { BottomNavItem, FooterProps, HeaderProps, NavItem } from '@/ui';
 
 /**
  * Header / footer / tab-bar data for every storefront page. Brand and contact details come from config (the
@@ -18,11 +21,25 @@ const LINKS = {
   favorites: '/account/favorites',
 } as const;
 
-export function headerProps(user: CurrentUser | null): HeaderProps {
+/** Top-level categories for the header bar; the header still renders (without them) if the catalog is down. */
+export async function headerCategories(): Promise<NavItem[]> {
+  try {
+    const all = await catalogService.allCategories();
+    return all
+      .filter((x) => x.parentCode === null)
+      .slice(0, 7)
+      .map((x) => ({ label: x.name, href: x.href }));
+  } catch (e) {
+    logger.warn('site.header_categories_unavailable', { code: toAppError(e).code });
+    return [];
+  }
+}
+
+export function headerProps(user: CurrentUser | null, categories: NavItem[] = []): HeaderProps {
   const c = getConfig();
   return {
     brand: { name: c.BRAND_NAME, latin: c.BRAND_LATIN },
-    categories: [], // filled from the supplier catalog in the catalog step
+    categories,
     allCategoriesHref: '/categories',
     cartCount: 0,
     signedIn: user !== null,

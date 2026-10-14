@@ -20,7 +20,8 @@
     "migrate:status": "node scripts/migrate.mjs status",
     "icons": "node scripts/build-icons.mjs",
     "check:responsive": "node scripts/check-responsive.mjs",
-    "grant-role": "node scripts/grant-role.mjs"
+    "grant-role": "node scripts/grant-role.mjs",
+    "images:warm": "node scripts/warm-images.mjs"
   },
   "dependencies": {
     "next": "^16.4.0",

@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { discountPercent, type Rial } from '@/lib/format/money';
@@ -35,6 +36,9 @@ type ProductCardProps = {
   priority?: boolean;
 };
 
+/** Until the cart and favourites exist (phase 2) the default controls are visible placeholders. */
+const SOON = 'به‌زودی فعال می‌شود';
+
 export function ProductCard({ product: p, action, favorite, priority }: ProductCardProps) {
   const out = p.stock === 'out';
   const off = out ? 0 : discountPercent(p.priceRial, p.oldPriceRial);
@@ -43,23 +47,24 @@ export function ProductCard({ product: p, action, favorite, priority }: ProductC
       <div className={s.stage}>
         <span className={s.pedestal} aria-hidden="true" />
         {p.imageUrl ? (
-          // Supplier images come from their CDN at their own sizes; next/image optimisation is set up with the
-          // catalog (tick 5) once the image host is fixed.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={p.imageUrl}
-            alt=""
-            className={s.image}
-            loading={priority ? 'eager' : 'lazy'}
-            decoding="async"
-          />
+          // Through our image optimiser (next.config images): resized WebP, never hot-linked from the supplier.
+          <span className={s.imageBox}>
+            <Image
+              src={p.imageUrl}
+              alt=""
+              fill
+              sizes="(min-width: 1440px) 240px, (min-width: 1024px) 22vw, (min-width: 768px) 30vw, 46vw"
+              className={s.image}
+              priority={priority}
+            />
+          </span>
         ) : (
           <span className={s.noImage} aria-hidden="true">
             <Icon name="spa" size={56} />
           </span>
         )}
         {off > 0 && <DiscountRibbon percent={off} className={s.ribbon} />}
-        <span className={s.fav}>{favorite ?? <FavoriteButton />}</span>
+        <span className={s.fav}>{favorite ?? <FavoriteButton unavailableReason={SOON} />}</span>
         {(p.stock === 'limited' || out) && (
           <span className={s.badges}>
             <Badge tone={out ? 'outOfStock' : 'limited'} size="sm" />
@@ -88,7 +93,12 @@ export function ProductCard({ product: p, action, favorite, priority }: ProductC
             <>
               <span className={s.outLabel}>ناموجود</span>
               <span className={s.action}>
-                <button type="button" className={s.notify}>
+                <button
+                  type="button"
+                  className={cx(s.notify, s.placeholder)}
+                  aria-disabled="true"
+                  title={SOON}
+                >
                   <Icon name="notifications" size={18} />
                   خبرم کن
                 </button>
@@ -97,7 +107,9 @@ export function ProductCard({ product: p, action, favorite, priority }: ProductC
           ) : (
             <>
               <Price rial={p.priceRial} oldRial={p.oldPriceRial} size="md" />
-              <span className={s.action}>{action ?? <AddToCartButton state="idle" />}</span>
+              <span className={s.action}>
+                {action ?? <AddToCartButton state="idle" unavailableReason={SOON} />}
+              </span>
             </>
           )}
         </div>
@@ -107,15 +119,24 @@ export function ProductCard({ product: p, action, favorite, priority }: ProductC
 }
 
 /** Visual add-to-cart button in its three design states. */
-export function AddToCartButton({ state }: { state: 'idle' | 'loading' | 'done' }) {
+export function AddToCartButton({
+  state,
+  unavailableReason,
+}: {
+  state: 'idle' | 'loading' | 'done';
+  /** placeholder until the cart exists: looks like the design, announces why it does nothing */
+  unavailableReason?: string;
+}) {
   const cls = state === 'loading' ? s.addLoading : state === 'done' ? s.addDone : s.addIdle;
   const label =
     state === 'loading' ? 'در حال افزودن' : state === 'done' ? 'به سبد افزوده شد' : 'افزودن به سبد خرید';
   return (
     <button
       type="button"
-      className={cx(s.iconButton, cls)}
-      aria-label={label}
+      className={cx(s.iconButton, cls, unavailableReason && s.placeholder)}
+      aria-label={unavailableReason ? `${label} (${unavailableReason})` : label}
+      aria-disabled={unavailableReason ? true : undefined}
+      title={unavailableReason}
       aria-busy={state === 'loading'}
     >
       {state === 'loading' ? (
@@ -127,13 +148,22 @@ export function AddToCartButton({ state }: { state: 'idle' | 'loading' | 'done' 
   );
 }
 
-export function FavoriteButton({ on = false }: { on?: boolean }) {
+export function FavoriteButton({
+  on = false,
+  unavailableReason,
+}: {
+  on?: boolean;
+  unavailableReason?: string;
+}) {
+  const label = on ? 'حذف از علاقه‌مندی‌ها' : 'افزودن به علاقه‌مندی‌ها';
   return (
     <button
       type="button"
-      className={cx(s.iconButton, s.favButton, on && s.favOn)}
+      className={cx(s.iconButton, s.favButton, on && s.favOn, unavailableReason && s.placeholder)}
       aria-pressed={on}
-      aria-label={on ? 'حذف از علاقه‌مندی‌ها' : 'افزودن به علاقه‌مندی‌ها'}
+      aria-label={unavailableReason ? `${label} (${unavailableReason})` : label}
+      aria-disabled={unavailableReason ? true : undefined}
+      title={unavailableReason}
     >
       <Icon name="favorite" filled={on} size={21} />
     </button>

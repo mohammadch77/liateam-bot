@@ -10,12 +10,23 @@ const require = createRequire(new URL('../../package.json', import.meta.url));
 const { chromium } = require('playwright');
 
 // Add every new page here as it is built.
-const PAGES = ['/', '/login', '/styleguide'];
+const PAGES = [
+  '/',
+  '/categories',
+  '/c/173', // a parent category (redirects to its canonical /c/173-…)
+  '/c/173?sort=price_asc&inStock=1&page=1',
+  '/p/541', // a product (redirects to /p/541-…)
+  '/search?q=%D8%B4%D8%A7%D9%85%D9%BE%D9%88', // «شامپو»
+  '/search?q=qqzzxx', // empty state
+  '/login',
+  '/styleguide',
+];
 const WIDTHS = [
   [360, 780],
   [390, 844],
   [768, 1024],
   [1024, 800],
+  [1280, 800],
   [1440, 900],
   [1920, 1080],
 ];

@@ -1,0 +1,220 @@
+/* Catalog listing: filters (collapsible on phones, side column from 1024px) + results. */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (min-width: 1024px) {
+  .layout {
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 28px;
+  }
+}
+
+.sidebar {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .sidebar {
+    display: block;
+    position: sticky;
+    top: 16px;
+  }
+  .filterMobile {
+    display: none;
+  }
+}
+.filterMobile {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+}
+.filterToggle {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-sm);
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.filterMobile[open] .filterToggle {
+  border-bottom: 1px solid var(--color-line);
+}
+.filterMobile .filters {
+  border: 0;
+  border-radius: 0;
+}
+
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+}
+.fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.legend {
+  padding: 0;
+  margin-bottom: 6px;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.options {
+  display: flex;
+  flex-direction: column;
+  max-height: 360px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.radio input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--color-primary);
+  flex: none;
+}
+.radio span:nth-of-type(1) {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.count {
+  font-size: 12px;
+  color: var(--color-muted);
+  font-feature-settings: 'tnum';
+}
+.filterActions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.total {
+  font-size: 13.5px;
+  color: var(--color-ink-2);
+  font-feature-settings: 'tnum';
+}
+.sortForm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 170px;
+}
+.sortForm > div {
+  flex: 1;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.unavailable {
+  max-width: 520px;
+  margin: 32px auto;
+}
+
+/* ── page scaffolding shared by category / search ── */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-block: 16px 40px;
+}
+@media (min-width: 1024px) {
+  .page {
+    gap: 20px;
+    padding-block: 24px 56px;
+  }
+}
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.title {
+  align-self: flex-start;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--color-accent);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+@media (min-width: 768px) {
+  .title {
+    font-size: var(--type-h1-size);
+    line-height: var(--type-h1-line);
+    letter-spacing: var(--type-h1-tracking);
+  }
+}
+.sub {
+  font-size: 13.5px;
+  color: var(--color-muted);
+}
+.subcats {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto; /* chip row scrolls inside itself on phones, never the page */
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.subcats::-webkit-scrollbar {
+  display: none;
+}
+.subcat {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-line-pill);
+  background: var(--color-white);
+  color: var(--color-ink);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.subcat:hover,
+.subcat[aria-current='true'] {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.searchForm {
+  display: flex;
+  gap: 8px;
+  max-width: 640px;
+}
+.searchForm > div {
+  flex: 1;
+}
