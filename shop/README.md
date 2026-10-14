@@ -107,6 +107,58 @@ Production همین مراحل است با `production/`، `production.env` (`AP
 
 نمایش staging به کارفرما با رمز عبور: `deploy/nginx-shop-staging.conf`.
 
+## مایگریشن دیتابیس
+
+ابزار: node-pg-migrate با فایل‌های SQL خام در `migrations/` (هر فایل: `-- Up Migration` و `-- Down Migration`، هر کدام در یک تراکنش).
+نام‌ها بدون schema نوشته می‌شوند؛ اسکریپت `search_path` را روی `DB_SCHEMA` می‌گذارد، پس **همان فایل‌ها** روی `shop` و `shop_staging` اجرا می‌شوند.
+جدول ردیابی `pgmigrations` داخل همان schema است، نه public. مایگریشن اول اگر schema اشتباه باشد متوقف می‌شود.
+
+| دستور                         | کار                                          |
+| ----------------------------- | -------------------------------------------- |
+| `npm run migrate:status`      | فهرست اجراشده / در انتظار                    |
+| `npm run migrate:up`          | اجرای همه‌ی مایگریشن‌های در انتظار           |
+| `npm run migrate:down`        | برگرداندن آخرین مایگریشن (`-- 3` یعنی سه تا) |
+| `npm run migrate:down -- all` | برگرداندن همه — در production رد می‌شود      |
+
+### دو نقش برای هر محیط
+
+|            | مالک schema، اجرای مایگریشن | اپ در حال اجرا                                    |
+| ---------- | --------------------------- | ------------------------------------------------- |
+| Staging    | `lia_shop_staging_migrator` | `lia_shop_staging`                                |
+| Production | `lia_shop_migrator`         | `lia_shop`                                        |
+| دسترسی     | DDL فقط در schema خودش      | SELECT / INSERT / UPDATE — بدون DELETE و بدون DDL |
+
+دسترسی اپ از طریق default privileges خودکار به هر جدول جدید داده می‌شود؛ فایل‌های مایگریشن نام هیچ نقشی را نمی‌آورند.
+`audit_log` با trigger کاملاً append-only است (UPDATE/DELETE برای هیچ نقشی ممکن نیست).
+
+### اجرا روی سرور
+
+یک بار، بعد از `shop-db-roles.sql`:
+
+```bash
+sudo -u postgres psql lia_sync -v staging_pw="'رمز_migrator_staging'" -v prod_pw="'رمز_migrator_production'" \
+  -f /opt/liateam-shop/staging/app/shop/deploy/shop-db-roles-002-migrator.sql
+```
+
+در `/opt/liateam-shop/env/staging.env` اضافه کنید (اپ از آن استفاده نمی‌کند، فقط اسکریپت مایگریشن):
+
+```
+MIGRATION_DATABASE_URL=postgres://lia_shop_staging_migrator:…@127.0.0.1:5432/lia_sync
+```
+
+هر بار بعد از `git pull` و قبل از restart:
+
+```bash
+cd /opt/liateam-shop/staging/app/shop
+sudo -u liateam-shop bash -c 'set -a; . /opt/liateam-shop/env/staging.env; set +a; npm run migrate:up'
+```
+
+Production همین است با `production.env` (`APP_ENV=production`، `DB_SCHEMA=shop`، نقش `lia_shop_migrator`). قبل از مایگریشن production بکاپ بگیرید:
+
+```bash
+sudo -u postgres pg_dump -n shop -Fc lia_sync > shop-$(date +%F).dump
+```
+
 ## /health
 
 `GET /health` ← `SELECT 1` روی Pool.

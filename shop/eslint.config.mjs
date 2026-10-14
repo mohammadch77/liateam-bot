@@ -26,7 +26,7 @@ const config = [
     },
   },
   {
-    files: ['src/lib/db/**', 'src/server/repositories/**'],
+    files: ['src/lib/db/**', 'src/server/repositories/**', 'scripts/**'],
     rules: { 'no-restricted-imports': 'off' },
   },
   {
