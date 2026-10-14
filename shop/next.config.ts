@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['pg'],
   // The repo root has its own lockfile (sync bot); this app is its own workspace.
   turbopack: { root: process.cwd() },
+  // Do not let `next dev` write an AGENTS.md into the repo.
+  agentRules: false,
 };
 
 export default nextConfig;

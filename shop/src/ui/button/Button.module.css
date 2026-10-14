@@ -1,0 +1,139 @@
+/* Style sheet → «دکمه‌ها»: primary (اصلی) · outline (ثانویه) · ghost (متنی). */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--control-md);
+  padding: 0 20px;
+  border-radius: var(--radius-button);
+  border: 0;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+.button:active:not(:disabled):not([aria-disabled='true']) {
+  transform: scale(0.98);
+}
+.lg {
+  height: var(--control-lg);
+  padding: 0 24px;
+  font-size: 15px;
+}
+.sm {
+  height: var(--control-sm);
+  padding: 0 16px;
+  border-radius: var(--radius-field);
+  font-size: 13.5px;
+}
+.block {
+  display: flex;
+  width: 100%;
+}
+
+.primary {
+  background: var(--color-primary);
+  color: var(--color-white);
+}
+.primary:hover {
+  background: var(--color-primary-hover);
+  color: var(--color-white);
+  box-shadow: 0 12px 24px -12px rgba(138, 28, 74, 0.7);
+}
+.primary:active {
+  background: var(--color-primary-press);
+}
+
+.outline {
+  background: var(--color-white);
+  color: var(--color-primary);
+  border: 1.5px solid var(--color-primary);
+}
+.outline:hover {
+  background: var(--color-blush);
+  color: var(--color-primary);
+}
+.outline:active {
+  background: var(--color-blush-2);
+  color: var(--color-primary-press);
+  border-color: var(--color-primary-press);
+}
+
+.ghost {
+  height: var(--control-sm);
+  border-radius: var(--radius-field);
+  background: none;
+  color: var(--color-primary);
+  gap: 4px;
+}
+.ghost:hover {
+  background: var(--color-blush);
+  color: var(--color-primary-hover);
+}
+.ghost:active {
+  background: var(--color-blush-2);
+  color: var(--color-primary-press);
+}
+.ghost:focus-visible {
+  outline-offset: 2px;
+}
+
+/* Inverse (dark) — «تلاش دوباره» on the error state */
+.dark {
+  background: var(--color-ink);
+  color: var(--color-white);
+}
+.dark:hover {
+  background: #2e2a34;
+  color: var(--color-white);
+}
+
+.button:disabled,
+.button[aria-disabled='true'] {
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+.primary:disabled,
+.primary[aria-disabled='true'],
+.dark:disabled {
+  background: var(--color-disabled-bg);
+  color: var(--color-disabled-text);
+}
+.outline:disabled,
+.outline[aria-disabled='true'] {
+  background: var(--color-white);
+  border-color: #e3dcda;
+  color: var(--color-disabled-text);
+}
+.ghost:disabled,
+.ghost[aria-disabled='true'] {
+  background: none;
+  color: var(--color-disabled-text);
+}
+
+/* Loading keeps the variant colours (style sheet) but blocks interaction. */
+.loading,
+.loading:disabled {
+  cursor: progress;
+}
+.primary.loading,
+.primary.loading:disabled {
+  background: var(--color-primary);
+  color: var(--color-white);
+}
+.outline.loading,
+.outline.loading:disabled {
+  background: var(--color-white);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}

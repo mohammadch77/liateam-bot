@@ -1,0 +1,64 @@
+/* Style sheet → «نمایش قیمت»: tabular digits, smaller «تومان», struck-through old price above. */
+.price {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+.old {
+  color: var(--color-muted);
+  font-weight: 400;
+  text-decoration: line-through;
+  font-feature-settings: 'tnum';
+}
+.current {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+.amount {
+  font-weight: 800;
+  font-feature-settings: 'tnum';
+}
+.unit {
+  font-weight: 500;
+  color: var(--color-ink-2);
+}
+
+.lg .old {
+  font-size: 13px;
+}
+.lg .amount {
+  font-size: 24px;
+}
+.lg .unit {
+  font-size: 12px;
+}
+
+/* md sizes can be tightened by a parent (ProductCard does it through a container query on narrow cards). */
+.md .old {
+  font-size: var(--price-md-old, 12px);
+}
+.md .amount {
+  font-size: var(--price-md-amount, 16.5px);
+}
+.md .unit {
+  font-size: var(--price-md-unit, 11px);
+}
+
+.sm .old {
+  font-size: 11.5px;
+}
+.sm .amount {
+  font-size: 13.5px;
+}
+.sm .unit {
+  font-size: 11px;
+}
+
+.saving {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-success);
+}

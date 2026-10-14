@@ -1,0 +1,391 @@
+/* SiteHeader.dc.html — desktop from 1024px, mobile below. Both are server-rendered; CSS picks one. */
+.header {
+  position: relative;
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+/* ── desktop ── */
+.desktop {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .desktop {
+    display: block;
+  }
+  .mobile {
+    display: none;
+  }
+}
+.topbar {
+  background: var(--color-ink);
+  color: var(--color-topbar-text);
+  font-size: 12.5px;
+}
+.topbarInner {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.topbarGroup {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.topbarGroup:last-child {
+  gap: 18px;
+}
+.topbarItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-topbar-text);
+}
+a.topbarItem:hover {
+  color: var(--color-white);
+}
+.topbarIcon {
+  color: var(--color-dark-icon);
+}
+.topbarStrong {
+  color: var(--color-white);
+  font-weight: 700;
+}
+.topbarRule {
+  width: 1px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.2);
+}
+/* laptop (1024–1439): the second trust line would crowd the bar */
+@media (max-width: 1279px) {
+  .hideNarrow {
+    display: none;
+  }
+}
+
+.main {
+  height: 86px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 32px;
+  align-items: center;
+}
+@media (min-width: 1440px) {
+  .main {
+    grid-template-columns: 200px minmax(0, 1fr) auto;
+  }
+}
+.logo {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+  color: var(--color-ink);
+}
+.logo:hover {
+  color: var(--color-ink);
+}
+.logoName {
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+}
+.logoDot {
+  color: var(--color-accent);
+}
+.logoLatin {
+  margin-top: 7px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 3.2px;
+  color: var(--color-accent-text);
+  direction: ltr;
+  text-align: right;
+}
+
+.search {
+  width: 100%;
+  max-width: 660px;
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 50px;
+  padding: 0 16px;
+  border-radius: 14px;
+  background: var(--color-surface-2);
+  border: 1.5px solid transparent;
+  transition: all 0.2s ease;
+}
+.search:focus-within {
+  background: var(--color-white);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-focus-field);
+}
+.searchIcon {
+  color: var(--color-muted);
+}
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  outline: none;
+  font-size: 14.5px;
+  color: var(--color-ink);
+}
+.searchInput::placeholder {
+  color: var(--color-muted);
+}
+.searchInput:focus-visible {
+  outline: none;
+}
+.kbd {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-muted);
+  border: 1px solid var(--color-line-strong);
+  border-radius: 6px;
+  padding: 1px 6px;
+  direction: ltr;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.wallet {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 14px 0 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-line-pill);
+  background: var(--color-white);
+  color: var(--color-ink);
+  transition: border-color 0.18s;
+}
+.wallet:hover {
+  border-color: var(--color-accent);
+  color: var(--color-ink);
+}
+.walletIcon {
+  color: var(--color-accent-text);
+}
+.walletText {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.walletLabel {
+  font-size: 10.5px;
+  color: var(--color-muted);
+}
+.walletAmount {
+  font-size: 13px;
+  font-weight: 700;
+  font-feature-settings: 'tnum';
+}
+.walletUnit {
+  font-size: 10.5px;
+  font-weight: 500;
+}
+.iconLink {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  color: var(--color-ink);
+}
+.iconLink:hover {
+  background: var(--color-surface-2);
+  color: var(--color-ink);
+}
+.count {
+  position: absolute;
+  top: 3px;
+  left: 2px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 4px;
+  border-radius: 10px;
+  background: var(--color-primary);
+  color: var(--color-white);
+  border: 2px solid var(--color-surface);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+}
+.login {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid var(--color-line-pill);
+  background: var(--color-white);
+  color: var(--color-ink);
+  font-size: 13.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.login:hover {
+  border-color: var(--color-accent);
+  color: var(--color-ink);
+}
+
+.nav {
+  border-top: 1px solid var(--color-line-soft);
+  border-bottom: 1px solid #ece5e2;
+  background: var(--color-surface);
+}
+.navInner {
+  height: 50px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 14px;
+  min-width: 0;
+}
+.allCats {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 50px;
+  padding: 0 0 0 14px;
+  color: var(--color-ink);
+  font-weight: 800;
+  white-space: nowrap;
+}
+.allCats:hover {
+  color: var(--color-primary);
+}
+.navRule {
+  flex: none;
+  width: 1px;
+  height: 20px;
+  background: #e3dbd8;
+  margin: 0 10px;
+}
+.navList {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 12px;
+  line-height: 50px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+.navLink:hover,
+.navLink[aria-current='page'] {
+  color: var(--color-primary);
+}
+.navHighlight {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+.navSpacer {
+  flex: 1;
+}
+.deliver {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-line-pill);
+  background: var(--color-white);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+/* ── mobile ── */
+.mobile {
+  border-bottom: 1px solid var(--color-line);
+}
+.promo {
+  min-height: 30px;
+  padding: 4px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--color-blush);
+  color: var(--color-promo-ink);
+  font-size: 11.5px;
+  text-align: center;
+}
+.mobileRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 6px 0 10px;
+}
+.mobileGroup {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.mobileLogo {
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.4px;
+  color: var(--color-ink);
+}
+.mobileLogo:hover {
+  color: var(--color-ink);
+}
+.walletShort {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-line-pill);
+  background: var(--color-white);
+  color: var(--color-ink);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.mobileSearchWrap {
+  padding: 0 16px 12px;
+}
+.mobileSearch {
+  height: 46px;
+  max-width: none;
+  border-radius: 12px;
+  gap: 8px;
+  padding: 0 14px;
+}
+.mobileSearch .searchInput {
+  font-size: 14px;
+}

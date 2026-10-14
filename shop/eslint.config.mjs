@@ -30,7 +30,7 @@ const config = [
     rules: { 'no-restricted-imports': 'off' },
   },
   {
-    files: ['src/lib/logger/**'],
+    files: ['src/lib/logger/**', 'scripts/**'],
     rules: { 'no-console': 'off' },
   },
 ];

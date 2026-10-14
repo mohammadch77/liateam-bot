@@ -1,0 +1,138 @@
+/* Base layer for the Avina design system. Token values live in src/ui/tokens.ts (injected as :root vars). */
+
+:root {
+  /* Page gutter per breakpoint (tokens.breakpoints): 16 · 24 · 32 · 60 */
+  --gutter: 16px;
+  --grid-columns: 2;
+  color-scheme: light;
+}
+@media (min-width: 768px) {
+  :root {
+    --gutter: 24px;
+    --grid-columns: 3;
+  }
+}
+@media (min-width: 1024px) {
+  :root {
+    --gutter: 32px;
+    --grid-columns: 4;
+  }
+}
+@media (min-width: 1440px) {
+  :root {
+    --gutter: 60px;
+    --grid-columns: 5;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  overflow-x: clip; /* never a horizontal page scroll */
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+figure,
+ul,
+ol {
+  margin: 0;
+}
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--color-primary-press);
+}
+
+/* Focus ring: 2px berry, 3px gap, keyboard focus only (style sheet). */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+/* Numbers in prices and counters: tabular figures. */
+.tnum {
+  font-feature-settings: 'tnum';
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes av-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes av-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+/* prefers-reduced-motion → 0.01ms (style sheet) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

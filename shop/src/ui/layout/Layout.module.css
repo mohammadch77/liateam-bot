@@ -1,0 +1,76 @@
+/* Container 1320 inside 1440 with the breakpoint gutter (16 · 24 · 32 · 60). */
+.container {
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-block: 28px;
+}
+@media (min-width: 1024px) {
+  .section {
+    gap: 24px;
+    padding-block: 40px;
+  }
+}
+.sectionHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+/* Homepage section title: 800 weight with the rose-gold underline. */
+.sectionTitle {
+  align-self: flex-start;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--color-accent);
+  font-size: 20px;
+  font-weight: var(--type-section-weight);
+  line-height: var(--type-section-line);
+  color: var(--color-ink);
+}
+@media (min-width: 768px) {
+  .sectionTitle {
+    font-size: var(--type-section-size);
+  }
+}
+.sectionHead .sectionTitle {
+  align-self: auto;
+}
+.sectionAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Product grid: 2 · 3 · 4 · 5 columns (style sheet breakpoints). */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+  gap: 12px;
+}
+@media (min-width: 768px) {
+  .grid {
+    gap: 16px;
+  }
+}
+@media (min-width: 1440px) {
+  .grid {
+    gap: 20px;
+  }
+}
+/* Next to a side filter column the grid has one column less from laptop up. */
+@media (min-width: 1024px) {
+  .withSidebar {
+    grid-template-columns: repeat(calc(var(--grid-columns) - 1), minmax(0, 1fr));
+  }
+}
