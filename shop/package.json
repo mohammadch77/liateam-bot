@@ -18,7 +18,8 @@
     "migrate:up": "node scripts/migrate.mjs up",
     "migrate:down": "node scripts/migrate.mjs down",
     "migrate:status": "node scripts/migrate.mjs status",
-    "icons": "node scripts/build-icons.mjs"
+    "icons": "node scripts/build-icons.mjs",
+    "check:responsive": "node scripts/check-responsive.mjs"
   },
   "dependencies": {
     "next": "^16.4.0",
