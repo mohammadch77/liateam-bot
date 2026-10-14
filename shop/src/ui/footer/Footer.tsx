@@ -50,23 +50,34 @@ export function Footer(p: FooterProps) {
             </span>
             <p className={s.aboutText}>{p.about}</p>
             <ul className={s.contact}>
-              <li>
-                <Icon name="call" size={18} className={s.darkIcon} />
-                <a href={`tel:${p.contact.phone.replace(/[^\d+]/g, '')}`} dir="ltr" className={s.contactLink}>
-                  {toFaDigits(p.contact.phone)}
-                </a>
-                · {p.contact.hours}
-              </li>
-              <li>
-                <Icon name="mail" size={18} className={s.darkIcon} />
-                <a href={`mailto:${p.contact.email}`} dir="ltr" className={s.contactLink}>
-                  {p.contact.email}
-                </a>
-              </li>
-              <li className={s.address}>
-                <Icon name="location_on" size={18} className={s.darkIcon} />
-                {p.contact.address}
-              </li>
+              {/* each line only when the shop has provided it */}
+              {p.contact.phone && (
+                <li>
+                  <Icon name="call" size={18} className={s.darkIcon} />
+                  <a
+                    href={`tel:${p.contact.phone.replace(/[^\d+]/g, '')}`}
+                    dir="ltr"
+                    className={s.contactLink}
+                  >
+                    {toFaDigits(p.contact.phone)}
+                  </a>
+                  {p.contact.hours && <> · {p.contact.hours}</>}
+                </li>
+              )}
+              {p.contact.email && (
+                <li>
+                  <Icon name="mail" size={18} className={s.darkIcon} />
+                  <a href={`mailto:${p.contact.email}`} dir="ltr" className={s.contactLink}>
+                    {p.contact.email}
+                  </a>
+                </li>
+              )}
+              {p.contact.address && (
+                <li className={s.address}>
+                  <Icon name="location_on" size={18} className={s.darkIcon} />
+                  {p.contact.address}
+                </li>
+              )}
             </ul>
           </div>
 

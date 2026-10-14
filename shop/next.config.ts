@@ -9,6 +9,8 @@ const nextConfig: NextConfig = {
   turbopack: { root: process.cwd() },
   // Do not let `next dev` write an AGENTS.md into the repo.
   agentRules: false,
+  // forbidden() → real HTTP 403 from role guards (src/server/auth/guards.ts).
+  experimental: { authInterrupts: true },
 };
 
 export default nextConfig;

@@ -1,4 +1,4 @@
-import { useId, type InputHTMLAttributes, type ReactNode } from 'react';
+import { useId, type InputHTMLAttributes, type ReactNode, type Ref } from 'react';
 import { Icon } from '../icon/Icon';
 import { cx } from '../cx';
 import s from './Field.module.css';
@@ -12,6 +12,8 @@ export type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'classN
   error?: ReactNode;
   /** numbers / phone / postal code: left-to-right text, right-aligned like the design */
   ltr?: boolean;
+  /** React 19: ref is a plain prop, forwarded to the <input> */
+  ref?: Ref<HTMLInputElement>;
 };
 
 export function TextField({ label, labelNote, hint, error, ltr, id, disabled, ...input }: TextFieldProps) {

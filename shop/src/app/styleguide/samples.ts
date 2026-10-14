@@ -89,6 +89,7 @@ export const header: HeaderProps = {
   ],
   allCategoriesHref: '/categories',
   cartCount: 3,
+  signedIn: true,
   walletRial: 1_200_000,
   freeShippingFromRial: 9_990_000,
   supportPhone: '021-91004500',

@@ -19,7 +19,8 @@
     "migrate:down": "node scripts/migrate.mjs down",
     "migrate:status": "node scripts/migrate.mjs status",
     "icons": "node scripts/build-icons.mjs",
-    "check:responsive": "node scripts/check-responsive.mjs"
+    "check:responsive": "node scripts/check-responsive.mjs",
+    "grant-role": "node scripts/grant-role.mjs"
   },
   "dependencies": {
     "next": "^16.4.0",

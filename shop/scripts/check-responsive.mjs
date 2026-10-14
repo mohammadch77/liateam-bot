@@ -10,7 +10,7 @@ const require = createRequire(new URL('../../package.json', import.meta.url));
 const { chromium } = require('playwright');
 
 // Add every new page here as it is built.
-const PAGES = ['/', '/styleguide'];
+const PAGES = ['/', '/login', '/styleguide'];
 const WIDTHS = [
   [360, 780],
   [390, 844],

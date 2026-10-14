@@ -16,7 +16,9 @@ export type HeaderProps = {
   searchAction?: string;
   searchQuery?: string;
   cartCount: number;
-  /** wallet balance when signed in; null shows «ورود | ثبت‌نام» instead of wallet and account */
+  /** signed out shows «ورود | ثبت‌نام»; signed in shows the account link (and the wallet when known) */
+  signedIn: boolean;
+  /** wallet balance of a signed-in user; null until the wallet exists */
   walletRial: Rial | null;
   freeShippingFromRial: Rial;
   supportPhone: string;
@@ -48,14 +50,18 @@ export function Header(p: HeaderProps) {
               <Link href={p.links.orders} className={s.topbarItem}>
                 پیگیری سفارش
               </Link>
-              <span className={s.topbarRule} aria-hidden="true" />
-              <a href={`tel:${p.supportPhone.replace(/[^\d+]/g, '')}`} className={s.topbarItem}>
-                <Icon name="call" size={17} className={s.topbarIcon} />
-                پشتیبانی:{' '}
-                <span dir="ltr" className="tnum">
-                  {toFaDigits(p.supportPhone)}
-                </span>
-              </a>
+              {p.supportPhone && (
+                <>
+                  <span className={s.topbarRule} aria-hidden="true" />
+                  <a href={`tel:${p.supportPhone.replace(/[^\d+]/g, '')}`} className={s.topbarItem}>
+                    <Icon name="call" size={17} className={s.topbarIcon} />
+                    پشتیبانی:{' '}
+                    <span dir="ltr" className="tnum">
+                      {toFaDigits(p.supportPhone)}
+                    </span>
+                  </a>
+                </>
+              )}
             </div>
           </Container>
         </div>
@@ -64,17 +70,19 @@ export function Header(p: HeaderProps) {
           <Logo brand={p.brand} href={home} />
           <SearchBox action={p.searchAction} query={p.searchQuery} />
           <div className={s.actions}>
-            {wallet !== null ? (
+            {p.signedIn ? (
               <>
-                <Link href={p.links.wallet} className={s.wallet}>
-                  <Icon name="account_balance_wallet" size={20} className={s.walletIcon} />
-                  <span className={s.walletText}>
-                    <span className={s.walletLabel}>کیف پول</span>
-                    <span className={s.walletAmount}>
-                      {formatToman(wallet)} <span className={s.walletUnit}>تومان</span>
+                {wallet !== null && (
+                  <Link href={p.links.wallet} className={s.wallet}>
+                    <Icon name="account_balance_wallet" size={20} className={s.walletIcon} />
+                    <span className={s.walletText}>
+                      <span className={s.walletLabel}>کیف پول</span>
+                      <span className={s.walletAmount}>
+                        {formatToman(wallet)} <span className={s.walletUnit}>تومان</span>
+                      </span>
                     </span>
-                  </span>
-                </Link>
+                  </Link>
+                )}
                 <Link href={p.links.account} className={s.iconLink} aria-label="حساب کاربری">
                   <Icon name="person" size={24} />
                 </Link>
@@ -137,10 +145,14 @@ export function Header(p: HeaderProps) {
             </Link>
           </div>
           <div className={s.mobileGroup}>
-            {wallet !== null ? (
+            {p.signedIn && wallet !== null ? (
               <Link href={p.links.wallet} className={s.walletShort}>
                 <Icon name="account_balance_wallet" size={18} className={s.walletIcon} />
                 {formatTomanShort(wallet)}
+              </Link>
+            ) : p.signedIn ? (
+              <Link href={p.links.account} className={s.iconLink} aria-label="حساب کاربری">
+                <Icon name="person" size={24} />
               </Link>
             ) : (
               <Link href={p.links.login} className={s.walletShort}>

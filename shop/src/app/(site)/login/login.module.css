@@ -1,0 +1,105 @@
+/* Sign-in: one cream card centred on the blush backdrop, built from design-system tokens. */
+.page {
+  display: flex;
+  justify-content: center;
+  padding: 24px var(--gutter) 40px;
+  background: radial-gradient(90% 70% at 50% 0%, var(--color-blush) 0%, var(--color-surface) 70%);
+}
+@media (min-width: 768px) {
+  .page {
+    padding-block: 64px 88px;
+  }
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 440px;
+  min-width: 0;
+  padding: 28px 20px;
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--color-line);
+  background: var(--color-white);
+  box-shadow: var(--shadow-md);
+}
+@media (min-width: 768px) {
+  .card {
+    padding: 40px 36px;
+  }
+}
+.brand {
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.4px;
+  color: var(--color-ink);
+}
+.dot {
+  color: var(--color-accent);
+}
+.title {
+  align-self: flex-start;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--color-accent);
+  font-size: var(--type-h2-size);
+  font-weight: var(--type-h2-weight);
+  line-height: var(--type-h2-line);
+}
+.lead {
+  font-size: 14px;
+  line-height: 1.95;
+  color: var(--color-ink-2);
+}
+.phone {
+  color: var(--color-ink);
+  font-feature-settings: 'tnum';
+  unicode-bidi: isolate;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.form input[name='code'] {
+  height: 56px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 10px;
+  text-align: center;
+  font-feature-settings: 'tnum';
+}
+.terms {
+  font-size: 12px;
+  line-height: 1.9;
+  color: var(--color-muted);
+}
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: var(--control-sm);
+}
+.link {
+  min-height: var(--control-sm);
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--color-primary);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.link:hover {
+  color: var(--color-primary-hover);
+}
+.link:disabled {
+  color: var(--color-disabled-text);
+  cursor: progress;
+}
+.muted {
+  font-size: 13px;
+  color: var(--color-muted);
+  font-feature-settings: 'tnum';
+}

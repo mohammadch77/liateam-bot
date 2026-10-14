@@ -167,3 +167,38 @@ sudo -u postgres pg_dump -n shop -Fc lia_sync > shop-$(date +%F).dump
 - `503 {"status":"degraded", "checks":{"database":{"status":"down","code":"DB_UNAVAILABLE"}}}`
 
 جزئیات خطا (پیام درایور، آدرس سرور) هرگز در پاسخ نمی‌آید؛ فقط در لاگ و بدون رمز.
+
+## احراز هویت (OTP پیامکی)
+
+```
+src/server/sms/                 SmsProvider: dev (کد در لاگ) · kavenegar (verify/lookup) — انتخاب با SMS_PROVIDER
+src/server/services/auth.service.ts      درخواست/تأیید کد، ساخت کاربر و نشست، خروج — OTP_POLICY
+src/server/services/session.service.ts   getCurrentUser (یک کوئری در هر درخواست)، hasRole
+src/server/auth/guards.ts       requireUser (هدایت به /login) · requireRole (HTTP 403) · authorize (API: 401/403)
+src/server/auth/cookie.ts       کوکی نشست
+src/server/http/action.ts       runAction: بررسی Origin (CSRF) + تبدیل خطا برای همه‌ی Server Actionها
+```
+
+| سیاست                      | مقدار                                                                        |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| طول و اعتبار کد            | ۶ رقم · ۲ دقیقه                                                              |
+| ارسال دوباره برای یک شماره | حداقل ۶۰ ثانیه فاصله، حداکثر ۵ کد در ساعت                                    |
+| هر IP                      | حداکثر ۲۰ کد در ساعت (فقط با `TRUST_PROXY=1` پشت nginx)                      |
+| تلاش برای هر کد            | ۵ بار؛ بعد کد باطل است                                                       |
+| قفل                        | ۱۰ کد اشتباه برای یک شماره در ۳۰ دقیقه ⇒ نه تأیید، نه کد جدید                |
+| نشست                       | ۳۰ روز (`SESSION_TTL_DAYS`)، قابل ابطال؛ خروج نشست را در دیتابیس باطل می‌کند |
+
+- کد فقط به‌صورت HMAC-SHA256 با `AUTH_SECRET` ذخیره می‌شود؛ توکن نشست (۲۵۶ بیت) فقط به‌صورت SHA-256.
+- کوکی: `httpOnly`، `SameSite=Lax`، و با HTTPS `Secure` و پیشوند `__Host-`.
+- پیام‌ها عمومی‌اند: پاسخ درخواست کد برای شماره‌ی ثبت‌شده و ثبت‌نشده یکی است.
+- ورود، خروج، قفل و اعطای نقش در `audit_log` ثبت می‌شوند.
+
+دادن نقش (مثلاً اولین مدیر):
+
+```bash
+npm run grant-role -- 09121234567 admin
+```
+
+روی سرور: `sudo -u liateam-shop bash -c 'set -a; . /opt/liateam-shop/env/staging.env; set +a; npm run grant-role -- 0912… admin'`
+
+مسیرهای نمونه: `/account` (فقط کاربر واردشده) · `/admin` و `GET /api/admin/ping` (فقط admin؛ بقیه ۴۰۳).
