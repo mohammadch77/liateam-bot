@@ -34,9 +34,14 @@ const samples = [
   'مَژه‌ی بلـند',
   'CC-کرم (بی‌رنگ)',
 ];
-const { rows: sql } = await db.query('SELECT public.search_norm(t) AS n FROM unnest($1::text[]) AS t', [samples]);
+const { rows: sql } = await db.query('SELECT public.search_norm(t) AS n FROM unnest($1::text[]) AS t', [
+  samples,
+]);
 const diff = samples.filter((t, i) => normalizeSearch(t) !== sql[i].n);
-check(!diff.length, `normalizer matches the database for ${samples.length} texts${diff.length ? `: ${diff.slice(0, 3).join(' | ')}` : ''}`);
+check(
+  !diff.length,
+  `normalizer matches the database for ${samples.length} texts${diff.length ? `: ${diff.slice(0, 3).join(' | ')}` : ''}`,
+);
 await db.end();
 
 const PUBLIC = ['brand', 'href', 'imageUrl', 'inStock', 'name', 'priceToman'].join();
@@ -51,7 +56,8 @@ for (const [q, expect] of [
   const first = j.products?.[0];
   check(res.ok && expect.test(first?.name ?? ''), `suggest «${q}» → ${first?.name ?? res.status}`);
   check(
-    (j.products ?? []).every((p) => Object.keys(p).sort().join() === PUBLIC) && !/cost/i.test(JSON.stringify(j)),
+    (j.products ?? []).every((p) => Object.keys(p).sort().join() === PUBLIC) &&
+      !/cost/i.test(JSON.stringify(j)),
     `suggest «${q}» returns only public fields`,
   );
 }

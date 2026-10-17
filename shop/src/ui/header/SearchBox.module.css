@@ -218,7 +218,12 @@
 .skelThumb,
 .skelLine {
   border-radius: 10px;
-  background: linear-gradient(90deg, var(--color-skeleton-a), var(--color-skeleton-b), var(--color-skeleton-a));
+  background: linear-gradient(
+    90deg,
+    var(--color-skeleton-a),
+    var(--color-skeleton-b),
+    var(--color-skeleton-a)
+  );
   background-size: 200% 100%;
   animation: shimmer 1.2s linear infinite;
 }

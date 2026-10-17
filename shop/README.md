@@ -69,43 +69,226 @@ npm run dev                     # http://127.0.0.1:3850
 npm run check                   # typecheck + lint + prettier
 ```
 
-## استقرار روی سرور (یک بار)
+## استقرار (رانبوک)
 
-فقط این‌ها ساخته می‌شود: کاربر `liateam-shop`، پوشه‌ی `/opt/liateam-shop`، نقش‌ها و اسکیماهای بالا، و سرویس‌های `liateam-shop*`. سرویس‌های `liateam-*` موجود و سایت دیگر دست نمی‌خورند.
+همه‌ی قدم‌های سروری فاز ۱ در یک‌جا و به ترتیب اجرا. هر قدم یک برچسب دارد:
+
+- **[یک‌بار]**: فقط در اولین راه‌اندازی هر محیط.
+- **[هر دیپلوی]**: بعد از هر `git pull`.
+- **[وقتی …]**: فقط وقتی آن اتفاق بیفتد.
+
+دستورها برای **staging** نوشته شده‌اند. تفاوت‌های production در «Production» آخر همین بخش آمده است.
+
+**مرزها:** فقط این‌ها ساخته یا تغییر داده می‌شوند:
+
+- پوشه‌های `/opt/liateam-bot` و `/opt/liateam-shop`
+- سرویس‌های `liateam-*`
+- نقش‌ها و اسکیماهای فروشگاه
+- یک سایت nginx جدید
+
+سایت دیگرِ روی سرور، سرویس‌های دیگر، تنظیمات Postgres و بسته‌های سیستم دست نمی‌خورند. nginx فقط `reload` می‌شود، هرگز `restart`، و سرور بدون هماهنگی ری‌استارت نمی‌شود.
+
+| کجا                    | مسیر                                                     | کاربر لینوکس   |
+| ---------------------- | -------------------------------------------------------- | -------------- |
+| ربات و داشبورد (موجود) | `/opt/liateam-bot/app` (شاخه‌ی `feature/shop`)           | `liateam`      |
+| فروشگاه staging        | `/opt/liateam-shop/staging/app/shop`                     | `liateam-shop` |
+| فروشگاه production     | `/opt/liateam-shop/production/app/shop`                  | `liateam-shop` |
+| env فروشگاه            | `/opt/liateam-shop/env/{staging,production}.env` (`600`) | `liateam-shop` |
+
+### ۰. پیش‌نیاز: ربات روی آخرین کد **[هر دیپلوی]**
+
+فروشگاه فقط کاتالوگ ربات را می‌خواند. ستون‌ها (برند، توضیحات، ترتیب دسته) را ربات می‌سازد، پس ربات باید جلوتر یا هم‌زمان به‌روز شود.
 
 ```bash
-# ۱. کاربر و پوشه‌ها
+cd /opt/liateam-bot/app && sudo -u liateam git pull --ff-only
+sudo -u liateam npm ci                        # فقط اگر package-lock.json عوض شده باشد
+sudo systemctl restart liateam-worker liateam-messenger liateam-orders
+# فقط اگر dashboard/ عوض شده باشد:
+cd dashboard && sudo -u liateam npm ci && sudo -u liateam npm run build && sudo systemctl restart liateam-dashboard
+```
+
+چرا: worker در اجرای بعدی، اسکیمای جدید (`CREATE … IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`) را خودش می‌سازد. بعد از اولین sync با کد جدید، ستون‌های `brand` و `description` و `position` وجود دارند و اسکریپت‌های قدم ۲ پیدایشان می‌کنند.
+
+### ۱. کاربر، پوشه و کد فروشگاه **[یک‌بار]**
+
+```bash
 sudo useradd --system --home /opt/liateam-shop --shell /usr/sbin/nologin liateam-shop
 sudo mkdir -p /opt/liateam-shop/{staging,production,env}
 sudo git clone -b feature/shop https://github.com/mohammadch77/liateam-bot.git /opt/liateam-shop/staging/app
 sudo chown -R liateam-shop:liateam-shop /opt/liateam-shop && sudo chmod 700 /opt/liateam-shop/env
-
-# ۲. نقش‌های دیتابیس (رمزها را خودتان بسازید: openssl rand -hex 24)
-sudo -u postgres psql lia_sync -v staging_pw="'رمز_staging'" -v prod_pw="'رمز_production'" \
-  -f /opt/liateam-shop/staging/app/shop/deploy/shop-db-roles.sql
-
-# ۳. فایل env (فقط مالک بخواند)
-sudo -u liateam-shop cp /opt/liateam-shop/staging/app/shop/.env.example /opt/liateam-shop/env/staging.env
-sudo -u liateam-shop chmod 600 /opt/liateam-shop/env/staging.env
-sudo -u liateam-shop nano /opt/liateam-shop/env/staging.env   # APP_ENV=staging PORT=3850 DB_SCHEMA=shop_staging DATABASE_URL=...@127.0.0.1:5432/lia_sync
-
-# ۴. build و سرویس
-cd /opt/liateam-shop/staging/app/shop && sudo -u liateam-shop npm ci && sudo -u liateam-shop npm run build
-sudo cp deploy/liateam-shop-staging.service /etc/systemd/system/
-sudo systemctl daemon-reload && sudo systemctl enable --now liateam-shop-staging
-curl -s http://127.0.0.1:3850/health
 ```
 
-به‌روزرسانی staging:
+چرا: فروشگاه کاربر، کد و فایل env جدا از ربات دارد. خطا یا نفوذ در یکی به دیگری نمی‌رسد.
+
+### ۲. دیتابیس: نقش‌ها و دسترسی‌ها **[یک‌بار، به ترتیب، با کاربر postgres]**
+
+هر چهار فایل تراکنشی‌اند (یا همه‌اش اعمال می‌شود یا هیچ) و هیچ داده‌ای را تغییر نمی‌دهند. رمزها را بسازید (`openssl rand -hex 24`)، فقط در فایل env بگذارید و جای دیگری ننویسید.
 
 ```bash
-cd /opt/liateam-shop/staging/app && sudo -u liateam-shop git pull
-cd shop && sudo -u liateam-shop npm ci && sudo -u liateam-shop npm run build && sudo systemctl restart liateam-shop-staging
+cd /opt/liateam-shop/staging/app/shop/deploy
+
+# ۲-الف. نقش‌های اپ و اسکیماها (lia_shop_staging / lia_shop, shop_staging / shop)؛ کاتالوگ فقط‌خواندنی، بدون cost_price
+sudo -u postgres psql lia_sync -v staging_pw="'…'" -v prod_pw="'…'" -f shop-db-roles.sql
+
+# ۲-ب. نقش‌های مالک اسکیما برای مایگریشن (اپ هرگز از آن‌ها استفاده نمی‌کند)
+sudo -u postgres psql lia_sync -v staging_pw="'…'" -v prod_pw="'…'" -f shop-db-roles-002-migrator.sql
+
+# ۲-ج. خواندن برند و توضیحات محصول؛ اگر ربات هنوز با کد جدید sync نکرده باشد، با پیام واضح متوقف می‌شود (قدم ۰)
+sudo -u postgres psql lia_sync -f shop-db-roles-003-catalog-details.sql
+
+# ۲-د. جست‌وجو: افزونه‌ی pg_trgm، تابع‌های نرمال‌سازی و ایندکس GIN روی جدول محصولات ربات
+sudo -u postgres psql lia_sync -f shop-db-004-search.sql
 ```
 
-Production همین مراحل است با `production/`، `production.env` (`APP_ENV=production PORT=3849 DB_SCHEMA=shop`، نقش `lia_shop`) و `liateam-shop.service` — در زمان تحویل نهایی.
+چرا با کاربر postgres: ساختن نقش و `CREATE EXTENSION` دسترسی مالک دیتابیس می‌خواهد. `004` را می‌شود بی‌خطر دوباره اجرا کرد. تا اجرا نشود، فروشگاه بالا می‌آید ولی جست‌وجو فقط زیررشته‌ی ساده در نام است و یک هشدار `catalog.search_fallback` در لاگ می‌ماند.
 
-نمایش staging به کارفرما با رمز عبور: `deploy/nginx-shop-staging.conf`.
+> اگر بعدها فایل `.sql` جدیدی در `shop/deploy/` آمد، همان‌جا با شماره‌ی بعدی اضافه می‌شود و یک‌بار با postgres اجرا می‌شود.
+
+### ۳. فایل env **[یک‌بار؛ ویرایش وقتی مقداری عوض شود]**
+
+```bash
+sudo -u liateam-shop cp /opt/liateam-shop/staging/app/shop/.env.example /opt/liateam-shop/env/staging.env
+sudo -u liateam-shop chmod 600 /opt/liateam-shop/env/staging.env
+sudo -u liateam-shop nano /opt/liateam-shop/env/staging.env
+```
+
+| متغیر                                                                     | staging                                                 | production             | چرا / نکته                                                                                                                    |
+| ------------------------------------------------------------------------- | ------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `APP_ENV`                                                                 | `staging`                                               | `production`           | قواعد ایمنی هر محیط را روشن می‌کند                                                                                            |
+| `PORT`                                                                    | `3850`                                                  | `3849`                 | با داشبورد (۳۸۴۷) و سایت دیگر تداخل ندارد                                                                                     |
+| `DATABASE_URL`                                                            | `postgres://lia_shop_staging:…@127.0.0.1:5432/lia_sync` | `…lia_shop:…`          | نقش اپ از ۲-الف                                                                                                               |
+| `DB_SCHEMA`                                                               | `shop_staging`                                          | `shop`                 | در staging باید به `_staging` ختم شود، وگرنه اپ بالا نمی‌آید                                                                  |
+| `MIGRATION_DATABASE_URL`                                                  | `postgres://lia_shop_staging_migrator:…@…`              | `…lia_shop_migrator:…` | فقط برای `migrate:*`                                                                                                          |
+| `AUTH_SECRET`                                                             | `openssl rand -hex 32`                                  | **مقدار جدا**          | کلید HMAC کدهای OTP؛ هر محیط کلید خودش را دارد                                                                                |
+| `COOKIE_SECURE`                                                           | `1`                                                     | `1` (اجباری)           | کوکی `__Host-`/`Secure` فقط روی HTTPS کار می‌کند، پس staging هم HTTPS لازم دارد (قدم ۶)                                       |
+| `TRUST_PROXY`                                                             | `1`                                                     | `1`                    | پشت nginx، IP واقعی از `X-Real-IP` خوانده می‌شود و محدودیت هر IP (OTP، پیشنهاد جست‌وجو) کار می‌کند. بدون nginx هرگز ۱ نگذارید |
+| `BRAND_NAME` / `BRAND_LATIN`                                              | `آوینا` / `AVINA BEAUTY`                                | همان یا نام نهایی      | نام برند در کد ثابت نیست؛ با عوض کردن این دو و restart تغییر می‌کند                                                           |
+| `SUPPORT_PHONE`                                                           | شماره‌ی پشتیبانی                                        | همان                   | در نوار بالای هدر نمایش داده می‌شود؛ خالی = نمایش داده نمی‌شود                                                                |
+| `SMS_PROVIDER`                                                            | `dev` (تا آمدن کلید) یا `kavenegar`                     | `kavenegar` (اجباری)   | `dev` کد را فقط در لاگ سرور می‌نویسد و در production رد می‌شود                                                                |
+| `KAVENEGAR_API_KEY` / `KAVENEGAR_OTP_TEMPLATE`                            | خالی تا آمدن کلید                                       | اجباری                 | الگوی verify تأییدشده در پنل کاوه‌نگار با `%token`                                                                            |
+| `DB_POOL_MAX`، `DB_STATEMENT_TIMEOUT_MS`، `LOG_LEVEL`، `SESSION_TTL_DAYS` | پیش‌فرض                                                 | پیش‌فرض                | اختیاری                                                                                                                       |
+
+خطای پیکربندی، اپ را با پیام واضح و `exit 1` متوقف می‌کند (`systemctl status liateam-shop-staging` آن را نشان می‌دهد) و سرویس در حلقه‌ی ری‌استارت نمی‌افتد.
+
+### ۴. نصب، مایگریشن و build **[هر دیپلوی]**
+
+```bash
+cd /opt/liateam-shop/staging/app && sudo -u liateam-shop git pull --ff-only     # در اولین بار لازم نیست
+cd shop
+sudo -u liateam-shop npm ci
+sudo -u liateam-shop bash -c 'set -a; . /opt/liateam-shop/env/staging.env; set +a; npm run migrate:up'
+sudo -u liateam-shop npm run build
+```
+
+چرا به این ترتیب: مایگریشن پیش از build و restart اجرا می‌شود تا کد جدید هیچ‌وقت روی اسکیمای قدیمی بالا نیاید. `migrate:up` فقط مایگریشن‌های اجرانشده را اجرا می‌کند، پس تکرارش بی‌خطر است. `npm run migrate:status` وضعیت را نشان می‌دهد.
+
+### ۵. سرویس systemd **[نصب یک‌بار، restart هر دیپلوی]**
+
+```bash
+# یک‌بار:
+sudo cp /opt/liateam-shop/staging/app/shop/deploy/liateam-shop-staging.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now liateam-shop-staging
+# هر دیپلوی:
+sudo systemctl restart liateam-shop-staging
+curl -s http://127.0.0.1:3850/health          # {"status":"ok",…}
+```
+
+چرا: سرویس با کاربر خودش، فایل env خودش و سخت‌گیری‌های systemd (`NoNewPrivileges` و `ProtectSystem` و…) اجرا می‌شود و فقط روی 127.0.0.1 گوش می‌دهد.
+
+### ۶. nginx برای staging، با رمز عبور و HTTPS **[یک‌بار]**
+
+```bash
+sudo cp /opt/liateam-shop/staging/app/shop/deploy/nginx-shop-staging.conf /etc/nginx/sites-available/liateam-shop-staging
+sudo nano /etc/nginx/sites-available/liateam-shop-staging        # server_name را با دامنه/زیردامنه‌ی staging عوض کنید
+sudo htpasswd -c /etc/nginx/liateam-shop-staging.htpasswd client # رمز را جدا به کارفرما بدهید
+sudo ln -s /etc/nginx/sites-available/liateam-shop-staging /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d staging.example.com
+```
+
+چرا:
+
+- **رمز عبور:** staging پیش‌نمایش خصوصی کارفرماست.
+- **`noindex`:** گوگل staging را ایندکس نمی‌کند.
+- **HTTPS:** کوکی نشست امن بدون آن کار نمی‌کند.
+- **`reload` به‌جای `restart`:** سایت دیگرِ روی سرور قطع نمی‌شود.
+
+اگر هنوز دامنه‌ای نیست، می‌شود موقتاً از الگوی گواهی خودامضا روی IP استفاده کرد (`dashboard/deploy/nginx-ip-selfsigned.conf`)، با هشدار مرورگر.
+
+### ۷. درخت دسته‌ها **[یک‌بار؛ روی سرور فعلی انجام شده]**
+
+```bash
+cd /opt/liateam-bot/app && sudo -u liateam node explore/compare-category-tree.mjs           # فقط گزارش
+cd /opt/liateam-bot/app && sudo -u liateam node explore/compare-category-tree.mjs --apply   # اعمال + تأیید
+```
+
+چرا: ترتیب و ساختار دسته‌ها را بی‌درنگ با لیاتیم یکی می‌کند. از آن به بعد هر sync همین کار را خودش انجام می‌دهد و فقط تغییرها را می‌نویسد. خروجی درست بعد از اعمال: `0 difference(s)`.
+
+### ۸. اولین مدیر **[یک‌بار]**
+
+حساب را اگر وجود نداشته باشد می‌سازد و در `audit_log` ثبت می‌کند:
+
+```bash
+cd /opt/liateam-shop/staging/app/shop
+sudo -u liateam-shop bash -c 'set -a; . /opt/liateam-shop/env/staging.env; set +a; npm run grant-role -- 0912xxxxxxx admin'
+```
+
+### ۹. گرم کردن کش عکس‌ها **[یک‌بار بعد از نصب، و بعد از هر sync]**
+
+```bash
+cd /opt/liateam-shop/staging/app/shop
+sudo -u liateam-shop bash -c 'set -a; . /opt/liateam-shop/env/staging.env; set +a; npm run images:warm'
+```
+
+چرا: عکس‌های تأمین‌کننده PNGهای ۱ تا ۶ مگابایتی‌اند. اولین درخواست هر اندازه را سرور ما دانلود و کوچک می‌کند و ممکن است برای اولین بازدیدکننده کند باشد. این اسکریپت همه را از قبل در کش می‌گذارد و تکرارش بی‌خطر است (عکسِ کش‌شده فوراً رد می‌شود). worker هر `intervalHours` ساعت sync می‌کند، پس برای محصولات تازه بعد از هر sync یک‌بار اجرایش کنید.
+
+### ۱۰. پیامک واقعی **[وقتی کلید کاوه‌نگار آمد]**
+
+۱. در پنل کاوه‌نگار یک الگوی **verify** با `%token` بسازید و منتظر تأییدش بمانید.
+۲. در `staging.env`: `SMS_PROVIDER=kavenegar`، `KAVENEGAR_API_KEY=…`، `KAVENEGAR_OTP_TEMPLATE=نام_الگو`.
+۳. `sudo systemctl restart liateam-shop-staging`، سپس با یک شماره‌ی واقعی وارد شوید.
+
+تا آن زمان (`SMS_PROVIDER=dev`) کد ورود در لاگ است:
+
+```bash
+sudo journalctl -u liateam-shop-staging --since "-10min" | grep sms.dev.otp
+```
+
+### ۱۱. بررسی بعد از دیپلوی **[هر دیپلوی]**
+
+```bash
+curl -s http://127.0.0.1:3850/health
+cd /opt/liateam-shop/staging/app/shop
+sudo -u liateam-shop bash -c 'set -a; . /opt/liateam-shop/env/staging.env; set +a; npm run check:prices -- http://127.0.0.1:3850 && npm run check:search -- http://127.0.0.1:3850'
+sudo journalctl -u liateam-shop-staging --since "-10min" -p warning
+```
+
+`check:prices` می‌گوید قیمت‌ها درست (به تومان) نمایش داده می‌شوند. `check:search` می‌گوید جست‌وجو و نرمال‌سازی درست کار می‌کنند و از API چیزی جز فیلدهای عمومی بیرون نمی‌آید. کارت «وضعیت فروشگاه» در داشبورد هم `/health` هر دو محیط را نشان می‌دهد (`SHOP_HEALTH_URLS`؛ پیش‌فرض‌ها ۳۸۵۰ و ۳۸۴۹ است و نیازی به تنظیم ندارد).
+
+### خلاصه: هر دیپلوی
+
+| ترتیب | کار                                                                             |
+| ----- | ------------------------------------------------------------------------------- |
+| ۱     | ربات: `git pull` ← (`npm ci`) ← restart سرویس‌های `liateam-*` ← (build داشبورد) |
+| ۲     | اگر فایل `.sql` تازه‌ای در `shop/deploy/` آمده: یک‌بار با postgres              |
+| ۳     | فروشگاه: `git pull` ← `npm ci` ← `migrate:up` ← `build` ← `restart`             |
+| ۴     | `/health`، `check:prices`، `check:search`، لاگ                                  |
+| ۵     | `images:warm`                                                                   |
+
+### Production **[در تحویل نهایی]**
+
+همان قدم‌ها، با این تفاوت‌ها:
+
+- **مسیرها:** `production/` و `production.env`.
+- **env:** `APP_ENV=production`، `PORT=3849`، `DB_SCHEMA=shop`، نقش‌های `lia_shop` و `lia_shop_migrator`، `AUTH_SECRET` جدا، `SMS_PROVIDER=kavenegar`.
+- **سرویس:** `liateam-shop.service`.
+- **nginx:** یک سایت جدید روی دامنه‌ی اصلی، بدون رمز عبور و بدون `noindex`. این فایل هنوز ساخته نشده و در فاز ۳ (استقرار روی دامنه‌ی اصلی) می‌آید.
+
+قبل از هر مایگریشن production بکاپ بگیرید:
+
+```bash
+sudo -u postgres pg_dump -n shop -Fc lia_sync > shop-$(date +%F).dump
+```
 
 ## مایگریشن دیتابیس
 
@@ -133,31 +316,7 @@ Production همین مراحل است با `production/`، `production.env` (`AP
 
 ### اجرا روی سرور
 
-یک بار، بعد از `shop-db-roles.sql`:
-
-```bash
-sudo -u postgres psql lia_sync -v staging_pw="'رمز_migrator_staging'" -v prod_pw="'رمز_migrator_production'" \
-  -f /opt/liateam-shop/staging/app/shop/deploy/shop-db-roles-002-migrator.sql
-```
-
-در `/opt/liateam-shop/env/staging.env` اضافه کنید (اپ از آن استفاده نمی‌کند، فقط اسکریپت مایگریشن):
-
-```
-MIGRATION_DATABASE_URL=postgres://lia_shop_staging_migrator:…@127.0.0.1:5432/lia_sync
-```
-
-هر بار بعد از `git pull` و قبل از restart:
-
-```bash
-cd /opt/liateam-shop/staging/app/shop
-sudo -u liateam-shop bash -c 'set -a; . /opt/liateam-shop/env/staging.env; set +a; npm run migrate:up'
-```
-
-Production همین است با `production.env` (`APP_ENV=production`، `DB_SCHEMA=shop`، نقش `lia_shop_migrator`). قبل از مایگریشن production بکاپ بگیرید:
-
-```bash
-sudo -u postgres pg_dump -n shop -Fc lia_sync > shop-$(date +%F).dump
-```
+نقش‌های migrator در «استقرار» قدم ۲-ب ساخته می‌شوند و `migrate:up` در قدم ۴ هر دیپلوی اجرا می‌شود.
 
 ## /health
 
@@ -205,13 +364,13 @@ npm run grant-role -- 09121234567 admin
 
 ## کاتالوگ
 
-| مسیر                 | صفحه                                                                                              |
-| -------------------- | ------------------------------------------------------------------------------------------------- |
-| `/`                  | خانه: هیرو، دسته‌های اصلی، جدیدترین‌ها و منتخب‌ها                                                 |
-| `/categories`        | همه‌ی دسته‌ها و زیردسته‌ها                                                                        |
-| `/c/173-آرایشی`      | دسته (همراه همه‌ی زیردسته‌هایش) · فیلتر زیردسته و «فقط موجود» · مرتب‌سازی · صفحه‌بندی             |
-| `/p/541-ریمل-ابرو-…` | محصول                                                                                             |
-| `/search?q=…`        | جست‌وجو در نام (ي/ك عربی و نیم‌فاصله یکسان‌سازی می‌شوند)، با همان فیلترها؛ بدون `q` همه‌ی محصولات |
+| مسیر                 | صفحه                                                                                                                                                           |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                  | خانه: هیرو، دسته‌های اصلی، جدیدترین‌ها و منتخب‌ها                                                                                                              |
+| `/categories`        | همه‌ی دسته‌ها و زیردسته‌ها                                                                                                                                     |
+| `/c/173-آرایشی`      | دسته (همراه همه‌ی زیردسته‌هایش) · فیلتر زیردسته و «فقط موجود» · مرتب‌سازی · صفحه‌بندی                                                                          |
+| `/p/541-ریمل-ابرو-…` | محصول                                                                                                                                                          |
+| `/search?q=…`        | جست‌وجو در نام و برند: جزئی، خطاپذیر (غلط املایی، ي/ك عربی، نیم‌فاصله)، مرتب بر اساس ربط؛ پیشنهاد لحظه‌ای از `GET /api/search/suggest`؛ بدون `q` همه‌ی محصولات |
 
 - داده فقط از `public.product_catalog` و `public.categories` (ربات همگام‌ساز) و فقط خواندنی؛ `cost_price` هیچ‌جا خوانده نمی‌شود.
 - **قانون نمایش** (یک‌جا در `catalog.repository.ts`): `is_sellable` و `price > 0` و هنوز در فهرست تأمین‌کننده (`missing_since IS NULL`). ناموجود: نمایش با برچسب، بدون امکان خرید.
@@ -223,7 +382,7 @@ npm run grant-role -- 09121234567 admin
 
 عکس‌ها روی `s3.liateam.ir` و PNG‌های ۱ تا ۶ مگابایتی‌اند. هرگز مستقیم به مرورگر نمی‌روند: `next/image` آن‌ها را یک‌بار
 روی سرور ما می‌گیرد، به WebP کوچک تبدیل و یک هفته کش می‌کند (بدون hotlink، دامنه‌ی تأمین‌کننده هم دیده نمی‌شود).
-اولین دریافت هر عکس کند است؛ بعد از هر همگام‌سازی کش را گرم کنید:
+اولین دریافت هر عکس کند است؛ بعد از هر همگام‌سازی کش را گرم کنید (روی سرور: «استقرار» قدم ۹):
 
 ```bash
 npm run images:warm

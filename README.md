@@ -2,6 +2,12 @@
 
 Syncs supplier prices and stock from liateam.ir into `products.json` and a local Postgres database. It runs every 4 hours and sends a Telegram alert when something goes wrong.
 
+**Shop (phase 1):**
+
+- Server deployment runbook, every step in order: [`shop/README.md` → «استقرار (رانبوک)»](shop/README.md).
+- Acceptance checklist: [`docs/phase1-acceptance-checklist.md`](docs/phase1-acceptance-checklist.md).
+- Client handover: [`docs/phase1-handover.md`](docs/phase1-handover.md).
+
 ## Setup
 1. `cp .env.example .env`, then fill in `LIA_USERNAME`, `LIA_PASSWORD` and the Telegram settings below.
 2. Start Docker Desktop, then run `npm run db:up` (Postgres 16 on port 5433).

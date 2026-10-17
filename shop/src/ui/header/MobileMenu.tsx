@@ -66,7 +66,12 @@ export function MobileMenu({
               {brandName}
               <span className={s.dot}>.</span>
             </span>
-            <button type="button" className={s.close} aria-label="بستن منو" onClick={() => dialog.current?.close()}>
+            <button
+              type="button"
+              className={s.close}
+              aria-label="بستن منو"
+              onClick={() => dialog.current?.close()}
+            >
               <Icon name="close" size={24} />
             </button>
           </div>

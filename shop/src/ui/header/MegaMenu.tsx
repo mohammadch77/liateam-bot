@@ -183,9 +183,7 @@ function Pane({ item }: { item: NavItem }) {
         )}
       </div>
       <Link href={item.href} className={s.promo} tabIndex={-1} aria-hidden="true">
-        {item.imageUrl && (
-          <Image src={item.imageUrl} alt="" fill sizes="264px" className={s.promoImage} />
-        )}
+        {item.imageUrl && <Image src={item.imageUrl} alt="" fill sizes="264px" className={s.promoImage} />}
         <b className={s.promoTitle}>{item.label}</b>
         <span className={s.promoCta}>
           مشاهده
