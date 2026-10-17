@@ -170,7 +170,7 @@ export default function StyleguidePage() {
                       letterSpacing: t.tracking,
                     }}
                   >
-                    {k === 'price' ? `${formatToman(1_895_000)} تومان` : TYPE_SAMPLES[k]}
+                    {k === 'price' ? `${formatToman(189_500)} تومان` : TYPE_SAMPLES[k]}
                   </span>
                 </div>
               ))}
@@ -342,15 +342,15 @@ export default function StyleguidePage() {
                 <AddToCartButton state="loading" />
                 <AddToCartButton state="done" />
               </div>
-              <b className={s.sub}>نمایش قیمت (ورودی ریال، نمایش تومان)</b>
+              <b className={s.sub}>نمایش قیمت (همه‌ی مبالغ به تومان)</b>
               <div className={s.prices}>
-                <Price rial={1_895_000} oldRial={2_370_000} size="lg" />
-                <Price rial={580_000} oldRial={640_000} />
-                <Price rial={9_770_000} size="sm" />
-                <Saving rial={1_895_000} oldRial={2_370_000} />
+                <Price toman={189_500} oldToman={237_000} size="lg" />
+                <Price toman={58_000} oldToman={64_000} />
+                <Price toman={977_000} size="sm" />
+                <Saving toman={189_500} oldToman={237_000} />
               </div>
               <p className={s.note} data-testid="price-check">
-                ۹٬۷۷۰٬۰۰۰ ریال ← {formatToman(9_770_000)} تومان
+                ۹۷۷۰۰۰ ← {formatToman(977_000)} تومان
               </p>
             </Panel>
           </div>

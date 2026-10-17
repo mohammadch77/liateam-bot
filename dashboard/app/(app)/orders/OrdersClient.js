@@ -32,7 +32,7 @@ function DryRunToggle({ dryRun }) {
 }
 
 const nf = new Intl.NumberFormat('fa-IR');
-const toman = (rial) => nf.format(Math.round(Number(rial) / 10));
+const toman = (amount) => nf.format(Math.round(Number(amount))); // stored amounts are TOMAN
 const toLatin = (s) => String(s).replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
 const ITEM_STATUS = { ok: '', adjusted: 'تعداد کم شد', unavailable: 'ناموجود' };
 

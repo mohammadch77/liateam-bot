@@ -29,7 +29,7 @@ const NORMALIZED_NAME = `translate(lower(p.name), 'يك' || chr(8204), 'یک ')`
 export type ProductRow = {
   id: number;
   name: string;
-  price: number; // RIAL
+  price: number; // TOMAN (Liateam consumer price, as the sync bot stores it)
   stock: number;
   category: number[];
   category_names: string[];

@@ -25,10 +25,11 @@ test('structure change throws instead of returning empty data', () => {
 });
 
 test('sanity check', () => {
-  const ok = { price: 1000, cost_price: 960, stock: 5 };
+  // real toman values (product 412 on Liateam: consumer 749,000 / partner 719,040)
+  const ok = { price: 749000, cost_price: 719040, stock: 5 };
   assert.deepEqual(checkProduct(ok, undefined), []);
-  assert.deepEqual(checkProduct(ok, { price: 800, cost_price: 768 }), []);
-  assert.match(checkProduct(ok, { price: 600, cost_price: 960 })[0], /price jumped 67%/);
+  assert.deepEqual(checkProduct(ok, { price: 599200, cost_price: 575232 }), []);
+  assert.match(checkProduct(ok, { price: 449400, cost_price: 719040 })[0], /price jumped 67%/);
   assert.match(checkProduct({ ...ok, price: 0 }, undefined)[0], /price is empty/);
   assert.match(checkProduct({ ...ok, cost_price: null }, undefined)[0], /cost_price is empty/);
 });

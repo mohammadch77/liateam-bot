@@ -1,4 +1,4 @@
-// Source record -> normalized product. All money values are integers in RIAL.
+// Source record -> normalized product. All money values are integers in TOMAN (Liateam's own unit).
 //
 // Each field is read from a list of candidate paths (primary first). If the primary path is
 // missing but a fallback works, the product is still used and the fallback is reported so we
@@ -70,8 +70,8 @@ export function normalize(raw, ctx = {}) {
       id: raw.code, // supplier product/group code; used in /products/{code}
       uuid: raw.id ?? null,
       name,
-      price: toRial(fields.price), // selling price
-      cost_price: toRial(fields.cost_price), // our purchase cost - internal only
+      price: toToman(fields.price), // selling price = Liateam's consumer price, TOMAN
+      cost_price: toToman(fields.cost_price), // payable_price: our purchase cost, TOMAN, internal only
       stock: toInt(fields.stock),
       category,
       is_available: raw.inventory?.is_available ?? null,
@@ -82,6 +82,15 @@ export function normalize(raw, ctx = {}) {
   };
 }
 
+/**
+ * MONEY UNIT: Liateam's pricing.price / payable_price are TOMAN. Proven on 2026-10-17 against the prices their
+ * own product pages display (explore/compare-prices.mjs: 11 of 12 products show exactly the raw number with
+ * «تومان», none show raw/10; the 12th was out of stock, where no price is shown). Their order API
+ * (total_payable_price, total_gateway_price) uses the same unit. So the whole system stores and computes in
+ * TOMAN, unchanged from the source; anything that needs rial (e.g. a payment gateway) converts at its edge.
+ */
+export const SOURCE_PRICE_UNIT = 'toman';
+
 // Values that exist but are empty/zero pass through as null/0; the sanity check rejects them per product.
-const toRial = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Math.round(Number(v)));
+const toToman = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Math.round(Number(v)));
 const toInt = (v) => (v == null || v === '' || !Number.isInteger(Number(v)) ? null : Number(v));

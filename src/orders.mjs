@@ -27,7 +27,8 @@ const pause = () => sleep(600 + Math.random() * 900); // between Liateam calls o
 
 const pool = await openPool();
 const q = (sql, params) => pool.query(sql, params).then((r) => r.rows);
-const toman = (rial) => `${Math.round(Number(rial) / 10).toLocaleString('fa-IR')} تومان`;
+// Amounts here are TOMAN end to end: the database (normalize.mjs) and Liateam's order API use the same unit.
+const toman = (amount) => `${Math.round(Number(amount)).toLocaleString('fa-IR')} تومان`;
 
 class InputError extends Error {}
 const int = (v, name, min = 1, max = 10 ** 9) => {

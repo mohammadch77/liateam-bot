@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { formatToman, formatTomanShort, type Rial } from '@/lib/format/money';
+import { formatToman, formatTomanShort, type Toman } from '@/lib/format/money';
 import { formatNumber, toFaDigits } from '@/lib/format/number';
 import { Icon } from '../icon/Icon';
 import { Container } from '../layout/Layout';
@@ -19,8 +19,8 @@ export type HeaderProps = {
   /** signed out shows «ورود | ثبت‌نام»; signed in shows the account link (and the wallet when known) */
   signedIn: boolean;
   /** wallet balance of a signed-in user; null until the wallet exists */
-  walletRial: Rial | null;
-  freeShippingFromRial: Rial;
+  walletToman: Toman | null;
+  freeShippingFromToman: Toman;
   supportPhone: string;
   deliverTo?: string;
   links: { cart: string; account: string; wallet: string; login: string; orders: string; favorites: string };
@@ -29,7 +29,7 @@ export type HeaderProps = {
 /** SiteHeader: top bar, logo + search + wallet/account/cart, category bar (desktop); compact header (mobile). */
 export function Header(p: HeaderProps) {
   const home = p.brand.homeHref ?? '/';
-  const wallet = p.walletRial;
+  const wallet = p.walletToman;
   return (
     <header className={s.header}>
       <div className={s.desktop}>
@@ -39,7 +39,7 @@ export function Header(p: HeaderProps) {
               <span className={s.topbarItem}>
                 <Icon name="local_shipping" size={17} className={s.topbarIcon} />
                 ارسال رایگان برای خریدهای بالای{' '}
-                <b className={s.topbarStrong}>{formatToman(p.freeShippingFromRial)} تومان</b>
+                <b className={s.topbarStrong}>{formatToman(p.freeShippingFromToman)} تومان</b>
               </span>
               <span className={`${s.topbarItem} ${s.hideNarrow}`}>
                 <Icon name="verified" size={17} className={s.topbarIcon} />
@@ -132,7 +132,7 @@ export function Header(p: HeaderProps) {
       <div className={s.mobile}>
         <div className={s.promo}>
           <Icon name="local_shipping" size={16} />
-          ارسال رایگان خریدهای بالای {formatToman(p.freeShippingFromRial)} تومان
+          ارسال رایگان خریدهای بالای {formatToman(p.freeShippingFromToman)} تومان
         </div>
         <div className={s.mobileRow}>
           <div className={s.mobileGroup}>

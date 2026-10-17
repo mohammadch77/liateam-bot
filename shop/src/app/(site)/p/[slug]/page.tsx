@@ -6,7 +6,7 @@ import { cache } from 'react';
 import { getConfig } from '@/lib/config';
 import { idFromSlug } from '@/lib/catalog-urls';
 import { toAppError } from '@/lib/errors';
-import { formatTomanText } from '@/lib/format/money';
+import { formatTomanText, tomanToRial } from '@/lib/format/money';
 import { toFaDigits } from '@/lib/format/number';
 import { catalogService } from '@/server/services/catalog.service';
 import { Badge, Breadcrumb, Button, Container, Icon, Price, ProductCard, ProductGrid, Section } from '@/ui';
@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const brand = getConfig().BRAND_NAME;
   return {
     title: `${p.name} | ${brand}`,
-    description: `خرید ${p.name}${p.brandName ? ` از برند ${p.brandName}` : ''}، اصل با قیمت ${formatTomanText(p.priceRial)} از ${brand}.`,
+    description: `خرید ${p.name}${p.brandName ? ` از برند ${p.brandName}` : ''}، اصل با قیمت ${formatTomanText(p.priceToman)} از ${brand}.`,
     alternates: { canonical: p.href },
     openGraph: { title: p.name, images: p.imageUrl ? [{ url: p.imageUrl }] : undefined },
   };
@@ -55,7 +55,8 @@ export default async function ProductPage({ params }: Props) {
   const main = p.categories[0];
   const out = p.stock === 'out';
   const firstParagraph = description.find((b) => b.kind === 'paragraph');
-  // Product structured data for search engines (price in toman as shown; the currency code IRR is rial).
+  // Product structured data for search engines. schema.org needs an ISO 4217 code: IRR (rial), so the stored
+  // toman price is converted at this edge only.
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -68,7 +69,7 @@ export default async function ProductPage({ params }: Props) {
     offers: {
       '@type': 'Offer',
       priceCurrency: 'IRR',
-      price: p.priceRial,
+      price: tomanToRial(p.priceToman),
       availability: out ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
     },
   };
@@ -134,7 +135,7 @@ export default async function ProductPage({ params }: Props) {
               </>
             ) : (
               <>
-                <Price rial={p.priceRial} size="lg" />
+                <Price toman={p.priceToman} size="lg" />
                 {/* cart slot: the cart arrives in phase 2 */}
                 <Button size="lg" block icon="add_shopping_cart" disabled aria-describedby="cart-soon">
                   افزودن به سبد

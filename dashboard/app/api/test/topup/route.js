@@ -1,4 +1,4 @@
-// Test API – credit the simulated wallet:  POST {"mobile": "09…", "amount": 5000000}  (RIAL)
+// Test API – credit the simulated wallet:  POST {"mobile": "09…", "amount": 500000}  (TOMAN)
 import { apiUser, readJson, unauthorized, badRequest } from '@/lib/apiUser';
 import { jobResponse } from '@/lib/orders';
 

@@ -1,7 +1,8 @@
 // Persian text for the messenger bots. Plain text + emoji (works the same on Telegram and Bale).
 const nf = new Intl.NumberFormat('fa-IR');
 export const num = (v) => (v == null ? '—' : nf.format(v));
-export const toman = (rial) => (rial == null ? '—' : nf.format(Math.round(Number(rial) / 10)));
+/** Stored amounts are already TOMAN (see normalize.mjs SOURCE_PRICE_UNIT): format only, never divide. */
+export const toman = (amount) => (amount == null ? '—' : nf.format(Math.round(Number(amount))));
 export const pct = (v) => `${new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 1 }).format(Math.abs(v) * 100)}٪`;
 export const time = (v) => new Date(v).toLocaleTimeString('fa-IR', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', hour12: false });
 export const date = (v) => new Date(v).toLocaleString('fa-IR', { timeZone: 'Asia/Tehran', dateStyle: 'medium', timeStyle: 'short' });

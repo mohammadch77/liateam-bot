@@ -53,7 +53,7 @@ export default async function AuditCard({ total }) {
               <div style={{ flex: 1 }}>
                 {i.name}
                 <div className="sub tnum">
-                  {i.prices?.length > 1 && `مدل‌ها با قیمت‌های: ${i.prices.map((p) => num(Math.round(p / 10))).join('، ')} تومان. `}
+                  {i.prices?.length > 1 && `مدل‌ها با قیمت‌های: ${i.prices.map((p) => num(Math.round(p))).join('، ')} تومان. `}
                   {i.missing_variants?.length > 0 && `مدل‌های خارج از فهرست: ${i.missing_variants.join('، ')}. `}
                   {i.price_matches === false && 'قیمت صفحه با فهرست فرق دارد.'}
                 </div>

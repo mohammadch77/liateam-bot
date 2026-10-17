@@ -1,38 +1,42 @@
 import { formatDecimal, formatNumber } from './number';
 
 /**
- * Money rules — the ONLY place currency is converted or formatted.
- * Amounts are stored and passed around in RIAL (integers, as the supplier and the database use them) and shown
- * in TOMAN (1 toman = 10 rial). Never divide by 10 or format a price anywhere else.
+ * Money rules — the ONLY place amounts are converted or formatted.
+ *
+ * UNIT: every amount in this system is an integer in TOMAN — Liateam's own unit, stored unchanged by the sync bot
+ * (see SOURCE_PRICE_UNIT in src/normalize.mjs of the bot, proven against the prices Liateam's product pages show).
+ * Display is therefore formatting only; nothing is ever divided by 10. Rial exists only at outside edges that
+ * require it (schema.org IRR, a rial-based payment gateway) and is produced here, by tomanToRial().
  */
-export type Rial = number;
+export type Toman = number;
 
-function assertRial(rial: Rial): void {
-  if (!Number.isSafeInteger(rial) || rial < 0) throw new RangeError(`invalid rial amount: ${rial}`);
+function assertToman(amount: Toman): void {
+  if (!Number.isSafeInteger(amount) || amount < 0) throw new RangeError(`invalid toman amount: ${amount}`);
 }
 
-/** 9_770_000 rial → 977_000 toman. Rial amounts below 10 round to the nearest toman. */
-export function rialToToman(rial: Rial): number {
-  assertRial(rial);
-  return Math.round(rial / 10);
+/** 749_000 → «۷۴۹٬۰۰۰» (number only; the «تومان» unit is rendered separately and smaller). */
+export function formatToman(amount: Toman): string {
+  assertToman(amount);
+  return formatNumber(amount);
 }
 
-/** 9_770_000 rial → «۹۷۷٬۰۰۰» (number only; the «تومان» unit is rendered separately and smaller). */
-export function formatToman(rial: Rial): string {
-  return formatNumber(rialToToman(rial));
+/** 749_000 → «۷۴۹٬۰۰۰ تومان» for plain-text places (aria labels, SMS, meta). */
+export function formatTomanText(amount: Toman): string {
+  return `${formatToman(amount)} تومان`;
 }
 
-/** 9_770_000 rial → «۹۷۷٬۰۰۰ تومان» for plain-text places (aria labels, SMS, meta). */
-export function formatTomanText(rial: Rial): string {
-  return `${formatToman(rial)} تومان`;
+/** For edges that require rial (schema.org IRR, rial payment gateways). 749_000 toman → 7_490_000 rial. */
+export function tomanToRial(amount: Toman): number {
+  assertToman(amount);
+  return amount * 10;
 }
 
 /** Whole-percent discount between the old and current price; 0 when there is no real discount. */
-export function discountPercent(rial: Rial, oldRial: Rial | null | undefined): number {
-  assertRial(rial);
-  if (oldRial == null || oldRial <= rial) return 0;
-  assertRial(oldRial);
-  return Math.round(((oldRial - rial) / oldRial) * 100);
+export function discountPercent(amount: Toman, oldAmount: Toman | null | undefined): number {
+  assertToman(amount);
+  if (oldAmount == null || oldAmount <= amount) return 0;
+  assertToman(oldAmount);
+  return Math.round(((oldAmount - amount) / oldAmount) * 100);
 }
 
 /** «۲۰٪» */
@@ -41,9 +45,9 @@ export function formatPercent(percent: number): string {
 }
 
 /** Compact amount for tight spots (mobile wallet pill): «۱۲۰ هزار», «۱٫۲ میلیون», «۸۵۰» (toman, no unit). */
-export function formatTomanShort(rial: Rial): string {
-  const toman = rialToToman(rial);
-  if (toman >= 1_000_000) return `${formatDecimal(Math.floor(toman / 100_000) / 10)} میلیون`;
-  if (toman >= 1_000) return `${formatNumber(Math.floor(toman / 1_000))} هزار`;
-  return formatNumber(toman);
+export function formatTomanShort(amount: Toman): string {
+  assertToman(amount);
+  if (amount >= 1_000_000) return `${formatDecimal(Math.floor(amount / 100_000) / 10)} میلیون`;
+  if (amount >= 1_000) return `${formatNumber(Math.floor(amount / 1_000))} هزار`;
+  return formatNumber(amount);
 }

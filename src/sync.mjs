@@ -7,7 +7,7 @@ import { log } from './logger.mjs';
 import { login, hasSession, AuthError } from './auth.mjs';
 import { fetchAllProducts, fetchProductPages } from './source.mjs';
 import { StructureError } from './rsc.mjs';
-import { checkProduct } from './sanity.mjs';
+import { checkProduct, checkUnitDrift, UnitError } from './sanity.mjs';
 import { openDb, loadPrevious, upsertProducts, upsertCategories, recordRun, diffCatalog, recordEvents, applySettings, setStatus, detailsDue, saveDetails } from './db.mjs';
 
 class CoverageError extends Error {}
@@ -43,6 +43,7 @@ async function fetchWithSession() {
 function classify(e) {
   if (e instanceof LoginError) return ['auth', '🔐 توکن منقضی شده و لاگین خودکار شکست خورد — لاگین دستی لازم است (npm run login)'];
   if (e instanceof StructureError) return ['structure', '🧩 ساختار صفحه‌ی تأمین‌کننده عوض شده — ربات متوقف شد و چیزی ننوشت'];
+  if (e instanceof UnitError) return ['unit', '💱 واحد قیمت لیاتیم عوض شده به نظر می‌رسد (تومان/ریال) — هیچ قیمتی نوشته نشد، بررسی دستی لازم است'];
   if (e instanceof CoverageError) return ['coverage', '📉 کمتر از ۹۰٪ محصولات دریافت شد — چیزی نوشته نشد'];
   if (e instanceof DatabaseError) return ['database', '🗄️ دیتابیس در دسترس نیست (Docker Desktop / Postgres روشن است؟)'];
   return ['error', '❌ اجرای sync شکست خورد'];
@@ -86,6 +87,9 @@ async function main() {
     }
 
     const prev = await loadPrevious(db);
+    // Whole-catalog ×10 / ÷10 move = the unit changed: stop before writing anything (throws UnitError).
+    const drift = checkUnitDrift(products, prev);
+    if (drift != null) log.info(`price unit check: median new/old ${drift.toFixed(3)}`);
     const accepted = [];
     const rejected = [];
     for (const p of products) {
@@ -118,7 +122,7 @@ async function main() {
       'SELECT id, uuid, name, price, cost_price, stock, category, category_names, is_available, updated_at, last_seen_at FROM product_catalog WHERE is_sellable ORDER BY id',
     );
     run.sellable = rows.length;
-    const out = { synced_at: new Date().toISOString(), currency: 'IRR', count: rows.length,
+    const out = { synced_at: new Date().toISOString(), currency: 'IRT', count: rows.length,
       products: rows.map((r) => ({ ...r, price: Number(r.price), cost_price: Number(r.cost_price) })) };
     fs.writeFileSync(config.outputJson + '.tmp', JSON.stringify(out, null, 2));
     fs.renameSync(config.outputJson + '.tmp', config.outputJson);

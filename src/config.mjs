@@ -15,6 +15,11 @@ export const config = {
   maxPages: Number(env.MAX_PAGES || 50), // hard stop against runaway pagination
   priceJumpLimit: Number(env.PRICE_JUMP_LIMIT || 0.5), // 50%
   minCoverage: Number(env.MIN_COVERAGE || 0.9), // fetched / reported total
+  // Plausible price of one catalog item in TOMAN (sanity.mjs). Catalog on 2026-10-17: 5,300 (brochures) to
+  // 9,770,000 (perfume). The max is low enough that the dearest product read as RIAL (97.7 million) is refused.
+  priceRangeToman: { min: Number(env.PRICE_MIN_TOMAN || 1_000), max: Number(env.PRICE_MAX_TOMAN || 50_000_000) },
+  // cost_price / price: Liateam's partner price is ≈0.96 of the consumer price.
+  costRatio: { min: Number(env.COST_RATIO_MIN || 0.5), max: Number(env.COST_RATIO_MAX || 1.05) },
   // Brand + description from product pages: at most this many pages per run (each 6–18 s, like a person);
   // 30 per 4-hour run covers all ~230 products in about a day, then each is re-read once a week.
   detailsPerRun: Number(env.DETAILS_PER_RUN ?? 30),

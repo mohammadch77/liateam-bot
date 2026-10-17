@@ -10,7 +10,7 @@ import type { BottomNavItem, FooterProps, HeaderProps, NavItem } from '@/ui';
  * Header / footer / tab-bar data for every storefront page. Brand and contact details come from config (the
  * brand name is not final). Shop settings such as the free-shipping threshold move to the admin panel in phase 3.
  */
-const FREE_SHIPPING_FROM_RIAL = 9_990_000;
+const FREE_SHIPPING_FROM_TOMAN = 999_000;
 
 const LINKS = {
   cart: '/cart',
@@ -43,8 +43,8 @@ export function headerProps(user: CurrentUser | null, categories: NavItem[] = []
     allCategoriesHref: '/categories',
     cartCount: 0,
     signedIn: user !== null,
-    walletRial: null, // wallet arrives in phase 2
-    freeShippingFromRial: FREE_SHIPPING_FROM_RIAL,
+    walletToman: null, // wallet arrives in phase 2
+    freeShippingFromToman: FREE_SHIPPING_FROM_TOMAN,
     supportPhone: c.SUPPORT_PHONE,
     links: LINKS,
   };

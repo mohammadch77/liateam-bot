@@ -1,0 +1,12 @@
+{
+  "_about": "Known-correct prices, read on 2026-10-17 from liateam.ir product pages (logged in). `raw` is the pricing block in the page data, `displayed` is what the page shows with «تومان». The store must hold and show `displayed`.",
+  "products": [
+    { "code": 412, "name": "کرم تخصصی دست ضدآفتاب و آبرسان +SPF30 بی‌رنگ تراست", "raw": { "price": 749000, "payable_price": 719040 }, "displayed": { "price": 749000, "payable_price": 719040 } },
+    { "code": 547, "name": "پرفیوم زنانه TRUST aura مدل LUNA", "raw": { "price": 9770000, "payable_price": 9379200 }, "displayed": { "price": 9770000, "payable_price": 9379200 } },
+    { "code": 163, "raw": { "price": 979000, "payable_price": 939840 }, "displayed": { "price": 979000, "payable_price": 939840 } },
+    { "code": 209, "raw": { "price": 597000, "payable_price": 573120 }, "displayed": { "price": 597000, "payable_price": 573120 } },
+    { "code": 527, "raw": { "price": 1170000, "payable_price": 1123200 }, "displayed": { "price": 1170000, "payable_price": 1123200 } },
+    { "code": 508, "raw": { "price": 1947000, "payable_price": 1869120 }, "displayed": { "price": 1947000, "payable_price": 1869120 } },
+    { "code": 356, "raw": { "price": 1490000, "payable_price": 1430400 }, "displayed": { "price": 1490000, "payable_price": 1430400 } }
+  ]
+}

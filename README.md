@@ -39,7 +39,9 @@ Failures are also written to `logs/alerts.log` and the `sync_alerts` table (dash
   - If the primary path is missing, the fallbacks are tried and their use triggers an alert.
   - If no path exists, the run stops with `StructureError` and nothing is written.
 - **Session:** logged-out responses have `pricing: null`. The sync treats them as an expired session, logs in again once and retries.
-- **Prices:** integers in RIAL. `price` is the selling price. `cost_price` is `payable_price`, for internal use only.
+- **Prices:** integers in **TOMAN** — Liateam's own unit, stored unchanged (`SOURCE_PRICE_UNIT` in `src/normalize.mjs`). `price` is the selling price (the consumer price Liateam shows), `cost_price` is `payable_price`, for internal use only. Every display formats only, never divides by 10; only edges that need rial convert (e.g. schema.org `IRR`).
+  - Until 2026-10-17 the system assumed rial and every price was shown 10× too low. Proof and guards: `explore/compare-prices.mjs` (raw value vs price displayed on Liateam), `test/price-unit.test.mjs` with known products, and in the shop `npm run check:prices`.
+  - Sanity layers (`src/sanity.mjs`): per-product jump vs last value (`PRICE_JUMP_LIMIT`), plausible toman range (`PRICE_MIN_TOMAN` / `PRICE_MAX_TOMAN`, default 1,000–50,000,000) and cost/price ratio (`COST_RATIO_MIN` / `COST_RATIO_MAX`, 0.5–1.05) — refused products keep their old values; and a whole-catalog unit check (median new/old price ≥5 or ≤0.2 stops the run, nothing written, alert «💱»).
 - **Excluded categories:** products in `excludedCategories` (`src/config.mjs`) are stored with `is_sellable=false` and left out of `products.json`. `sellableOverrides` keeps individual products sellable.
 - **Per-product sanity check:** if the price or cost is zero or empty, jumps more than 50%, or the stock is invalid, that product keeps its old values.
 - **Categories:** the category tree (code, name, parent) is read from the same `/categories` payload (no extra request) into the `categories` table. `product_catalog` joins names onto products; a category with no name shows as `#code`. `npm run probe:categories` lists what the payload carries.
@@ -136,7 +138,7 @@ API آزمایشی (پشت لاگین داشبورد؛ سایت NestJS بعدا�
 | `GET /api/test/geo[?province_id=11]` | استان‌ها / شهرهای لیاتیم |
 | `POST /api/test/review` `{"city_id":208,"items":[{"product_id":544,"quantity":1}]}` | مرور سفارش؛ `job_id` پاسخ = شناسه‌ی مرور (۱۵ دقیقه، یک‌بار مصرف) |
 | `POST /api/test/orders` `{"review_id":…,"payment":"gateway"\|"wallet","customer":{…},"address":{…}}` | ثبت سفارش در صف |
-| `POST /api/test/topup` `{"mobile":"09…","amount":5000000}` | شارژ آزمایشی کیف پول (ریال) |
+| `POST /api/test/topup` `{"mobile":"09…","amount":500000}` | شارژ آزمایشی کیف پول (تومان) |
 
 راه‌اندازی روی سرور (فقط پوشه‌ی ربات و سرویس‌های `liateam-*`):
 ```bash

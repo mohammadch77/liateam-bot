@@ -1,7 +1,6 @@
-// Display helpers. Amounts are RIAL integers; numbers render with Persian digits.
+// Display helpers. Amounts are TOMAN integers (Liateam's own unit, see src/normalize.mjs); Persian digits.
 const nf = new Intl.NumberFormat('fa-IR');
 export const num = (v) => (v == null ? '—' : nf.format(v));
-export const rial = (v) => (v == null ? '—' : nf.format(Math.round(v)));
 export const pct = (v, digits = 1) => (v == null || !Number.isFinite(v) ? '—' : `${new Intl.NumberFormat('fa-IR', { maximumFractionDigits: digits }).format(v * 100)}٪`);
 export const dateTime = (v) => (v ? new Date(v).toLocaleString('fa-IR', { timeZone: 'Asia/Tehran', dateStyle: 'medium', timeStyle: 'short' }) : '—');
 
@@ -16,12 +15,12 @@ export function ago(v, now = Date.now()) {
 
 export const duration = (ms) => (ms == null ? '—' : ms < 60000 ? `${num(Math.round(ms / 1000))} ثانیه` : `${num(Math.round(ms / 6000) / 10)} دقیقه`);
 
-// The supplier reports RIAL; the UI shows Toman (÷10), as in the approved mockup.
-export const toman = (rialValue) => (rialValue == null ? '—' : nf.format(Math.round(rialValue / 10)));
+// Stored amounts are already TOMAN: format only, never divide by 10.
+export const toman = (amount) => (amount == null ? '—' : nf.format(Math.round(amount)));
 /** Large Toman amounts in words: ۲٫۸ میلیارد تومان */
-export function tomanShort(rialValue) {
-  if (rialValue == null) return '—';
-  const t = rialValue / 10;
+export function tomanShort(amount) {
+  if (amount == null) return '—';
+  const t = amount;
   const f = (v) => new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 1 }).format(v);
   if (Math.abs(t) >= 1e9) return `${f(t / 1e9)} میلیارد تومان`;
   if (Math.abs(t) >= 1e6) return `${f(t / 1e6)} میلیون تومان`;

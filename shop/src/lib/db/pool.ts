@@ -3,7 +3,7 @@ import pg from 'pg';
 import { getConfig } from '@/lib/config';
 import { logger } from '@/lib/logger';
 
-// BIGINT (RIAL amounts) and NUMERIC as JS numbers; amounts stay far below 2^53.
+// BIGINT (TOMAN amounts) and NUMERIC as JS numbers; amounts stay far below 2^53.
 pg.types.setTypeParser(pg.types.builtins.INT8, Number);
 pg.types.setTypeParser(pg.types.builtins.NUMERIC, Number);
 

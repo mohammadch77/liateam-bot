@@ -1,7 +1,7 @@
 import 'server-only';
 import pg from 'pg';
 
-// BIGINT/NUMERIC as JS numbers (RIAL amounts fit easily below 2^53).
+// BIGINT/NUMERIC as JS numbers (TOMAN amounts fit easily below 2^53).
 pg.types.setTypeParser(20, Number);
 pg.types.setTypeParser(1700, Number);
 

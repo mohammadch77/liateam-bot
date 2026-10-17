@@ -125,8 +125,8 @@ function toView(r: ProductRow, names: Map<number, string>): ProductView {
     // card label: the brand when the bot has read it, otherwise the main category
     brand: r.brand ?? categories[0]?.name ?? null,
     imageUrl: r.image_url,
-    priceRial: r.price,
-    oldPriceRial: null, // the supplier feed has no list price, so no discount is ever shown
+    priceToman: r.price,
+    oldPriceToman: null, // the supplier feed has no list price, so no discount is ever shown
     stock: stockState(r.stock),
     stockCount: r.stock,
     categories,

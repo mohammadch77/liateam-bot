@@ -21,7 +21,8 @@
     "icons": "node scripts/build-icons.mjs",
     "check:responsive": "node scripts/check-responsive.mjs",
     "grant-role": "node scripts/grant-role.mjs",
-    "images:warm": "node scripts/warm-images.mjs"
+    "images:warm": "node scripts/warm-images.mjs",
+    "check:prices": "node scripts/check-prices.mjs"
   },
   "dependencies": {
     "next": "^16.4.0",

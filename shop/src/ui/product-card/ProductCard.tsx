@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { discountPercent, type Rial } from '@/lib/format/money';
+import { discountPercent, type Toman } from '@/lib/format/money';
 import { formatDecimal, formatNumber } from '@/lib/format/number';
 import { Badge, DiscountRibbon } from '../badge/Badge';
 import { Icon } from '../icon/Icon';
@@ -19,8 +19,8 @@ export type ProductCardData = {
   name: string;
   brand?: string | null;
   imageUrl?: string | null;
-  priceRial: Rial;
-  oldPriceRial?: Rial | null;
+  priceToman: Toman;
+  oldPriceToman?: Toman | null;
   stock: StockState;
   rating?: number | null;
   reviews?: number | null;
@@ -41,7 +41,7 @@ const SOON = 'به‌زودی فعال می‌شود';
 
 export function ProductCard({ product: p, action, favorite, priority }: ProductCardProps) {
   const out = p.stock === 'out';
-  const off = out ? 0 : discountPercent(p.priceRial, p.oldPriceRial);
+  const off = out ? 0 : discountPercent(p.priceToman, p.oldPriceToman);
   return (
     <article className={cx(s.card, out && s.out)}>
       <div className={s.stage}>
@@ -106,7 +106,7 @@ export function ProductCard({ product: p, action, favorite, priority }: ProductC
             </>
           ) : (
             <>
-              <Price rial={p.priceRial} oldRial={p.oldPriceRial} size="md" />
+              <Price toman={p.priceToman} oldToman={p.oldPriceToman} size="md" />
               <span className={s.action}>
                 {action ?? <AddToCartButton state="idle" unavailableReason={SOON} />}
               </span>

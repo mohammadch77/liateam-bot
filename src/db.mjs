@@ -6,8 +6,8 @@ CREATE TABLE IF NOT EXISTS supplier_products (
   id            INTEGER PRIMARY KEY,          -- supplier code
   uuid          UUID,
   name          TEXT    NOT NULL,
-  price         BIGINT  NOT NULL,             -- selling price, RIAL
-  cost_price    BIGINT  NOT NULL,             -- payable_price, RIAL, internal only
+  price         BIGINT  NOT NULL,             -- selling price, TOMAN (Liateam consumer price; see normalize.mjs)
+  cost_price    BIGINT  NOT NULL,             -- payable_price, TOMAN, internal only
   stock         INTEGER NOT NULL,
   category      INTEGER[] NOT NULL DEFAULT '{}',
   is_available  BOOLEAN,
@@ -184,8 +184,8 @@ CREATE TABLE IF NOT EXISTS shop_orders (
   address             TEXT NOT NULL,
   plate               TEXT NOT NULL,
   unit                TEXT,
-  items_total         BIGINT NOT NULL,         -- RIAL, what the customer paid for goods
-  shipping_price      BIGINT NOT NULL,         -- RIAL, what the customer paid for shipping
+  items_total         BIGINT NOT NULL,         -- TOMAN, what the customer paid for goods
+  shipping_price      BIGINT NOT NULL,         -- TOMAN, what the customer paid for shipping
   refunded_total      BIGINT NOT NULL DEFAULT 0,
   liateam_order_code  TEXT,
   liateam_address_id  TEXT,
@@ -206,8 +206,8 @@ CREATE TABLE IF NOT EXISTS shop_order_items (
   product_id  INTEGER NOT NULL,
   name        TEXT NOT NULL,
   quantity    INTEGER NOT NULL CHECK (quantity > 0),
-  unit_price  BIGINT NOT NULL,                 -- RIAL charged to the customer
-  unit_cost   BIGINT,                          -- RIAL paid to Liateam when placed
+  unit_price  BIGINT NOT NULL,                 -- TOMAN charged to the customer
+  unit_cost   BIGINT,                          -- TOMAN paid to Liateam when placed
   status      TEXT NOT NULL DEFAULT 'ok'       -- ok | refunded (not available when placing)
 );
 -- Cinema-style hold: quantities shown in an order review are kept for that customer until the

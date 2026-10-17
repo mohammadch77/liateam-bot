@@ -3,7 +3,8 @@ export const STATUS = { in: 'موجود', out: 'ناموجود', hidden: 'مخف
 // "Running low" = in stock but below this many units.
 export const LOW_STOCK = Number(process.env.NEXT_PUBLIC_LOW_STOCK || 5);
 export const isLow = (p) => statusOf(p) === 'in' && p.stock < LOW_STOCK;
-const toToman = (v) => (v == null ? null : Math.round(v / 10));
+// Prices are stored in TOMAN already (export columns say «تومان»): no conversion.
+const toToman = (v) => (v == null ? null : Math.round(v));
 
 export function statusOf(p) {
   if (!p.is_sellable) return 'hidden';
