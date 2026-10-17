@@ -8,7 +8,9 @@ import { login, hasSession, AuthError } from './auth.mjs';
 import { fetchAllProducts, fetchProductPages } from './source.mjs';
 import { StructureError } from './rsc.mjs';
 import { checkProduct, checkUnitDrift, UnitError } from './sanity.mjs';
-import { openDb, loadPrevious, upsertProducts, syncCategories, recordRun, diffCatalog, recordEvents, applySettings, setStatus, detailsDue, saveDetails } from './db.mjs';
+import { openDb, loadPrevious, upsertProducts, syncCategories, recordRun, diffCatalog, recordEvents, applySettings, setStatus, detailsDue, saveDetails, saveRich, syncBrands, assignSlugs } from './db.mjs';
+import { sectionHashes } from './product-details.mjs';
+import { KNOWN_BRAND_LATIN, englishSlug, persianSlug, transliterate } from './slug.mjs';
 
 class CoverageError extends Error {}
 class LoginError extends Error {} // login itself failed -> needs a human
@@ -148,7 +150,7 @@ async function main() {
 
     // Brand + description come from product pages. Every page this run reads (cross-check, audit, and the
     // details step below) is used for them; they are written only when the text changed.
-    const details = { read: new Set(), changed: [], unchanged: 0, noDescription: [], notFound: [] };
+    const details = { read: new Set(), changed: [], unchanged: 0, noDescription: [], notFound: [], rich: {}, brands: null };
     // Called for each product page as soon as it is read (fetchProductPages' onPage), so progress is saved
     // page by page.
     const keepDetails = async (id, entry) => {
@@ -159,6 +161,8 @@ async function main() {
       if (!d.description) details.noDescription.push(id);
       if ((await saveDetails(db, id, d)) === 'changed') details.changed.push(id);
       else details.unchanged++;
+      if (d.rich) for (const s of await saveRich(db, id, d.rich, sectionHashes(d.rich))) details.rich[s] = (details.rich[s] ?? 0) + 1;
+      if (!details.brands && d.brands.length) details.brands = d.brands; // the same list is on every page
     };
 
     // Once a day: verify 3 random products against their own product page (3 extra requests).
@@ -225,7 +229,11 @@ async function main() {
         .slice(0, config.detailsPerRun);
       if (due.length) await fetchProductPages(due, keepDetails);
     }
+    if (details.brands) await syncBrands(db, details.brands, transliterate, KNOWN_BRAND_LATIN);
+    const slugged = await assignSlugs(db, englishSlug, persianSlug);
     if (details.read.size) {
+      log.info(`rich sections: ${Object.entries(details.rich).map(([k, v]) => `${k} ${v}`).join(', ') || 'no change'}; ` +
+        `${details.brands?.length ?? 0} brands mirrored, ${slugged} new slugs`);
       const { rows: [cov] } = await db.query(
         `SELECT count(*) FILTER (WHERE description IS NOT NULL)::int AS described,
                 count(*) FILTER (WHERE brand IS NOT NULL)::int AS branded, count(*)::int AS total

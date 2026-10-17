@@ -17,7 +17,8 @@
     "schedule:enable": "powershell -ExecutionPolicy Bypass -File scripts/schedule.ps1 enable",
     "schedule:uninstall": "powershell -ExecutionPolicy Bypass -File scripts/schedule.ps1 uninstall",
     "orders": "node src/orders.mjs",
-    "details:refresh": "node scripts/refresh-details.mjs"
+    "details:refresh": "node scripts/refresh-details.mjs",
+    "check:rich": "node scripts/check-rich-content.mjs"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

@@ -58,6 +58,57 @@ ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS description TEXT;        
 ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS brand TEXT;
 ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS details_checked_at TIMESTAMPTZ;
 ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS details_updated_at TIMESTAMPTZ;
+-- Rich product-page sections (product-details.mjs parseRich). Plain text only; written per section, only when
+-- that section's hash (content_hashes) changed. Nothing here is a price.
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS brand_code INTEGER;
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS summary TEXT;
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS features TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS how_to_use TEXT;
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS video_url TEXT;          -- mp4 on Liateam's ArvanCloud VOD only
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS video_embed_url TEXT;    -- ArvanCloud player URL only, never HTML
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS rating_value SMALLINT;   -- % of buyers who recommend it (0-100)
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS reviews_total INTEGER;   -- reviews on Liateam (we keep the newest 10)
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS origin_country TEXT;
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS content_hashes JSONB;    -- {section: hash}; NULL = never read
+-- English slug (slug.mjs): assigned once, never rewritten; slug_fa = the Persian slug of that moment (redirects).
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS slug_en TEXT;
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS slug_fa TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS supplier_products_slug_en ON supplier_products (slug_en);
+CREATE TABLE IF NOT EXISTS brands (
+  code       INTEGER PRIMARY KEY,               -- Liateam brand code
+  name       TEXT NOT NULL,                     -- Persian name as Liateam shows it
+  latin_name TEXT,                              -- only when Liateam provides one
+  slug       TEXT NOT NULL UNIQUE,              -- ASCII, from latin_name or the transliterated name
+  image_url  TEXT,
+  position   INTEGER,                           -- Liateam's order
+  in_source  BOOLEAN NOT NULL DEFAULT true,     -- false once Liateam no longer lists it (kept for old rows)
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS product_attributes (  -- «مشخصات»: key/value rows in Liateam's order
+  product_id INTEGER NOT NULL REFERENCES supplier_products(id) ON DELETE CASCADE,
+  position   INTEGER NOT NULL,
+  key        TEXT NOT NULL,
+  value      TEXT NOT NULL,
+  PRIMARY KEY (product_id, position)
+);
+CREATE TABLE IF NOT EXISTS product_faqs (
+  product_id INTEGER NOT NULL REFERENCES supplier_products(id) ON DELETE CASCADE,
+  position   INTEGER NOT NULL,
+  question   TEXT NOT NULL,
+  answer     TEXT NOT NULL,
+  PRIMARY KEY (product_id, position)
+);
+CREATE TABLE IF NOT EXISTS product_reviews (     -- newest reviews from Liateam; author masked ("نام ف.")
+  product_id  INTEGER NOT NULL REFERENCES supplier_products(id) ON DELETE CASCADE,
+  position    INTEGER NOT NULL,
+  source_code INTEGER,
+  author      TEXT,
+  rating      SMALLINT,                         -- 1-10, NULL = a comment without a score
+  body        TEXT NOT NULL,
+  reply       TEXT,                             -- Liateam's answer
+  created_at  TIMESTAMPTZ,
+  PRIMARY KEY (product_id, position)
+);
 -- What changed in the catalog, run by run (shown in the dashboard; not only failures).
 CREATE TABLE IF NOT EXISTS product_events (
   id         SERIAL PRIMARY KEY,
@@ -78,7 +129,9 @@ SELECT p.id, p.uuid, p.name, p.price, p.cost_price, p.stock, p.category, p.is_av
                    FROM unnest(p.category) WITH ORDINALITY AS x(code, ord)
                    LEFT JOIN categories c ON c.code = x.code), '{}') AS category_names,
        p.image_url, p.missing_since,
-       p.description, p.brand
+       p.description, p.brand,
+       p.brand_code, p.slug_en, p.slug_fa, p.summary, p.features, p.how_to_use, p.video_url, p.video_embed_url,
+       p.rating_value, p.reviews_total, p.origin_country
   FROM supplier_products p;
 
 -- Alert lines of each run (also in logs/alerts.log); read by the dashboard.
@@ -268,8 +321,9 @@ export async function detailsDue(db, limit, maxAgeDays) {
   const { rows } = await db.query(
     `SELECT id FROM supplier_products
       WHERE missing_since IS NULL
-        AND (details_checked_at IS NULL OR details_checked_at < now() - make_interval(days => $2))
-      ORDER BY details_checked_at NULLS FIRST, id
+        AND (details_checked_at IS NULL OR content_hashes IS NULL
+             OR details_checked_at < now() - make_interval(days => $2))
+      ORDER BY content_hashes IS NOT NULL, details_checked_at NULLS FIRST, id
       LIMIT $1`,
     [limit, maxAgeDays],
   );
@@ -290,6 +344,93 @@ export async function saveDetails(db, id, { brand, description }) {
   if (rowCount) return 'changed';
   await db.query('UPDATE supplier_products SET details_checked_at = now() WHERE id = $1', [id]);
   return 'unchanged';
+}
+
+/**
+ * Rich sections of one product page: only the sections whose hash differs from content_hashes are written
+ * (child rows replaced in one transaction). An unchanged page writes nothing but content_hashes stays as is.
+ * @returns the names of the sections that changed ([] = nothing written)
+ */
+export async function saveRich(db, id, rich, hashes) {
+  const { rows: [row] } = await db.query('SELECT content_hashes FROM supplier_products WHERE id = $1', [id]);
+  if (!row) return [];
+  const old = row.content_hashes ?? {};
+  const changed = Object.keys(hashes).filter((k) => old[k] !== hashes[k]);
+  if (!changed.length) return [];
+  await db.query('BEGIN');
+  try {
+    const set = (cols) => db.query(
+      `UPDATE supplier_products SET ${Object.keys(cols).map((c, i) => `${c} = $${i + 2}`).join(', ')} WHERE id = $1`,
+      [id, ...Object.values(cols)]);
+    const replace = async (table, cols, items) => {
+      await db.query(`DELETE FROM ${table} WHERE product_id = $1`, [id]);
+      for (const [i, item] of items.entries()) {
+        await db.query(
+          `INSERT INTO ${table} (product_id, position, ${cols.join(', ')}) VALUES ($1, $2, ${cols.map((_, j) => `$${j + 3}`).join(', ')})`,
+          [id, i, ...cols.map((c) => item[c])]);
+      }
+    };
+    for (const s of changed) {
+      if (s === 'summary') await set({ summary: rich.summary, features: rich.features });
+      else if (s === 'how_to_use') await set({ how_to_use: rich.howToUse });
+      else if (s === 'video') await set({ video_url: rich.video?.url ?? null, video_embed_url: rich.video?.embed ?? null });
+      else if (s === 'meta') await set({ rating_value: rich.rating, brand_code: rich.brandCode, origin_country: rich.country });
+      else if (s === 'attributes') await replace('product_attributes', ['key', 'value'], rich.attributes);
+      else if (s === 'faqs') await replace('product_faqs', ['question', 'answer'], rich.faqs);
+      else if (s === 'reviews') {
+        await replace('product_reviews', ['source_code', 'author', 'rating', 'body', 'reply', 'created_at'], rich.reviews);
+        await set({ reviews_total: rich.total });
+      }
+    }
+    await set({ content_hashes: JSON.stringify(hashes), details_updated_at: new Date() });
+    await db.query('COMMIT');
+  } catch (e) {
+    await db.query('ROLLBACK');
+    throw e;
+  }
+  return changed;
+}
+
+/**
+ * Mirrors Liateam's brand list (like syncCategories): upsert in its order; brands it no longer lists keep their
+ * row with in_source = false. An empty list (page without the query) changes nothing.
+ */
+export async function syncBrands(db, brands, slugOf, knownLatin = {}) {
+  if (!brands.length) return 0;
+  const { rows } = await db.query('SELECT code, slug, latin_name FROM brands');
+  const taken = new Map(rows.map((r) => [r.slug, r.code]));
+  const stored = new Map(rows.map((r) => [r.code, r.latin_name]));
+  for (const src of brands) {
+    // Liateam's Latin name, else one set by hand earlier, else the known spelling
+    const b = { ...src, latin: src.latin ?? stored.get(src.code) ?? knownLatin[src.name] ?? null };
+    let slug = slugOf(b.latin ?? b.name) || `brand-${b.code}`;
+    if (taken.has(slug) && taken.get(slug) !== b.code) slug = `${slug}-${b.code}`;
+    taken.set(slug, b.code);
+    await db.query(
+      `INSERT INTO brands (code, name, latin_name, slug, image_url, position, in_source) VALUES ($1, $2, $3, $4, $5, $6, true)
+       ON CONFLICT (code) DO UPDATE SET name = $2, latin_name = $3, slug = brands.slug, image_url = $5, position = $6,
+         in_source = true, updated_at = CASE WHEN (brands.name, brands.latin_name, brands.image_url, brands.position, brands.in_source)
+           IS DISTINCT FROM ($2, $3, $5, $6, true) THEN now() ELSE brands.updated_at END`,
+      [b.code, b.name, b.latin, slug, b.image, b.position]);
+  }
+  await db.query('UPDATE brands SET in_source = false WHERE NOT (code = ANY ($1)) AND in_source', [brands.map((b) => b.code)]);
+  return brands.length;
+}
+
+/**
+ * English + Persian slug for products that have none yet (assigned once; see slug.mjs). Brand Latin name =
+ * brands.latin_name, else the brand's slug. Returns how many were assigned.
+ */
+export async function assignSlugs(db, englishSlug, persianSlug) {
+  const { rows } = await db.query(
+    `SELECT p.id, p.name, COALESCE(b.latin_name, b.slug) AS brand_latin
+       FROM supplier_products p LEFT JOIN brands b ON b.code = p.brand_code
+      WHERE p.slug_en IS NULL AND p.content_hashes IS NOT NULL AND (p.brand_code IS NULL OR b.code IS NOT NULL)`);
+  for (const r of rows) {
+    await db.query('UPDATE supplier_products SET slug_en = $2, slug_fa = $3 WHERE id = $1 AND slug_en IS NULL',
+      [r.id, englishSlug({ code: r.id, name: r.name, brandLatin: r.brand_latin }), persianSlug(r.name)]);
+  }
+  return rows.length;
 }
 
 export async function upsertProducts(db, products) {

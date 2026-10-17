@@ -177,7 +177,7 @@ sudo chown -R liateam-shop:liateam-shop /opt/liateam-shop && sudo chmod 700 /opt
 
 ### ۲. دیتابیس: نقش‌ها و دسترسی‌ها **[یک‌بار، به ترتیب، با کاربر postgres]**
 
-هر چهار فایل تراکنشی‌اند (یا همه‌اش اعمال می‌شود یا هیچ) و هیچ داده‌ای را تغییر نمی‌دهند. رمزها را بسازید (`openssl rand -hex 24`)، فقط در فایل env بگذارید و جای دیگری ننویسید.
+هر پنج فایل تراکنشی‌اند (یا همه‌اش اعمال می‌شود یا هیچ) و هیچ داده‌ای را تغییر نمی‌دهند. رمزها را بسازید (`openssl rand -hex 24`)، فقط در فایل env بگذارید و جای دیگری ننویسید.
 
 ```bash
 cd /opt/liateam-shop/staging/app/shop/deploy
@@ -193,6 +193,9 @@ sudo -u postgres psql lia_sync -f shop-db-roles-003-catalog-details.sql
 
 # ۲-د. جست‌وجو: افزونه‌ی pg_trgm، تابع‌های نرمال‌سازی و ایندکس GIN روی جدول محصولات ربات
 sudo -u postgres psql lia_sync -f shop-db-004-search.sql
+
+# ۲-ه. خواندن سکشن‌های غنی محصول (مشخصات، نحوه‌ی استفاده، ویدیو، سوالات متداول، نظرات، برندها، اسلاگ انگلیسی)؛ ربات باید یک‌بار با کد جدید sync کرده باشد
+sudo -u postgres psql lia_sync -f shop-db-roles-005-rich-content.sql
 ```
 
 چرا با کاربر postgres: ساختن نقش و `CREATE EXTENSION` دسترسی مالک دیتابیس می‌خواهد. `004` را می‌شود بی‌خطر دوباره اجرا کرد. تا اجرا نشود، فروشگاه بالا می‌آید ولی جست‌وجو فقط زیررشته‌ی ساده در نام است و یک هشدار `catalog.search_fallback` در لاگ می‌ماند.

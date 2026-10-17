@@ -1,7 +1,8 @@
 // Brand and description from a product's own page (/products/{code}?_rsc). Never throws: a field that cannot be
 // found is null, and the caller logs it. Description HTML is reduced to safe structured text (no markup is ever
 // stored or rendered): blocks separated by a blank line, "## " for headings, "• " for list items.
-import { scanValue } from './rsc.mjs';
+import { createHash } from 'node:crypto';
+import { extractAll, scanValue } from './rsc.mjs';
 
 // Paths tried in order (first non-empty wins), like normalize.mjs's FIELD_PATHS.
 export const DETAIL_PATHS = {
@@ -96,7 +97,7 @@ export function htmlToText(html) {
  */
 export function parseProductDetails(text, code) {
   const product = findProduct(text, code);
-  if (!product) return { found: false, brand: null, description: null, paths: {} };
+  if (!product) return { found: false, brand: null, description: null, paths: {}, rich: null, brands: parseBrands(text) };
   const paths = {};
   const pick = (field, clean) => {
     for (const p of DETAIL_PATHS[field]) {
@@ -111,5 +112,130 @@ export function parseProductDetails(text, code) {
   };
   const brand = pick('brand', (v) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, 80) || null : null));
   const description = pick('description', (v) => (typeof v === 'string' ? htmlToText(v) : null));
-  return { found: true, brand, description, paths };
+  return { found: true, brand, description, paths, rich: parseRich(text, product), brands: parseBrands(text) };
+}
+
+// ---------------------------------------------------------------- rich sections (product page tabs)
+// Everything below is stored as plain text: markup is removed exactly like the description (no HTML is ever
+// stored or rendered), lengths are capped, and nothing from the pricing block is read here.
+
+const MAX_TEXT = 4000;
+const MAX_REVIEWS = 10; // the first page Liateam renders (newest first)
+
+/** Short plain field (summary line, attribute, FAQ, review): tags and entities removed, whitespace collapsed. */
+export function cleanText(v, max = MAX_TEXT) {
+  if (typeof v !== 'string') return null;
+  const out = decode(stripTags(v.replace(/<br\s*\/?>/gi, '\n')))
+    .replace(/­/g, '‌')
+    .split('\n')
+    .map((l) => l.replace(/[ \t ]+/g, ' ').trim())
+    .filter(Boolean)
+    .join('\n');
+  if (!out || !/[\p{L}\p{N}]/u.test(out)) return null; // also "." / "-" placeholders left in empty fields
+  return out.length > max ? `${out.slice(0, max).replace(/\s+\S*$/, '')}…` : out;
+}
+
+// Videos are kept only from Liateam's own video hosting (ArvanCloud); anything else (a content-bank page, a
+// foreign iframe) is dropped. Only the player URL is kept from the iframe HTML, never the HTML itself.
+const VIDEO_FILE = /^https:\/\/[a-z0-9-]+\.arvanvod\.ir\/[\w/.-]+\.mp4$/i;
+const VIDEO_PLAYER = /^https:\/\/player\.arvancloud\.ir\/index\.html\?config=https:\/\/[a-z0-9-]+\.arvanvod\.ir\/[\w/.-]+\.json$/i;
+export function parseVideo(link, iframe) {
+  const url = typeof link === 'string' && VIDEO_FILE.test(link.trim()) ? link.trim() : null;
+  const src = typeof iframe === 'string' ? /<iframe\b[^>]*\bsrc="([^"]+)"/i.exec(iframe)?.[1]?.replace(/&amp;/g, '&') : null;
+  const embed = src && VIDEO_PLAYER.test(src) ? src : null;
+  return url || embed ? { url, embed } : null;
+}
+
+/** "معصومه اولیاگوکی" → "معصومه ا." — reviews are public, the full name of a customer is not needed. */
+export function maskAuthor(name) {
+  const words = cleanText(name, 80)?.split(/\s+/) ?? [];
+  if (!words.length) return null;
+  return words.length === 1 ? words[0] : `${words[0]} ${[...words.at(-1)][0]}.`;
+}
+const redact = (s) => s && s.replace(/(?:\+98|0)?9\d{9}|[\w.+-]+@[\w-]+\.[\w.]+/g, '…');
+
+function parseReviews(text) {
+  const list = extractAll(text, 'comments').find(
+    (v) => Array.isArray(v) && v.length && v.every((c) => c && typeof c === 'object' && 'created_at' in c),
+  ) ?? [];
+  const total = extractAll(text, 'pagination').find((p) => p && Number.isInteger(p.total))?.total ?? list.length;
+  const reviews = [];
+  for (const c of list) {
+    const body = redact(cleanText(c.description, 2000));
+    if (!body) continue;
+    const rate = Number(c.rate);
+    reviews.push({
+      source_code: Number.isInteger(c.code) ? c.code : null,
+      author: maskAuthor(c.created_by),
+      // "nps" reviews carry 1–10; plain comments carry 0 = no score
+      rating: Number.isInteger(rate) && rate >= 1 && rate <= 10 ? rate : null,
+      body,
+      reply: redact(cleanText(c.reply?.description, 2000)),
+      created_at: typeof c.created_at === 'string' && !Number.isNaN(Date.parse(c.created_at)) ? c.created_at : null,
+    });
+    if (reviews.length >= MAX_REVIEWS) break;
+  }
+  return { reviews, total: Math.max(total, reviews.length) };
+}
+
+/** The product's tabs: summary, features, specs, how-to-use, video, FAQ, reviews, rating, brand code. */
+export function parseRich(text, product) {
+  const lines = (v) => (cleanText(resolveRef(text, v)) ?? '').split('\n').filter(Boolean);
+  const attributes = (Array.isArray(product.attributes) ? product.attributes : [])
+    .map((a) => ({ key: cleanText(a?.key, 120), value: cleanText(a?.value, 1000) }))
+    .filter((a) => a.key && a.value);
+  const faqs = (Array.isArray(product.faqs) ? product.faqs : [])
+    .map((q) => ({ question: cleanText(q?.question, 500), answer: cleanText(resolveRef(text, q?.answer), 3000) }))
+    .filter((q) => q.question && q.answer);
+  const features = (Array.isArray(product.features) ? product.features : []).map((f) => cleanText(f, 300)).filter(Boolean);
+  const rating = Number(product.rating_value);
+  const brandCode = Number(product.brand?.code);
+  return {
+    summary: lines(product.summary).join('\n') || null,
+    features,
+    attributes,
+    howToUse: cleanText(resolveRef(text, product.how_to_use)),
+    video: parseVideo(product.video_link, product.video_iframe),
+    faqs,
+    ...parseReviews(text),
+    rating: Number.isFinite(rating) && rating >= 0 && rating <= 100 ? Math.round(rating) : null,
+    brandCode: Number.isInteger(brandCode) && brandCode > 0 ? brandCode : null,
+    country: cleanText(product.country, 60),
+  };
+}
+
+/** Liateam's brand list (the "product/brands" query every page carries), in its order; [] if absent. */
+export function parseBrands(text) {
+  const at = text.indexOf('"queryKey":["product/brands"]');
+  if (at < 0) return [];
+  const start = text.lastIndexOf('{"dehydratedAt"', at);
+  if (start < 0) return [];
+  try {
+    const data = JSON.parse(text.slice(start, scanValue(text, start)))?.state?.data;
+    return (Array.isArray(data) ? data : [])
+      .filter((b) => Number.isInteger(b?.code) && cleanText(b.title, 80))
+      .map((b, i) => ({
+        code: b.code,
+        name: cleanText(b.title, 80),
+        latin: cleanText(b.title_en ?? b.english_title ?? b.slug, 80)?.match(/^[\w .&'-]+$/)?.[0] ?? null,
+        image: typeof b.image === 'string' && /^https:\/\/s3\.liateam\.ir\//.test(b.image) ? b.image : null,
+        position: i,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+/** One hash per section, so a weekly re-read rewrites only the sections whose content really changed. */
+export function sectionHashes(rich) {
+  const h = (v) => createHash('sha1').update(JSON.stringify(v ?? null)).digest('hex').slice(0, 16);
+  return {
+    summary: h([rich.summary, rich.features]),
+    attributes: h(rich.attributes),
+    how_to_use: h(rich.howToUse),
+    video: h(rich.video),
+    faqs: h(rich.faqs),
+    reviews: h([rich.reviews, rich.total]),
+    meta: h([rich.rating, rich.brandCode, rich.country]),
+  };
 }
