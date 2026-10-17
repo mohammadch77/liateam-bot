@@ -19,6 +19,8 @@ const PAGES = [
   '/search?q=%D8%B4%D8%A7%D9%85%D9%BE%D9%88', // «شامپو»
   '/search?q=qqzzxx', // empty state
   '/login',
+  '/cart', // «به‌زودی» placeholder (all of them share one component)
+  '/legal/privacy',
   '/styleguide',
 ];
 const WIDTHS = [

@@ -97,6 +97,7 @@ export function footerProps(): Omit<FooterProps, 'seals'> {
       },
     ],
     contact: { phone: c.SUPPORT_PHONE, hours: 'هر روز ۹ تا ۲۱', email: '', address: '' },
+    newsletterAction: '/api/newsletter',
     social: [],
     copyright: `© ${new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric' }).format(new Date())} — تمامی حقوق برای فروشگاه اینترنتی ${c.BRAND_NAME} محفوظ است.`,
   };
