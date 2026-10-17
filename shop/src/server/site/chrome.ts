@@ -21,13 +21,15 @@ const LINKS = {
   favorites: '/account/favorites',
 } as const;
 
-/** Top-level categories for the header bar; the header still renders (without them) if the catalog is down. */
+/**
+ * Top-level categories for the header bar, all of them in Liateam's order (the bar shows as many as fit, never a
+ * cut-off one); the header still renders (without them) if the catalog is down.
+ */
 export async function headerCategories(): Promise<NavItem[]> {
   try {
     const all = await catalogService.allCategories();
     return all
       .filter((x) => x.parentCode === null)
-      .slice(0, 7)
       .map((x) => ({ label: x.name, href: x.href }));
   } catch (e) {
     logger.warn('site.header_categories_unavailable', { code: toAppError(e).code });

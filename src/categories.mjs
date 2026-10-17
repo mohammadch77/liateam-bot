@@ -75,5 +75,37 @@ export function parseCategories(text) {
   return out;
 }
 
+/**
+ * Liateam's official category tree: the `product/categories` query its pages embed (the data behind the site's
+ * category menu). It is a flat array whose order IS Liateam's display order — roots in menu order, and each
+ * parent's children in their order — so `position` is simply the index. Returns null when the query is absent
+ * (the caller then keeps the stored tree instead of guessing one).
+ * @returns {null | Array<{code, name, parent_code, position, type}>}
+ */
+export function parseOfficialTree(text) {
+  const marker = text.indexOf('"queryKey":["product/categories"]');
+  if (marker < 0) return null;
+  // the query's state object precedes its queryKey: {"state":{"data":[…],…},"queryKey":[…]}
+  const dataAt = text.lastIndexOf('"state":{"data":[', marker);
+  if (dataAt < 0) return null;
+  const start = dataAt + '"state":{"data":'.length;
+  let data;
+  try { data = JSON.parse(text.slice(start, scanValue(text, start))); } catch { return null; }
+  if (!Array.isArray(data)) return null;
+  const tree = [];
+  for (const o of data) {
+    if (!o || typeof o.code !== 'number' || typeof o.title !== 'string' || !o.title.trim()) continue;
+    tree.push({
+      code: o.code,
+      // Liateam's titles sometimes carry doubled spaces («سرم  تخصصی»); its menu renders them collapsed
+      name: o.title.replace(/\s+/g, ' ').trim(),
+      parent_code: typeof o.parent_code === 'number' && o.parent_code !== o.code ? o.parent_code : null,
+      position: tree.length,
+      type: typeof o.type === 'string' ? o.type : null,
+    });
+  }
+  return tree.length ? tree : null;
+}
+
 /** Display name for a category code; falls back to the code itself (unnamed categories). */
 export const categoryLabel = (code, byCode) => byCode.get(code)?.name || `#${code}`;

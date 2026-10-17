@@ -8,7 +8,7 @@ import { login, hasSession, AuthError } from './auth.mjs';
 import { fetchAllProducts, fetchProductPages } from './source.mjs';
 import { StructureError } from './rsc.mjs';
 import { checkProduct, checkUnitDrift, UnitError } from './sanity.mjs';
-import { openDb, loadPrevious, upsertProducts, upsertCategories, recordRun, diffCatalog, recordEvents, applySettings, setStatus, detailsDue, saveDetails } from './db.mjs';
+import { openDb, loadPrevious, upsertProducts, syncCategories, recordRun, diffCatalog, recordEvents, applySettings, setStatus, detailsDue, saveDetails } from './db.mjs';
 
 class CoverageError extends Error {}
 class LoginError extends Error {} // login itself failed -> needs a human
@@ -79,7 +79,7 @@ async function main() {
     });
     const fromDb = await applySettings(db, config);
     if (fromDb.length) log.info('Settings from database', { keys: fromDb });
-    const { products, total, fallbacks, categories, shape } = await fetchWithSession();
+    const { products, total, fallbacks, categories, tree, shape } = await fetchWithSession();
     run.fetched = products.length;
 
     if (products.length < total * config.minCoverage) {
@@ -112,9 +112,10 @@ async function main() {
     run.rejected = rejected.length;
 
     const usedCodes = new Set(products.flatMap((p) => p.category));
-    const catCount = await upsertCategories(db, categories, usedCodes);
+    const cats = await syncCategories(db, tree, categories, usedCodes);
     const unnamed = [...usedCodes].filter((c) => !categories.has(c));
-    log.info(`categories: ${categories.size} named in source, ${catCount} stored`, unnamed.length ? { unnamedThisRun: unnamed } : undefined);
+    log.info(`categories: ${tree ? `Liateam tree of ${tree.length}` : `${categories.size} guessed (no official tree)`}, ${cats.stored} stored, ${cats.changes.length} changed`,
+      cats.changes.length || unnamed.length ? { changes: cats.changes, unnamedThisRun: unnamed } : undefined);
 
     // products.json mirrors the accepted, sellable state in the DB (rejected products keep their last good values;
     // excluded-category products stay in the DB with is_sellable=false).

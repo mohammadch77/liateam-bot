@@ -4,7 +4,7 @@ import { config } from './config.mjs';
 import { log } from './logger.mjs';
 import { parseCategoriesPage, extractAll } from './rsc.mjs';
 import { normalize } from './normalize.mjs';
-import { parseCategories } from './categories.mjs';
+import { parseCategories, parseOfficialTree } from './categories.mjs';
 import { AuthError } from './auth.mjs';
 import { parseProductDetails } from './product-details.mjs';
 
@@ -23,7 +23,7 @@ export function shapeKeys(raw) {
   return keys;
 }
 
-/** @returns { products: normalized[], total, fallbacks: string[], categories: Map<code,{code,name,parent_code}> } */
+/** @returns { products: normalized[], total, fallbacks: string[], categories: Map<code,{code,name,parent_code}>, tree: official tree | null } */
 export async function fetchAllProducts() {
   const ctx = await request.newContext({
     baseURL: config.baseUrl,
@@ -39,6 +39,7 @@ export async function fetchAllProducts() {
     const byCode = new Map();
     const fallbacks = new Set();
     const categories = new Map();
+    let tree = null; // Liateam's official tree (names, parents, menu order), from the first page that carries it
     const keyCounts = new Map(); // how often each field appears, to notice Liateam changing its data
     let seen = 0;
     let total = null;
@@ -56,8 +57,9 @@ export async function fetchAllProducts() {
 
       const text = await res.text();
       const parsed = parseCategoriesPage(text, page);
-      // Category names ride along in the same payload; no extra request to the supplier.
-      for (const [code, c] of parseCategories(text)) if (!categories.has(code)) categories.set(code, c);
+      // The category tree rides along in the same payload; no extra request to the supplier.
+      tree ??= parseOfficialTree(text);
+      if (!tree) for (const [code, c] of parseCategories(text)) if (!categories.has(code)) categories.set(code, c);
       // Logged-out responses come back 200 but with pricing:null and stock capped at 20.
       if (parsed.products.every((p) => p.pricing == null)) {
         throw new AuthError(`قیمت‌ها خالی است در صفحه‌ی ${page} - سشن منقضی شده (نمای خارج از حساب)`);
@@ -81,7 +83,11 @@ export async function fetchAllProducts() {
     if (fallbacks.size) log.warn('Fallback field paths used - source structure may be drifting', { fallbacks: [...fallbacks] });
     // Fields present on (almost) every product = the data contract we rely on.
     const shape = [...keyCounts].filter(([, n]) => n >= seen * 0.9).map(([k]) => k).sort();
-    return { products: [...byCode.values()], total, fallbacks: [...fallbacks], categories, shape };
+    if (tree) {
+      categories.clear();
+      for (const c of tree) categories.set(c.code, c);
+    } else log.warn('Liateam category tree (product/categories) not found - stored tree kept, names guessed');
+    return { products: [...byCode.values()], total, fallbacks: [...fallbacks], categories, tree, shape };
   } finally {
     await ctx.dispose();
   }

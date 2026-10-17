@@ -106,7 +106,10 @@ export const catalogRepository = {
     );
   },
 
-  /** Named categories with at least one visible product in their subtree, with those counts. */
+  /**
+   * The categories the shop shows: Liateam's own tree in Liateam's menu order (position), minus codes Liateam no
+   * longer lists and categories with no visible product anywhere in their subtree (e.g. «ابزارها و سمپل ها»).
+   */
   async listCategories(): Promise<CategoryRow[]> {
     return query<CategoryRow>(
       'catalog.list_categories',
@@ -119,8 +122,8 @@ export const catalogRepository = {
                GROUP BY t.root)
        SELECT c.code, c.name, c.parent_code, n.product_count
          FROM categories c JOIN counted n ON n.root = c.code
-        WHERE c.name IS NOT NULL AND btrim(c.name) <> ''
-        ORDER BY n.product_count DESC, c.name`,
+        WHERE c.in_source AND c.name IS NOT NULL AND btrim(c.name) <> ''
+        ORDER BY c.position NULLS LAST, c.code`,
     );
   },
 
@@ -131,7 +134,7 @@ export const catalogRepository = {
               (SELECT count(*)::int FROM product_catalog p
                 WHERE p.category && ${subtreeOf('ARRAY[$1]')} AND ${VISIBLE}) AS product_count
          FROM categories c
-        WHERE c.code = $1 AND c.name IS NOT NULL`,
+        WHERE c.code = $1 AND c.in_source AND c.name IS NOT NULL`,
       [code],
     );
   },

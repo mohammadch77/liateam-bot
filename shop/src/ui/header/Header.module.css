@@ -281,9 +281,12 @@ a.topbarItem:hover {
   background: #e3dbd8;
   margin: 0 10px;
 }
+/* one 50px row; items that do not fit wrap onto a hidden second row, so no label is ever cut in half */
 .navList {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  height: 50px;
   min-width: 0;
   overflow: hidden;
 }

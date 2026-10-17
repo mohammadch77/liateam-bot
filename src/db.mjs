@@ -45,6 +45,11 @@ CREATE TABLE IF NOT EXISTS categories (
   parent_code INTEGER,
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Liateam's official tree (categories.mjs parseOfficialTree): position = its menu order; type = product | accessory;
+-- in_source = false once Liateam no longer lists the code (kept so old product rows still join, but never shown).
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS position INTEGER;
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS type TEXT;
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS in_source BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS image_url TEXT;
 ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS missing_since TIMESTAMPTZ;  -- set while the supplier no longer lists it
 -- From each product's own page (product-details.mjs). Content columns change only when the text changes;
@@ -331,23 +336,62 @@ export async function recordRun(db, run, alerts = []) {
 }
 
 /**
- * Stores named categories, plus a nameless row for every code used by a product so the join is total.
- * A name already known is never overwritten with NULL (a page that omits the tree must not erase it).
+ * Makes the categories table mirror Liateam's official tree: name, parent (a move back to the root included),
+ * menu position and type exactly as Liateam has them; codes Liateam dropped get in_source=false. A row is
+ * written only when something in it really changed. Without the official tree (`tree` null) the stored tree is
+ * kept and only names are filled in, never overwritten with NULL. Codes used by products but absent from the
+ * tree get a nameless row so the view's join stays total.
+ * @returns {{ stored: number, changes: string[] }}
  */
-export async function upsertCategories(db, named, usedCodes) {
-  const all = new Map([...usedCodes].map((code) => [code, { code, name: null, parent_code: null }]));
-  for (const [code, c] of named) all.set(code, c);
-  for (const c of all.values()) {
-    await db.query(
-      `INSERT INTO categories (code, name, parent_code) VALUES ($1,$2,$3)
-       ON CONFLICT (code) DO UPDATE SET
-         name = COALESCE(EXCLUDED.name, categories.name),
-         parent_code = COALESCE(EXCLUDED.parent_code, categories.parent_code),
-         updated_at = CASE WHEN EXCLUDED.name IS NOT NULL THEN now() ELSE categories.updated_at END`,
-      [c.code, c.name, c.parent_code],
-    );
+export async function syncCategories(db, tree, named, usedCodes) {
+  const changes = [];
+  await db.query('BEGIN');
+  try {
+    if (tree) {
+      const { rows: before } = await db.query('SELECT code, name, parent_code, position, type, in_source FROM categories');
+      const old = new Map(before.map((r) => [r.code, r]));
+      for (const c of tree) {
+        const o = old.get(c.code);
+        if (o && o.in_source && o.name === c.name && o.parent_code === c.parent_code && o.position === c.position && o.type === c.type) continue;
+        changes.push(!o || !o.name ? `+${c.code} ${c.name}`
+          : [o.name !== c.name && `${c.code}: «${o.name}» → «${c.name}»`,
+             o.parent_code !== c.parent_code && `${c.code}: parent ${o.parent_code ?? 'root'} → ${c.parent_code ?? 'root'}`,
+             o.position !== c.position && `${c.code}: position ${o.position ?? '-'} → ${c.position}`,
+             o.type !== c.type && `${c.code}: type ${o.type ?? '-'} → ${c.type}`,
+             !o.in_source && `${c.code}: back in Liateam`].filter(Boolean).join(', '));
+        await db.query(
+          `INSERT INTO categories (code, name, parent_code, position, type, in_source) VALUES ($1,$2,$3,$4,$5,true)
+           ON CONFLICT (code) DO UPDATE SET name = $2, parent_code = $3, position = $4, type = $5, in_source = true,
+             updated_at = now()`,
+          [c.code, c.name, c.parent_code, c.position, c.type],
+        );
+      }
+      const listed = new Set(tree.map((c) => c.code));
+      for (const o of before) {
+        if (listed.has(o.code) || !o.in_source) continue;
+        if (o.name) changes.push(`-${o.code} ${o.name} (no longer in Liateam)`);
+        await db.query('UPDATE categories SET in_source = false, updated_at = now() WHERE code = $1', [o.code]);
+      }
+    } else {
+      for (const c of named.values()) {
+        await db.query(
+          `INSERT INTO categories (code, name, parent_code) VALUES ($1,$2,$3)
+           ON CONFLICT (code) DO UPDATE SET name = COALESCE(EXCLUDED.name, categories.name), updated_at = now()
+           WHERE categories.name IS NULL AND EXCLUDED.name IS NOT NULL`,
+          [c.code, c.name, c.parent_code],
+        );
+      }
+    }
+    for (const code of usedCodes) {
+      await db.query('INSERT INTO categories (code, in_source) VALUES ($1, false) ON CONFLICT (code) DO NOTHING', [code]);
+    }
+    await db.query('COMMIT');
+  } catch (e) {
+    await db.query('ROLLBACK');
+    throw e;
   }
-  return all.size;
+  const { rows } = await db.query('SELECT count(*)::int AS n FROM categories');
+  return { stored: rows[0].n, changes };
 }
 
 // Keys the dashboard may change, with validators. Anything else in the table is ignored.
