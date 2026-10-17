@@ -260,20 +260,6 @@ a.topbarItem:hover {
   font-size: 14px;
   min-width: 0;
 }
-.allCats {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 50px;
-  padding: 0 0 0 14px;
-  color: var(--color-ink);
-  font-weight: 800;
-  white-space: nowrap;
-}
-.allCats:hover {
-  color: var(--color-primary);
-}
 .navRule {
   flex: none;
   width: 1px;

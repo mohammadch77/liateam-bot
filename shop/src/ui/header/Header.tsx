@@ -3,14 +3,27 @@ import { formatToman, formatTomanShort, type Toman } from '@/lib/format/money';
 import { formatNumber, toFaDigits } from '@/lib/format/number';
 import { Icon } from '../icon/Icon';
 import { Container } from '../layout/Layout';
+import { MegaMenu } from './MegaMenu';
+import { MobileMenu } from './MobileMenu';
 import s from './Header.module.css';
 
 export type Brand = { name: string; latin: string; homeHref?: string };
-export type NavItem = { label: string; href: string; highlight?: boolean; current?: boolean };
+export type NavItem = {
+  label: string;
+  href: string;
+  highlight?: boolean;
+  current?: boolean;
+  /** visible products (shown in the menus) */
+  count?: number;
+  /** cover picture of a top-level category in the mega menu */
+  imageUrl?: string | null;
+  /** sub-categories, in Liateam's order (mega menu, mobile drawer) */
+  children?: readonly NavItem[];
+};
 
 export type HeaderProps = {
   brand: Brand;
-  /** category links in the bar under the search row */
+  /** top-level categories with their sub-categories: the bar under the search row, the mega menu, the drawer */
   categories: readonly NavItem[];
   allCategoriesHref: string;
   searchAction?: string;
@@ -99,10 +112,7 @@ export function Header(p: HeaderProps) {
 
         <nav aria-label="دسته‌بندی‌ها" className={s.nav}>
           <Container className={s.navInner}>
-            <Link href={p.allCategoriesHref} className={s.allCats}>
-              <Icon name="menu" size={22} />
-              دسته‌بندی کالاها
-            </Link>
+            <MegaMenu items={p.categories} allHref={p.allCategoriesHref} />
             <span className={s.navRule} aria-hidden="true" />
             <ul className={s.navList}>
               {p.categories.map((c) => (
@@ -136,9 +146,7 @@ export function Header(p: HeaderProps) {
         </div>
         <div className={s.mobileRow}>
           <div className={s.mobileGroup}>
-            <Link href={p.allCategoriesHref} className={s.iconLink} aria-label="منو">
-              <Icon name="menu" size={24} />
-            </Link>
+            <MobileMenu items={p.categories} allHref={p.allCategoriesHref} brandName={p.brand.name} />
             <Link href={home} className={s.mobileLogo} aria-label={`${p.brand.name} — صفحه اصلی`}>
               {p.brand.name}
               <span className={s.logoDot}>.</span>

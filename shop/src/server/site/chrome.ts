@@ -22,15 +22,20 @@ const LINKS = {
 } as const;
 
 /**
- * Top-level categories for the header bar, all of them in Liateam's order (the bar shows as many as fit, never a
- * cut-off one); the header still renders (without them) if the catalog is down.
+ * The header's categories in Liateam's order: top-level ones (the bar shows as many as fit, never a cut-off one)
+ * with their sub-categories for the mega menu and the mobile drawer. Categories with nothing to sell are already
+ * left out by the repository. The header still renders (without them) if the catalog is down.
  */
 export async function headerCategories(): Promise<NavItem[]> {
   try {
-    const all = await catalogService.allCategories();
-    return all
-      .filter((x) => x.parentCode === null)
-      .map((x) => ({ label: x.name, href: x.href }));
+    const menu = await catalogService.menu();
+    return menu.map((x) => ({
+      label: x.name,
+      href: x.href,
+      count: x.count,
+      imageUrl: x.imageUrl,
+      children: x.children.map((ch) => ({ label: ch.name, href: ch.href, count: ch.count })),
+    }));
   } catch (e) {
     logger.warn('site.header_categories_unavailable', { code: toAppError(e).code });
     return [];

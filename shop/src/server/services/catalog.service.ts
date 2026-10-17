@@ -257,4 +257,16 @@ export const catalogService = {
   async allCategories(): Promise<Category[]> {
     return (await categoryNames()).list;
   },
+
+  /** The header's category menu: top-level categories in Liateam's order, each with its sub-categories and a cover. */
+  async menu(): Promise<Array<Category & { children: Category[]; imageUrl: string | null }>> {
+    const { list } = await categoryNames();
+    const roots = list.filter((c) => c.parentCode === null);
+    const covers = await catalogRepository.categoryCovers(roots.map((c) => c.code));
+    return roots.map((r) => ({
+      ...r,
+      children: list.filter((c) => c.parentCode === r.code),
+      imageUrl: covers.get(r.code) ?? null,
+    }));
+  },
 };
