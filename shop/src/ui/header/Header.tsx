@@ -5,6 +5,7 @@ import { Icon } from '../icon/Icon';
 import { Container } from '../layout/Layout';
 import { MegaMenu } from './MegaMenu';
 import { MobileMenu } from './MobileMenu';
+import { SearchBox } from './SearchBox';
 import s from './Header.module.css';
 
 export type Brand = { name: string; latin: string; homeHref?: string };
@@ -190,37 +191,6 @@ function Logo({ brand, href }: { brand: Brand; href: string }) {
       </span>
       <span className={s.logoLatin}>{brand.latin}</span>
     </Link>
-  );
-}
-
-/** Plain GET form: search works before any JavaScript loads; suggestions are added on top later. */
-function SearchBox({
-  action = '/search',
-  query,
-  compact,
-}: {
-  action?: string;
-  query?: string;
-  compact?: boolean;
-}) {
-  return (
-    <form action={action} role="search" className={compact ? `${s.search} ${s.mobileSearch}` : s.search}>
-      <Icon name="search" size={compact ? 21 : 22} className={s.searchIcon} />
-      <input
-        type="search"
-        name="q"
-        defaultValue={query}
-        aria-label="جست‌وجو"
-        placeholder={compact ? 'جست‌وجو در محصولات…' : 'جست‌وجو در محصولات، برندها و دسته‌ها…'}
-        className={s.searchInput}
-        enterKeyHint="search"
-      />
-      {!compact && (
-        <span className={s.kbd} aria-hidden="true">
-          /
-        </span>
-      )}
-    </form>
   );
 }
 

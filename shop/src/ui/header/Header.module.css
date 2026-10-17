@@ -106,54 +106,6 @@ a.topbarItem:hover {
   text-align: right;
 }
 
-.search {
-  width: 100%;
-  max-width: 660px;
-  justify-self: center;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 50px;
-  padding: 0 16px;
-  border-radius: 14px;
-  background: var(--color-surface-2);
-  border: 1.5px solid transparent;
-  transition: all 0.2s ease;
-}
-.search:focus-within {
-  background: var(--color-white);
-  border-color: var(--color-primary);
-  box-shadow: var(--shadow-focus-field);
-}
-.searchIcon {
-  color: var(--color-muted);
-}
-.searchInput {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  border: 0;
-  background: transparent;
-  outline: none;
-  font-size: 14.5px;
-  color: var(--color-ink);
-}
-.searchInput::placeholder {
-  color: var(--color-muted);
-}
-.searchInput:focus-visible {
-  outline: none;
-}
-.kbd {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--color-muted);
-  border: 1px solid var(--color-line-strong);
-  border-radius: 6px;
-  padding: 1px 6px;
-  direction: ltr;
-}
-
 .actions {
   display: flex;
   align-items: center;
@@ -367,14 +319,4 @@ a.topbarItem:hover {
 }
 .mobileSearchWrap {
   padding: 0 16px 12px;
-}
-.mobileSearch {
-  height: 46px;
-  max-width: none;
-  border-radius: 12px;
-  gap: 8px;
-  padding: 0 14px;
-}
-.mobileSearch .searchInput {
-  font-size: 14px;
 }

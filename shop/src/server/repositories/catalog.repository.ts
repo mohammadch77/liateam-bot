@@ -1,5 +1,6 @@
 import 'server-only';
 import { query, queryOne } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 /**
  * Read-only access to the supplier catalog kept up to date by the sync bot (public.product_catalog view,
@@ -23,8 +24,78 @@ const subtreeOf = (param: string) =>
           UNION SELECT c.code FROM categories c JOIN t ON c.parent_code = t.code)
         SELECT code FROM t)`;
 
-/** Persian-insensitive text: Arabic ي/ك → ی/ک, ZWNJ → space (must match normalizeSearch). */
+/** Fallback (search functions not installed yet): Arabic ي/ك → ی/ک, ZWNJ → space, on the name only. */
 const NORMALIZED_NAME = `translate(lower(p.name), 'يك' || chr(8204), 'یک ')`;
+
+/**
+ * Searchable text of a product (name + brand, normalised by public.search_norm — the same rules as
+ * normalizeSearch in src/lib/search/normalize.ts). A GIN trigram index on exactly this expression
+ * (deploy/shop-db-004-search.sql) serves the LIKE '%…%' and `<%` conditions below.
+ */
+const DOC = `public.search_doc(p.name, p.brand)`;
+
+/**
+ * Whether deploy/shop-db-004-search.sql has been run (pg_trgm + search functions). Until then search falls back
+ * to plain substring matching on the name; checked again every few minutes, so running the file needs no restart.
+ */
+let searchReady: { ok: boolean; at: number } | null = null;
+async function hasSearchFunctions(): Promise<boolean> {
+  if (searchReady && (searchReady.ok || Date.now() - searchReady.at < 5 * 60_000)) return searchReady.ok;
+  const row = await queryOne<{ ok: boolean }>(
+    'catalog.search_ready',
+    `SELECT to_regprocedure('public.search_doc(text,text)') IS NOT NULL
+        AND EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') AS ok`,
+  );
+  const ok = !!row?.ok;
+  if (!ok && !searchReady)
+    logger.warn('catalog.search_fallback', { reason: 'run deploy/shop-db-004-search.sql' });
+  searchReady = { ok, at: Date.now() };
+  return ok;
+}
+
+/** A query word and the catalog words it may be a misspelling of (the service finds those). */
+export type SearchWord = { word: string; alts: readonly string[] };
+/** A normalised search: the whole text (for similarity ranking) and its words. */
+export type SearchTerms = { text: string; words: readonly SearchWord[] };
+
+/**
+ * WHERE conditions and a relevance score for a search. Every word must match the product (name or brand):
+ *  - 1–2 letters: the start of a word («ر» → «ریمل», not every name containing «ر»);
+ *  - 3+ letters: anywhere (partial: «شامپ» → «شامپو»), or one of its spelling corrections («رمل» → «ریمل»),
+ *    or — 4+ letters — trigram word similarity (pg_trgm `<%`, threshold 0.6).
+ * Score per word: start of a word 3 › anywhere 2 › a correction 1.5 › trigram similarity (0–1); plus the
+ * trigram similarity of the whole query to the name, so closer names rank first.
+ */
+function searchSql(
+  t: SearchTerms,
+  add: (v: unknown) => string,
+  withScore: boolean,
+): { where: string[]; score: string | null } {
+  // parameters are bound only when the text that uses them is part of the statement (Postgres must infer
+  // the type of every bound parameter, so an unused one is an error)
+  const where: string[] = [];
+  const scores: string[] = [];
+  for (const { word, alts } of t.words) {
+    const start = () => `(${DOC} LIKE ${add(`${word}%`)} OR ${DOC} LIKE ${add(`% ${word}%`)})`;
+    if (word.length <= 2) {
+      where.push(start());
+      if (withScore) scores.push('3');
+      continue;
+    }
+    const anywhere = () => `${DOC} LIKE ${add(`%${word}%`)}`;
+    const fixed = () =>
+      alts.length ? `(${alts.map((a) => `${DOC} LIKE ${add(`%${a}%`)}`).join(' OR ')})` : 'false';
+    where.push(`(${anywhere()} OR ${fixed()}${word.length >= 4 ? ` OR ${add(word)} <% ${DOC}` : ''})`);
+    if (withScore) {
+      scores.push(
+        `CASE WHEN ${start()} THEN 3 WHEN ${anywhere()} THEN 2 WHEN ${fixed()} THEN 1.5 ` +
+          `ELSE word_similarity(${add(word)}, ${DOC}) END`,
+      );
+    }
+  }
+  if (withScore) scores.push(`similarity(${add(t.text)}, public.search_norm(p.name))`);
+  return { where, score: withScore ? scores.join(' + ') : null };
+}
 
 export type ProductRow = {
   id: number;
@@ -54,8 +125,8 @@ export type ProductSort = 'relevance' | 'newest' | 'price_asc' | 'price_desc';
 export type ProductListQuery = {
   /** any of these category codes */
   categories?: readonly number[];
-  /** every word must appear in the name (already normalised) */
-  words?: readonly string[];
+  /** text search (normalised words); with sort 'relevance' the results are ranked by how well they match */
+  search?: SearchTerms;
   inStockOnly?: boolean;
   excludeId?: number;
   sort: ProductSort;
@@ -71,7 +142,7 @@ const ORDER: Record<ProductSort, string> = {
   price_desc: 'p.price DESC, p.id DESC',
 };
 
-/** Escapes LIKE wildcards in user text. */
+/** Escapes LIKE wildcards in user text (normalised words hold letters and digits only; this is defence in depth). */
 const likeEscape = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 export const catalogRepository = {
@@ -84,18 +155,42 @@ export const catalogRepository = {
     if (q.categories?.length) where.push(`p.category && ${subtreeOf(add(q.categories))}`);
     if (q.inStockOnly) where.push('p.stock > 0');
     if (q.excludeId !== undefined) where.push(`p.id <> ${add(q.excludeId)}`);
-    for (const w of q.words ?? []) where.push(`${NORMALIZED_NAME} LIKE ${add(`%${likeEscape(w)}%`)}`);
+    let order = ORDER[q.sort];
+    if (q.search?.words.length) {
+      if (await hasSearchFunctions()) {
+        const { where: w, score } = searchSql(q.search, add, q.sort === 'relevance');
+        where.push(...w);
+        if (score) order = `${score} DESC, (p.stock > 0) DESC, p.id DESC`;
+      } else {
+        for (const { word } of q.search.words)
+          where.push(`${NORMALIZED_NAME} LIKE ${add(`%${likeEscape(word)}%`)}`);
+      }
+    }
 
     const rows = await query<ProductRow & { total: number }>(
       'catalog.list_products',
       `SELECT ${PRODUCT_COLS}, count(*) OVER ()::int AS total
          FROM product_catalog p
         WHERE ${where.join(' AND ')}
-        ORDER BY ${ORDER[q.sort]}
+        ORDER BY ${order}
         LIMIT ${add(q.limit)} OFFSET ${add(q.offset)}`,
       params,
     );
     return { rows, total: rows[0]?.total ?? 0 };
+  },
+
+  /**
+   * Distinct words (3+ letters) of the visible catalog's names and brands, normalised: the dictionary the
+   * service corrects misspelt query words against. Small (a few thousand words); the service caches it.
+   */
+  async searchVocabulary(): Promise<string[]> {
+    if (!(await hasSearchFunctions())) return [];
+    const rows = await query<{ w: string }>(
+      'catalog.search_vocabulary',
+      `SELECT DISTINCT w FROM product_catalog p, regexp_split_to_table(${DOC}, ' ') AS w
+        WHERE ${VISIBLE} AND length(w) >= 3`,
+    );
+    return rows.map((r) => r.w);
   },
 
   async getProduct(id: number): Promise<ProductDetailRow | null> {

@@ -50,6 +50,9 @@ Failures are also written to `logs/alerts.log` and the `sync_alerts` table (dash
   - The description is stored as plain structured text (`## ` headings, `• ` list items); the supplier's HTML is never stored or rendered.
   - `brand` / `description` are written only when they changed (`details_updated_at`); `details_checked_at` only schedules the next visit. Price, stock and `updated_at` are never touched by this step.
   - The shop reads them through `product_catalog`; its roles need `shop/deploy/shop-db-roles-003-catalog-details.sql` once.
+- **Shop search:** fuzzy search needs `shop/deploy/shop-db-004-search.sql` once, **as the database owner** (`sudo -u postgres psql lia_sync -f …`): `CREATE EXTENSION pg_trgm` needs that right. It adds `search_norm()` / `search_doc()` and a GIN trigram index on `supplier_products`; it changes no data. Until it has run, the shop falls back to plain substring search on names (logged once as `catalog.search_fallback`).
+  - Matching: Arabic ي/ك, ZWNJ, آ/أ, Persian digits and harakat are folded the same way in SQL and in `shop/src/lib/search/normalize.ts`. Partial words match (`LIKE`, served by the index), longer words also by trigram similarity, and misspellings by edit distance against the catalog's own words («رمل» → «ریمل»). Results are ranked by match quality.
+  - `npm run check:search` (in `shop/`) checks that both normalizers agree and that suggestions return only public fields.
 - **Settings from the dashboard:** `excludedCategories`, `sellableOverrides`, `priceJumpLimit` and `intervalHours` in the `settings` table override `src/config.mjs`.
 - **Run history:** the `sync_runs` table stores `started_at`, `status` (ok / warning / failed), `fetched`, `written`, `sellable`, `rejected`, `duration_ms`, `failure_kind` and `message`.
 

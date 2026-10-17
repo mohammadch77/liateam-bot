@@ -2,11 +2,14 @@ import 'server-only';
 import { cache } from 'react';
 import { z } from 'zod';
 import { categoryPath, productPath } from '@/lib/catalog-urls';
+import { logger } from '@/lib/logger';
+import { editDistance, normalizeSearch, searchWords } from '@/lib/search/normalize';
 import {
   catalogRepository,
   type CategoryRow,
   type ProductRow,
   type ProductSort,
+  type SearchTerms,
 } from '@/server/repositories/catalog.repository';
 import type { ProductCardData, StockState } from '@/ui';
 
@@ -26,6 +29,26 @@ export const SORT_OPTIONS: ReadonlyArray<{ value: ProductSort; label: string }> 
 ];
 
 export type Category = { code: number; name: string; parentCode: number | null; count: number; href: string };
+
+export const SUGGEST_LIMITS = { products: 7, categories: 2, minLength: 2, maxLength: 60 } as const;
+
+/** Search-as-you-type response (also the JSON of GET /api/search/suggest). */
+export type Suggestions = {
+  query: string;
+  /** normalised query words and their spelling corrections, for highlighting */
+  words: string[];
+  products: Array<{
+    href: string;
+    name: string;
+    brand: string | null;
+    imageUrl: string | null;
+    priceToman: number;
+    inStock: boolean;
+  }>;
+  categories: Array<{ name: string; href: string; parent: string | null }>;
+  /** all matching products (the results page shows them) */
+  total: number;
+};
 
 export type ProductView = ProductCardData & {
   id: number;
@@ -90,17 +113,46 @@ export function parseListParams(raw: RawSearchParams): ListParams {
   return listParamsSchema.parse(raw);
 }
 
-/** Same normalisation as the database side (Arabic ي/ك, ZWNJ, case), then words. */
-export function searchWords(q: string | undefined): string[] {
-  if (!q) return [];
-  return q
-    .toLowerCase()
-    .replace(/ي/g, 'ی')
-    .replace(/ك/g, 'ک')
-    .replace(/‌/g, ' ')
-    .split(/\s+/)
-    .filter((w) => w.length >= 1)
-    .slice(0, 6);
+// ── search: spelling tolerance ──
+/**
+ * The catalog's own words (names + brands, normalised), cached for 10 minutes: misspelt query words are
+ * corrected against them, so «رمل» also finds «ریمل» — trigrams alone are too weak for short Persian words.
+ */
+const VOCAB_TTL_MS = 10 * 60_000;
+let vocab: { words: string[]; at: number } | null = null;
+async function vocabulary(): Promise<string[]> {
+  if (vocab && Date.now() - vocab.at < VOCAB_TTL_MS) return vocab.words;
+  try {
+    vocab = { words: await catalogRepository.searchVocabulary(), at: Date.now() };
+  } catch (e) {
+    // search still works without corrections
+    logger.warn('catalog.search_vocabulary_failed', { err: e });
+    vocab = { words: vocab?.words ?? [], at: Date.now() };
+  }
+  return vocab.words;
+}
+
+/** Up to 5 catalog words within 1 edit (2 from 6 letters) of a word that occurs nowhere in the catalog. */
+function corrections(word: string, words: readonly string[]): string[] {
+  if (word.length < 3 || /^\d+$/.test(word) || words.some((v) => v.includes(word))) return [];
+  const max = word.length >= 6 ? 2 : 1;
+  return words
+    .map((v) => ({ v, d: editDistance(word, v, max) }))
+    .filter((x) => x.d <= max)
+    .sort((a, b) => a.d - b.d || a.v.length - b.v.length)
+    .slice(0, 5)
+    .map((x) => x.v);
+}
+
+/** The normalised query, its words and their spelling corrections; null for an empty query. */
+async function searchTerms(q: string | undefined): Promise<SearchTerms | null> {
+  const words = searchWords(q);
+  if (!words.length) return null;
+  const known = await vocabulary();
+  return {
+    text: normalizeSearch(q ?? ''),
+    words: words.map((word) => ({ word, alts: corrections(word, known) })),
+  };
 }
 
 // ── mapping DB rows → view models ──
@@ -148,13 +200,13 @@ async function categoryNames(): Promise<{ list: Category[]; names: Map<number, s
 }
 
 async function listing(params: ListParams, extra: { categories?: number[] } = {}): Promise<Listing> {
-  const words = searchWords(params.q);
+  const search = (await searchTerms(params.q)) ?? undefined;
   const categories = extra.categories ?? (params.cat ? [params.cat] : undefined);
   const [{ names }, { rows, total }] = await Promise.all([
     categoryNames(),
     catalogRepository.listProducts({
       categories,
-      words,
+      search,
       inStockOnly: params.inStock === '1',
       sort: params.sort,
       limit: CATALOG_POLICY.pageSize,
@@ -253,6 +305,52 @@ export const catalogService = {
     const p = await catalogRepository.getProduct(id);
     return p ? { href: productPath(p.id, clean(p.name)) } : null;
   }),
+
+  /**
+   * Search-as-you-type: the best few products (same ranking as the results page) and matching categories.
+   * The response is an explicit, minimal shape — nothing else from the catalog leaves the server.
+   */
+  async suggest(q: string): Promise<Suggestions> {
+    const terms = await searchTerms(q);
+    if (!terms) return { query: q, words: [], products: [], categories: [], total: 0 };
+    const [{ list, names }, { rows, total }] = await Promise.all([
+      categoryNames(),
+      catalogRepository.listProducts({
+        search: terms,
+        sort: 'relevance',
+        limit: SUGGEST_LIMITS.products,
+        offset: 0,
+      }),
+    ]);
+    const all = terms.words.flatMap((w) => [w.word, ...w.alts]);
+    const categories = list
+      .filter((c) =>
+        terms.words.every((w) => [w.word, ...w.alts].some((x) => normalizeSearch(c.name).includes(x))),
+      )
+      .slice(0, SUGGEST_LIMITS.categories)
+      .map((c) => ({
+        name: c.name,
+        href: c.href,
+        parent: c.parentCode !== null ? (names.get(c.parentCode) ?? null) : null,
+      }));
+    return {
+      query: q,
+      words: all,
+      total,
+      categories,
+      products: rows.map((r) => {
+        const v = toView(r, names);
+        return {
+          href: v.href,
+          name: v.name,
+          brand: v.brandName,
+          imageUrl: v.imageUrl ?? null,
+          priceToman: v.priceToman,
+          inStock: r.stock > 0,
+        };
+      }),
+    };
+  },
 
   async allCategories(): Promise<Category[]> {
     return (await categoryNames()).list;
