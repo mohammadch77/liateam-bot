@@ -1,7 +1,7 @@
 // Shared setup for the end-to-end tests (see README «تست‌های end-to-end»).
 //
 //   E2E_BASE_URL     the running app (default http://127.0.0.1:$PORT, PORT from .env.local, else 3850)
-//   E2E_SERVER_LOG   file the app's stdout is written to — auth test only (it reads dev-SMS codes from it)
+//   E2E_SERVER_LOG   file the app's stdout is written to — auth and product tests (dev-SMS codes are read from it)
 //   E2E_SCREENSHOTS  folder for screenshots (optional; none are taken without it)
 //
 // Playwright comes from the repository root (`npm ci` there, once: `npx playwright install chromium`).
@@ -80,3 +80,37 @@ export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export const fa = (n) => new Intl.NumberFormat('fa-IR').format(n);
 /** «۱٬۲۳۴ تومان» → 1234 */
 export const toLatin = (s) => s.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[^0-9]/g, '');
+
+/**
+ * Signs a fresh user in through the real login form (phone → dev-SMS code read from E2E_SERVER_LOG).
+ * Exits with code 2 when the log is not set, like the auth test.
+ */
+export async function signIn(page, phone) {
+  const log = process.env.E2E_SERVER_LOG;
+  if (!log || !fs.existsSync(log)) {
+    console.error(
+      'set E2E_SERVER_LOG to the file the app writes its output to (dev SMS codes are read from it)',
+    );
+    process.exit(2);
+  }
+  const masked = `${phone.slice(0, 4)}•••${phone.slice(-4)}`;
+  await page.goto(`${BASE}/login`);
+  await page.locator('main').getByLabel('شماره موبایل').fill(phone);
+  await page.getByRole('button', { name: 'دریافت کد تأیید' }).click();
+  let code = null;
+  for (let i = 0; i < 40 && !code; i++) {
+    const last = fs
+      .readFileSync(log, 'utf8')
+      .split('\n')
+      .filter((l) => l.includes('sms.dev.otp') && l.includes(masked))
+      .at(-1);
+    if (last) code = JSON.parse(last.slice(last.indexOf('{'))).devCode;
+    else await sleep(300);
+  }
+  if (!code) throw new Error('no dev-SMS code in the log for ' + masked);
+  await page.getByRole('textbox', { name: 'کد تأیید', exact: true }).fill(code);
+  await Promise.all([
+    page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 30000 }),
+    page.getByRole('button', { name: 'ورود', exact: true }).click(),
+  ]);
+}

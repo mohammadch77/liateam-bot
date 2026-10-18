@@ -74,7 +74,11 @@ export default async function HomePage() {
           </div>
 
           {hero?.image_url && (
-            <Link href={productPath(hero.id, hero.name)} className={s.heroVisual} aria-label={hero.name}>
+            <Link
+              href={productPath(hero.id, hero.name, hero.slug_en)}
+              className={s.heroVisual}
+              aria-label={hero.name}
+            >
               <span className={s.heroPedestal} aria-hidden="true" />
               <span className={s.heroImage}>
                 <Image src={hero.image_url} alt="" fill priority sizes="(min-width: 1024px) 520px, 80vw" />

@@ -11,7 +11,7 @@ import { logger } from '@/lib/logger';
 const VISIBLE = `p.is_sellable AND p.price > 0 AND p.missing_since IS NULL`;
 
 const PRODUCT_COLS = `p.id, p.name, p.price, p.stock, p.category, p.category_names, p.image_url,
-  p.first_seen_at, p.updated_at, p.brand`;
+  p.first_seen_at, p.updated_at, p.brand, p.slug_en`;
 
 /**
  * The supplier attaches products to leaf categories only («سرم تخصصی صورت», not «سرم تخصصی»). A category
@@ -108,10 +108,32 @@ export type ProductRow = {
   first_seen_at: Date;
   updated_at: Date;
   brand: string | null;
+  slug_en: string | null;
 };
 
-/** Product page only: the description can be several KB, so lists never select it. */
-export type ProductDetailRow = ProductRow & { description: string | null };
+/** Product page only: the long texts are several KB, so lists never select them. */
+export type ProductDetailRow = ProductRow & {
+  description: string | null;
+  summary: string | null;
+  features: string[];
+  how_to_use: string | null;
+  video_embed_url: string | null;
+  rating_value: number | null;
+  reviews_total: number | null;
+};
+
+/** The rich sections of one product page (synced by the bot; plain text, no prices). */
+export type ProductContentRows = {
+  attributes: Array<{ key: string; value: string }>;
+  faqs: Array<{ question: string; answer: string }>;
+  reviews: Array<{
+    author: string | null;
+    rating: number | null; // 1-10 (Liateam's scale), null = comment without a score
+    body: string;
+    reply: string | null;
+    created_at: Date | null;
+  }>;
+};
 
 export type CategoryRow = {
   code: number;
@@ -196,7 +218,41 @@ export const catalogRepository = {
   async getProduct(id: number): Promise<ProductDetailRow | null> {
     return queryOne<ProductDetailRow>(
       'catalog.get_product',
-      `SELECT ${PRODUCT_COLS}, p.description FROM product_catalog p WHERE p.id = $1 AND ${VISIBLE}`,
+      `SELECT ${PRODUCT_COLS}, p.description, p.summary, p.features, p.how_to_use, p.video_embed_url,
+              p.rating_value, p.reviews_total
+         FROM product_catalog p WHERE p.id = $1 AND ${VISIBLE}`,
+      [id],
+    );
+  },
+
+  /** Specs, FAQ and synced reviews in Liateam's order (public.product_* tables, read-only). */
+  async getProductContent(id: number): Promise<ProductContentRows> {
+    const [attributes, faqs, reviews] = await Promise.all([
+      query<ProductContentRows['attributes'][number]>(
+        'catalog.product_attributes',
+        'SELECT key, value FROM public.product_attributes WHERE product_id = $1 ORDER BY position',
+        [id],
+      ),
+      query<ProductContentRows['faqs'][number]>(
+        'catalog.product_faqs',
+        'SELECT question, answer FROM public.product_faqs WHERE product_id = $1 ORDER BY position',
+        [id],
+      ),
+      query<ProductContentRows['reviews'][number]>(
+        'catalog.product_reviews',
+        `SELECT author, rating, body, reply, created_at FROM public.product_reviews
+          WHERE product_id = $1 ORDER BY position`,
+        [id],
+      ),
+    ]);
+    return { attributes, faqs, reviews };
+  },
+
+  /** Old address → canonical one: the English slug and name of a visible product (cheap, for the redirect). */
+  async getProductSlug(id: number): Promise<{ name: string; slug_en: string | null } | null> {
+    return queryOne<{ name: string; slug_en: string | null }>(
+      'catalog.product_slug',
+      `SELECT p.name, p.slug_en FROM product_catalog p WHERE p.id = $1 AND ${VISIBLE}`,
       [id],
     );
   },

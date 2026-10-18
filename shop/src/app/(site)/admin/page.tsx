@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { requireRole } from '@/server/auth/guards';
 import { auditService } from '@/server/services/audit.service';
 import { Breadcrumb, Container } from '@/ui';
@@ -11,6 +12,9 @@ const ACTION_LABEL: Record<string, string> = {
   'auth.logout': 'خروج',
   'auth.locked': 'قفل به‌دلیل تلاش ناموفق',
   'role.grant': 'اعطای نقش',
+  'review.submit': 'ثبت دیدگاه',
+  'review.approve': 'تأیید دیدگاه',
+  'review.reject': 'رد دیدگاه',
 };
 const timeFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'short', timeStyle: 'short' });
 
@@ -26,6 +30,9 @@ export default async function AdminPage() {
         <h1 id="admin-title" className={s.title}>
           مدیریت — رویدادهای امنیتی اخیر
         </h1>
+        <p>
+          <Link href="/admin/reviews">دیدگاه‌های در انتظار تأیید</Link>
+        </p>
         <dl className={s.list}>
           {events.map((e) => (
             <div key={e.id}>

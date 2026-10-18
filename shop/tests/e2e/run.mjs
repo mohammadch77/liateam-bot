@@ -1,12 +1,12 @@
 // Runs the end-to-end tests one after another and prints a summary (README «تست‌های end-to-end»).
-//   npm run test:e2e                     all four
+//   npm run test:e2e                     all of them
 //   npm run test:e2e -- search megamenu  only these
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const ALL = ['auth', 'catalog', 'megamenu', 'search'];
+const ALL = ['auth', 'catalog', 'megamenu', 'search', 'product'];
 const wanted = process.argv.slice(2);
 const unknown = wanted.filter((n) => !ALL.includes(n));
 if (unknown.length) {

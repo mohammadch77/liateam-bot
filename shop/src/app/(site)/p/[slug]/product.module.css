@@ -140,43 +140,138 @@
 .factIcon {
   color: var(--color-accent-text);
 }
-.details {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.specs > div {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-line-row);
+  font-size: 14px;
 }
-.detailsTitle {
-  align-self: flex-start;
-  padding-bottom: 6px;
-  border-bottom: 2px solid var(--color-accent);
-  font-size: var(--type-h3-size);
-  font-weight: 700;
+.specs dt {
+  color: var(--color-muted);
+}
+.specs dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 .specs {
   margin: 0;
 }
+.recommendLink {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-success);
+}
 
-/* «توضیحات»: full-width below the product, a comfortable reading measure */
-.description {
+/* ── in-page tabs (Product Page.dc.html): sticky anchor bar; scrolls sideways inside itself on a narrow phone ── */
+.tabs {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--color-white) 94%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--color-line);
+}
+.tabs ul {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs ul::-webkit-scrollbar {
+  display: none;
+}
+.tabs a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 52px;
+  padding: 0 14px;
+  white-space: nowrap;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--color-ink-2);
+}
+.tabs a:hover {
+  color: var(--color-primary);
+}
+.tabs a::after {
+  content: '';
+  position: absolute;
+  inset-inline: 10px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--color-accent);
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--motion-ease);
+}
+.tabs a:hover::after,
+.tabs a:focus-visible::after {
+  opacity: 1;
+}
+
+.sections {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 20px 18px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-line);
-  background: var(--color-white);
+  gap: 36px;
+  padding-top: 8px;
+}
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  scroll-margin-top: 68px; /* below the sticky tabs */
+}
+.sectionTitle {
+  align-self: flex-start;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--color-accent);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.5;
 }
 @media (min-width: 1024px) {
-  .description {
-    padding: 28px 32px;
+  .sections {
+    gap: 48px;
+  }
+  .sectionTitle {
+    font-size: 22px;
+  }
+}
+
+/* «معرفی»: the text takes the whole content width (no empty strip on the left); with a video: text | video */
+.introGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+@media (min-width: 1024px) {
+  .introGrid {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 440px);
+    gap: 48px;
   }
 }
 .prose {
-  max-width: 760px;
-  font-size: var(--type-body-size);
-  line-height: var(--type-body-line);
+  min-width: 0;
+  font-size: 15px;
+  line-height: 2.1;
   color: var(--color-ink-2);
   overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+@media (min-width: 1024px) {
+  /* full content width; justified so the long lines read as one clean block */
+  .prose p {
+    text-align: justify;
+  }
 }
 .prose > * + * {
   margin-top: 12px;
@@ -195,7 +290,6 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding-inline-start: 4px;
 }
 .prose li {
   position: relative;
@@ -205,24 +299,390 @@
   content: '';
   position: absolute;
   inset-inline-start: 2px;
-  top: 0.8em;
+  top: 0.9em;
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--color-accent);
 }
-.specs > div {
-  display: grid;
-  grid-template-columns: 110px minmax(0, 1fr);
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--color-line-row);
-  font-size: 14px;
+.prose .summary {
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--color-blush);
+  color: var(--color-ink);
+  font-weight: 600;
 }
-.specs dt {
+.prose .summary li::before {
+  inset-inline-start: 4px;
+}
+.prose .chips {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.prose .chips li {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.9;
+}
+.prose .chips li::before {
+  display: none;
+}
+.video {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  min-width: 0;
+}
+.video iframe {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.video figcaption {
+  font-size: 12.5px;
   color: var(--color-muted);
 }
-.specs dd {
+
+/* «مشخصات» + «نحوه مصرف» side by side on desktop */
+.pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 36px;
+}
+@media (min-width: 1024px) {
+  .pair {
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    gap: 40px;
+    align-items: start;
+  }
+}
+.attrTable {
   margin: 0;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-white);
+}
+.attrTable > div {
+  display: grid;
+  grid-template-columns: minmax(96px, 34%) minmax(0, 1fr);
+  border-bottom: 1px solid var(--color-line-row);
+  font-size: 13.5px;
+  line-height: 1.9;
+}
+.attrTable > div:nth-child(even) {
+  background: var(--color-surface-2);
+}
+.attrTable > div:last-child {
+  border-bottom: 0;
+}
+.attrTable dt {
+  padding: 10px 14px;
+  color: var(--color-muted);
+  font-weight: 500;
+}
+.attrTable dd {
+  margin: 0;
+  padding: 10px 14px;
+  font-weight: 600;
+  color: var(--color-ink);
   overflow-wrap: anywhere;
+}
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.steps li {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  font-size: 14.5px;
+  line-height: 2;
+  color: var(--color-ink-2);
+  overflow-wrap: anywhere;
+}
+.stepNo {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: var(--color-accent-text);
+}
+
+/* «پرسش‌های متداول»: native disclosure, works without JavaScript */
+.faqList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.faq {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-white);
+  overflow: hidden;
+}
+.faq summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px 18px;
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.9;
+  cursor: pointer;
+  list-style: none;
+}
+.faq summary::-webkit-details-marker {
+  display: none;
+}
+.faqIcon {
+  flex: none;
+  color: var(--color-primary);
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+.faq[open] .faqIcon {
+  transform: rotate(180deg);
+}
+.faq p {
+  padding: 0 18px 16px;
+  font-size: 14px;
+  line-height: 2;
+  color: var(--color-ink-2);
+  overflow-wrap: anywhere;
+}
+
+/* «دیدگاه‌ها»: summary + form | list */
+.reviewsGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+}
+@media (min-width: 1024px) {
+  .reviewsGrid {
+    grid-template-columns: 340px minmax(0, 1fr);
+    gap: 40px;
+    align-items: start;
+  }
+  .reviewsSummary {
+    position: sticky;
+    top: 72px;
+  }
+}
+.reviewsSummary {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.recommend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.recommend b {
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--color-ink);
+}
+.recommend span {
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--color-muted);
+}
+.reviewCount {
+  font-size: 13px;
+  color: var(--color-muted);
+}
+.loginPrompt {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: var(--color-blush);
+  font-size: 13.5px;
+}
+.reviewList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.noReviews {
+  padding: 22px 18px;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--color-line-strong);
+  color: var(--color-muted);
+  font-size: 14px;
+  text-align: center;
+}
+.review {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-line);
+  background: var(--color-white);
+}
+.review header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.avatar {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-blush);
+  color: var(--color-primary);
+  font-weight: 800;
+}
+.reviewMeta {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.6;
+}
+.reviewMeta b {
+  font-size: 13.5px;
+}
+.reviewMeta time {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+.starsShown {
+  display: inline-flex;
+}
+.starOn {
+  color: var(--color-accent);
+}
+.starOff {
+  color: var(--color-line-strong);
+}
+.reviewBody {
+  font-size: 14.5px;
+  line-height: 2.05;
+  color: var(--color-ink);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.reply {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--color-surface);
+  font-size: 13.5px;
+  line-height: 1.9;
+  color: var(--color-ink-2);
+  overflow-wrap: anywhere;
+}
+.reply b {
+  display: block;
+  font-size: 12.5px;
+  color: var(--color-primary);
+}
+
+/* review form */
+.reviewForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-line);
+  background: var(--color-white);
+}
+.formTitle {
+  font-size: 15px;
+  font-weight: 800;
+}
+.formLabel {
+  font-size: 13px;
+  font-weight: 600;
+}
+.stars {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.starRow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 6px;
+}
+.starLabel {
+  display: flex;
+  padding: 4px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.starLabel:has(input:focus-visible) {
+  box-shadow: var(--shadow-focus-field);
+}
+.starText {
+  margin-inline-start: 8px;
+  font-size: 12.5px;
+  color: var(--color-muted);
+}
+.textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 110px;
+  padding: 10px 14px;
+  border-radius: var(--radius-field);
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-white);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.9;
+  resize: vertical;
+}
+.textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-focus-field);
+}
+.textarea[aria-invalid='true'] {
+  border-color: var(--color-danger);
+  background: var(--color-danger-field);
+}
+.hint {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+.formError {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-danger);
+}
+.reviewSubmit {
+  align-self: stretch;
+}
+.reviewDone {
+  min-width: 0;
 }

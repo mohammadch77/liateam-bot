@@ -7,10 +7,13 @@ import { editDistance, normalizeSearch, searchWords } from '@/lib/search/normali
 import {
   catalogRepository,
   type CategoryRow,
+  type ProductContentRows,
+  type ProductDetailRow,
   type ProductRow,
   type ProductSort,
   type SearchTerms,
 } from '@/server/repositories/catalog.repository';
+import { reviewRepository, type SiteReviewRow } from '@/server/repositories/review.repository';
 import type { ProductCardData, StockState } from '@/ui';
 
 /** Catalog display policy. */
@@ -85,6 +88,78 @@ export function descriptionBlocks(text: string | null): DescriptionBlock[] {
     }
   }
   return blocks;
+}
+
+// ── product page: rich sections ──
+export const PRODUCT_REVIEWS_SHOWN = 20;
+
+/** One review as the product page shows it; `source` says where it was written. */
+export type ReviewView = {
+  source: 'liateam' | 'site';
+  author: string;
+  /** 1-5 stars (Liateam's 1-10 halved, rounded), null = no score */
+  stars: number | null;
+  body: string;
+  reply: string | null;
+  createdAt: Date | null;
+};
+
+/** The product page's sections. Empty ones are hidden by the page (no empty tab). */
+export type ProductContent = {
+  summary: string[];
+  features: string[];
+  /** ArvanCloud player URL (re-checked here), shown in a sandboxed iframe */
+  videoEmbedUrl: string | null;
+  /** % of buyers who recommend it */
+  recommendPercent: number | null;
+  attributes: Array<{ key: string; value: string }>;
+  howToUse: string[];
+  faqs: Array<{ question: string; answer: string }>;
+  reviews: ReviewView[];
+  /** reviews on Liateam + approved ones on our site */
+  reviewsTotal: number;
+};
+
+const VIDEO_PLAYER =
+  /^https:\/\/player\.arvancloud\.ir\/index\.html\?config=https:\/\/[a-z0-9-]+\.arvanvod\.ir\/[\w/.-]+\.json$/i;
+const textLines = (s: string | null) =>
+  (s ?? '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => /[\p{L}\p{N}]/u.test(l)); // "." placeholders are not content
+
+function toContent(row: ProductDetailRow, c: ProductContentRows, site: SiteReviewRow[]): ProductContent {
+  const reviews: ReviewView[] = [
+    ...site.map((r) => ({
+      source: 'site' as const,
+      author: r.author_name ?? 'کاربر',
+      stars: r.rating,
+      body: r.body,
+      reply: null,
+      createdAt: r.created_at,
+    })),
+    ...c.reviews.map((r) => ({
+      source: 'liateam' as const,
+      author: r.author ?? 'خریدار',
+      stars: r.rating ? Math.max(1, Math.round(r.rating / 2)) : null,
+      body: r.body,
+      reply: r.reply,
+      createdAt: r.created_at,
+    })),
+  ].sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
+  const summary = textLines(row.summary);
+  return {
+    summary,
+    // Liateam's features usually repeat the summary lines; show them once
+    features: row.features.filter((f) => !summary.includes(f.trim())),
+    videoEmbedUrl: row.video_embed_url && VIDEO_PLAYER.test(row.video_embed_url) ? row.video_embed_url : null,
+    recommendPercent: row.rating_value,
+    attributes: c.attributes,
+    howToUse: textLines(row.how_to_use),
+    faqs: c.faqs,
+    reviews: reviews.slice(0, PRODUCT_REVIEWS_SHOWN),
+    reviewsTotal: (row.reviews_total ?? c.reviews.length) + site.length,
+  };
 }
 
 export type Listing = {
@@ -171,7 +246,7 @@ function toView(r: ProductRow, names: Map<number, string>): ProductView {
     .map((c) => ({ ...c, href: categoryPath(c.code, c.name) }));
   return {
     id: r.id,
-    href: productPath(r.id, clean(r.name)),
+    href: productPath(r.id, clean(r.name), r.slug_en),
     name: clean(r.name),
     brandName: r.brand,
     // card label: the brand when the bot has read it, otherwise the main category
@@ -286,9 +361,14 @@ export const catalogService = {
           offset: 0,
         })
       : { rows: [] };
+    const [content, siteReviews] = await Promise.all([
+      catalogRepository.getProductContent(id),
+      reviewRepository.approvedFor(id, PRODUCT_REVIEWS_SHOWN),
+    ]);
     return {
       product,
       description: descriptionBlocks(row.description),
+      content: toContent(row, content, siteReviews),
       trail,
       related: related.rows.map((r) => toView(r, names)),
     };
@@ -303,7 +383,7 @@ export const catalogService = {
   /** Canonical address of a visible product, or null (not found / no longer sold). */
   productRef: cache(async (id: number): Promise<{ href: string } | null> => {
     const p = await catalogRepository.getProduct(id);
-    return p ? { href: productPath(p.id, clean(p.name)) } : null;
+    return p ? { href: productPath(p.id, clean(p.name), p.slug_en) } : null;
   }),
 
   /**

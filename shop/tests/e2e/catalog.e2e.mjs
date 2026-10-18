@@ -168,7 +168,7 @@ await go(
   '/search?q=' +
     encodeURIComponent(await sql(`select split_part(name,' ',1) from supplier_products where id=${pid}`)),
 );
-const listed = await page.locator(`main a[href^="/p/${pid}-"]`).count();
+const listed = await page.locator(`main a[href^="/p/${pid}-"], main a[href$="-${pid}"]`).count();
 sql(`update supplier_products set price = ${orig[0]} where id=${pid}`);
 check(
   '6b price 0 → product hidden (PDP 404, not in lists)',
@@ -200,8 +200,8 @@ check(
 );
 const r308 = await fetch(`${BASE}/p/${pid}`, { redirect: 'manual' });
 check(
-  'SEO: /p/<id> without slug → 308 to the Persian URL',
-  r308.status === 308,
+  'SEO: /p/<id> without slug → 301 to the English slug',
+  r308.status === 301 && /\/p\/[a-z0-9-]+-\d+$/.test(r308.headers.get('location') ?? ''),
   decodeURIComponent(r308.headers.get('location') ?? ''),
 );
 
