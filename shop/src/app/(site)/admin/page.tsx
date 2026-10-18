@@ -15,6 +15,9 @@ const ACTION_LABEL: Record<string, string> = {
   'review.submit': 'ثبت دیدگاه',
   'review.approve': 'تأیید دیدگاه',
   'review.reject': 'رد دیدگاه',
+  'affiliate.apply': 'درخواست همکاری در فروش',
+  'affiliate.approve': 'تأیید همکاری در فروش',
+  'affiliate.reject': 'رد همکاری در فروش',
 };
 const timeFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'short', timeStyle: 'short' });
 
@@ -32,6 +35,8 @@ export default async function AdminPage() {
         </h1>
         <p>
           <Link href="/admin/reviews">دیدگاه‌های در انتظار تأیید</Link>
+          {' · '}
+          <Link href="/admin/affiliates">درخواست‌های همکاری در فروش</Link>
         </p>
         <dl className={s.list}>
           {events.map((e) => (

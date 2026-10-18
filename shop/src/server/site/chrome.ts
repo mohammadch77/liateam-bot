@@ -123,6 +123,7 @@ export function footerProps(): Omit<FooterProps, 'seals'> {
         links: [
           { label: 'درباره ما', href: '/about' },
           { label: 'تماس با ما', href: '/contact' },
+          { label: 'همکاری در فروش', href: '/affiliate?from=footer' },
         ],
       },
     ],

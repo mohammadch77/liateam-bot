@@ -344,3 +344,73 @@
     font-size: 14px;
   }
 }
+
+/* ── «همکاری در فروش» band: after the product rows, before «مجله آوینا» (Homepage.dc.html routine panel) ── */
+.affiliate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  margin-top: 28px;
+  padding: 22px 18px;
+  border-radius: var(--radius-panel);
+  background: radial-gradient(60% 85% at 72% 40%, #f1d5dc 0%, #f6e6ea 45%, #faf3f3 100%);
+}
+@media (min-width: 1024px) {
+  .affiliate {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 40px;
+    margin-top: 44px;
+    padding: 40px 56px;
+    border-radius: var(--radius-xl);
+  }
+}
+.affiliateText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+.affiliateTitle {
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1.55;
+  color: var(--color-ink);
+  text-wrap: balance;
+}
+@media (min-width: 768px) {
+  .affiliateTitle {
+    font-size: 28px;
+  }
+}
+.affiliateLead {
+  font-size: 13.5px;
+  line-height: 1.9;
+  color: var(--color-ink-2);
+}
+@media (min-width: 1024px) {
+  .affiliateLead {
+    font-size: 15.5px;
+  }
+}
+.affiliatePoints {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.affiliatePoints li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid #efdde2;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-ink);
+}

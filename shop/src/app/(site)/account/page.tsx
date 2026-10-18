@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: 'حساب کاربری', robots: { in
 
 const ROLE_LABEL: Record<string, string> = {
   customer: 'مشتری',
-  affiliate: 'همکار فروش',
+  affiliate: 'فروشنده‌ی همکار',
   support: 'پشتیبان',
   employee: 'کارمند',
   admin: 'مدیر',
@@ -53,6 +53,11 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           </div>
         </dl>
         <div className={s.actions}>
+          {!user.roles.includes('affiliate') && (
+            <Link href="/affiliate?from=account" className={s.adminLink}>
+              همکاری در فروش
+            </Link>
+          )}
           {hasRole(user, 'admin') && (
             <Link href="/admin" className={s.adminLink}>
               ورود به بخش مدیریت

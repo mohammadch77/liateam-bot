@@ -147,6 +147,39 @@ export default async function HomePage() {
             </ProductGrid>
           </Section>
         )}
+
+        <section className={s.affiliate} aria-labelledby="affiliate-band-title">
+          <div className={s.affiliateText}>
+            <span className={s.kicker}>
+              <span className={s.kickerDot} aria-hidden="true" />
+              همکاری در فروش
+            </span>
+            <h2 id="affiliate-band-title" className={s.affiliateTitle}>
+              پیج یا فروشگاه داری؟ <span className={s.heroAccent}>فروشنده‌ی همکار</span> ما شو
+            </h2>
+            <p className={s.affiliateLead}>
+              محصولات اصل را به مخاطبانت معرفی کن؛ موجودی، بسته‌بندی و ارسال با ما.
+            </p>
+            <Link href="/affiliate?from=home" className={s.ctaPrimary}>
+              درخواست همکاری
+              <Icon name="arrow_back" size={20} />
+            </Link>
+          </div>
+          <ul className={s.affiliatePoints}>
+            <li>
+              <Icon name="verified" size={22} className={s.trustIcon} />
+              کالای اصل، مستقیم از تأمین‌کننده
+            </li>
+            <li>
+              <Icon name="local_shipping" size={22} className={s.trustIcon} />
+              بدون انبار؛ ارسال با ما
+            </li>
+            <li>
+              <Icon name="account_balance_wallet" size={22} className={s.trustIcon} />
+              درآمد از هر فروش
+            </li>
+          </ul>
+        </section>
       </Container>
     </div>
   );
