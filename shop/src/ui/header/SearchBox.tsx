@@ -38,7 +38,7 @@ const MAX_CHARS = 60;
 /**
  * Header search: a plain GET form to /search (works before JavaScript loads; Enter always shows the full,
  * relevance-ranked results) with search-as-you-type suggestions on top. ARIA 1.2 combobox: ↑/↓ move through
- * the suggestions, Enter opens the highlighted one, Esc closes the list; «/» focuses the box (desktop).
+ * the suggestions, Enter opens the highlighted one, Esc closes the list.
  */
 export function SearchBox({
   action = '/search',
@@ -97,20 +97,6 @@ export function SearchBox({
     // value is read only for the request text; the key decides when to search
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, suggestUrl]);
-
-  // «/» focuses the search box from anywhere (not while typing elsewhere)
-  useEffect(() => {
-    if (compact) return;
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      const t = e.target as HTMLElement;
-      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
-      if (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
-      e.preventDefault();
-      input.current?.focus();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [compact]);
 
   // a click or tap outside closes the list
   useEffect(() => {
@@ -270,11 +256,6 @@ export function SearchBox({
         autoComplete="off"
         spellCheck={false}
       />
-      {!compact && (
-        <span className={s.kbd} aria-hidden="true">
-          /
-        </span>
-      )}
 
       <div className={s.popup} hidden={!showList}>
         <ul id={listId} role="listbox" aria-label="پیشنهادهای جست‌وجو" aria-busy={loading} className={s.list}>

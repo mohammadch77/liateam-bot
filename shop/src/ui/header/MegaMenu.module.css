@@ -8,34 +8,56 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
   height: 50px;
-  padding: 0 0 0 14px;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-weight: 800;
-  color: var(--color-ink);
   white-space: nowrap;
-  cursor: pointer;
 }
 .trigger::after {
   content: '';
   position: absolute;
   bottom: -1px;
-  right: 0;
-  left: 14px;
+  right: 10px;
+  left: 6px;
   height: 2px;
   background: var(--color-accent);
   opacity: 0;
   transition: opacity var(--motion-fast) var(--motion-ease);
 }
-.trigger:hover,
-.triggerOpen {
+.triggerLink {
+  display: flex;
+  align-items: center;
+  height: 50px;
+  padding: 0 12px 0 2px;
+  font-weight: 800;
+  color: var(--color-ink);
+}
+.toggle {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 32px;
+  margin-inline-end: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+.toggleIcon {
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+.trigger:hover .triggerLink,
+.triggerOpen .triggerLink,
+.triggerLink[aria-current='page'],
+.trigger:hover .toggle,
+.triggerOpen .toggle {
   color: var(--color-primary);
 }
 .triggerOpen::after {
   opacity: 1;
+}
+.triggerOpen .toggleIcon {
+  transform: rotate(180deg);
 }
 
 .panel {
@@ -215,4 +237,52 @@
   font-size: 13px;
   font-weight: 700;
   color: var(--color-primary);
+}
+
+/* «برندها» panel: one row of brand tiles (logo, name, count) */
+.brands {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 10px 12px;
+  border: 1px solid var(--color-line-soft);
+  border-radius: 14px;
+  color: var(--color-ink);
+  text-align: center;
+  transition:
+    border-color var(--motion-fast) var(--motion-ease),
+    background var(--motion-fast) var(--motion-ease);
+}
+.brand:hover,
+.brand[aria-current='page'] {
+  border-color: var(--color-primary);
+  background: var(--color-blush);
+  color: var(--color-primary);
+}
+.brandLogo {
+  display: grid;
+  place-items: center;
+  height: 44px;
+  color: var(--color-primary);
+}
+.brandLogo img {
+  width: 100px;
+  height: 40px;
+  object-fit: contain;
+}
+.brandName {
+  font-size: 14px;
+  font-weight: 700;
+}
+.inner:has(.brands) {
+  min-height: 0;
 }

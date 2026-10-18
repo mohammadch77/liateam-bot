@@ -1,5 +1,11 @@
 import type { ReactNode } from 'react';
-import { bottomNavItems, footerProps, headerCategories, headerProps } from '@/server/site/chrome';
+import {
+  bottomNavItems,
+  footerProps,
+  headerBrands,
+  headerCategories,
+  headerProps,
+} from '@/server/site/chrome';
 import { getCurrentUser } from '@/server/services/session.service';
 import { BottomNav, BottomNavSpacer, Footer, Header } from '@/ui';
 
@@ -7,10 +13,14 @@ import { BottomNav, BottomNavSpacer, Footer, Header } from '@/ui';
 export const dynamic = 'force-dynamic';
 
 export default async function SiteLayout({ children }: { children: ReactNode }) {
-  const [user, categories] = await Promise.all([getCurrentUser(), headerCategories()]);
+  const [user, categories, brands] = await Promise.all([
+    getCurrentUser(),
+    headerCategories(),
+    headerBrands(),
+  ]);
   return (
     <>
-      <Header {...headerProps(user, categories)} />
+      <Header {...headerProps(user, categories, brands)} />
       <main>{children}</main>
       <Footer {...footerProps()} />
       <BottomNavSpacer />

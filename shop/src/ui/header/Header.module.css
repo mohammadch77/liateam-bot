@@ -241,10 +241,6 @@ a.topbarItem:hover {
 .navLink[aria-current='page'] {
   color: var(--color-primary);
 }
-.navHighlight {
-  color: var(--color-primary);
-  font-weight: 700;
-}
 .navSpacer {
   flex: 1;
 }

@@ -288,7 +288,10 @@ async function categoryNames(): Promise<{ list: Category[]; names: Map<number, s
   return { list, names: new Map(list.map((c) => [c.code, c.name])) };
 }
 
-async function listing(params: ListParams, extra: { categories?: number[] } = {}): Promise<Listing> {
+async function listing(
+  params: ListParams,
+  extra: { categories?: number[]; brandCode?: number } = {},
+): Promise<Listing> {
   const search = (await searchTerms(params.q)) ?? undefined;
   const categories = extra.categories ?? (params.cat ? [params.cat] : undefined);
   const [{ names }, { rows, total }] = await Promise.all([
@@ -297,6 +300,7 @@ async function listing(params: ListParams, extra: { categories?: number[] } = {}
       categories,
       search,
       inStockOnly: params.inStock === '1',
+      brandCode: extra.brandCode,
       sort: params.sort,
       limit: CATALOG_POLICY.pageSize,
       offset: (params.page - 1) * CATALOG_POLICY.pageSize,
@@ -310,6 +314,35 @@ async function listing(params: ListParams, extra: { categories?: number[] } = {}
     params,
   };
 }
+
+export type BrandView = {
+  code: number;
+  name: string;
+  latin: string | null;
+  slug: string;
+  href: string;
+  count: number;
+  /** served by our own route (/api/brand-logo/<code>), never from the supplier's host */
+  logoUrl: string | null;
+  imageUrl: string | null;
+};
+
+const BRAND_LOGO = /^https:\/\/s3\.liateam\.ir\/[\w/.%-]+\.(?:svg|png|jpe?g|webp)$/i;
+export const brandPath = (slug: string) => `/brands/${slug}`;
+
+/** Brands with something to sell, in Liateam's order (one query per request). */
+const brandList = cache(async (): Promise<BrandView[]> =>
+  (await catalogRepository.listBrands()).map((b) => ({
+    code: b.code,
+    name: clean(b.name),
+    latin: b.latin_name ? clean(b.latin_name) : null,
+    slug: b.slug,
+    href: brandPath(b.slug),
+    count: b.product_count,
+    logoUrl: b.logo_url && BRAND_LOGO.test(b.logo_url) ? `/api/brand-logo/${b.code}` : null,
+    imageUrl: b.image_url,
+  })),
+);
 
 export type HeroSlide = {
   href: string;
@@ -378,6 +411,24 @@ export const catalogService = {
     const result = await listing({ ...params, cat: sub }, { categories: [sub ?? code] });
     const parent = category.parent_code ? (list.find((c) => c.code === category.parent_code) ?? null) : null;
     return { category: toCategory(category), parent, children, listing: result };
+  },
+
+  brands: brandList,
+
+  /** Brand page: the brand, one page of its products, and the categories it has products in (with its counts). */
+  async brand(slug: string, params: ListParams) {
+    const brand = (await brandList()).find((b) => b.slug === slug);
+    if (!brand) return null;
+    const [{ list }, counts] = await Promise.all([
+      categoryNames(),
+      catalogRepository.brandCategoryCounts(brand.code),
+    ]);
+    const categories = list
+      .filter((c) => c.parentCode === null && counts.has(c.code))
+      .map((c) => ({ ...c, count: counts.get(c.code) ?? 0 }));
+    const cat = params.cat && categories.some((c) => c.code === params.cat) ? params.cat : undefined;
+    const result = await listing({ ...params, cat }, { brandCode: brand.code });
+    return { brand, categories, listing: result };
   },
 
   /** Name search; with `browseAll` and no query it lists the whole catalog (still filterable/sortable). */

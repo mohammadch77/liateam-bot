@@ -152,6 +152,8 @@ export type ProductListQuery = {
   /** text search (normalised words); with sort 'relevance' the results are ranked by how well they match */
   search?: SearchTerms;
   inStockOnly?: boolean;
+  /** only this supplier brand (brands.code) */
+  brandCode?: number;
   excludeId?: number;
   sort: ProductSort;
   limit: number;
@@ -178,6 +180,7 @@ export const catalogRepository = {
 
     if (q.categories?.length) where.push(`p.category && ${subtreeOf(add(q.categories))}`);
     if (q.inStockOnly) where.push('p.stock > 0');
+    if (q.brandCode !== undefined) where.push(`p.brand_code = ${add(q.brandCode)}`);
     if (q.excludeId !== undefined) where.push(`p.id <> ${add(q.excludeId)}`);
     let order = ORDER[q.sort];
     if (q.search?.words.length) {
@@ -315,6 +318,49 @@ export const catalogRepository = {
     return new Map(rows.map((r) => [r.code, r.image_url]));
   },
 
+  /** Visible products of one brand per category (every category, its whole subtree counted), for the filter. */
+  async brandCategoryCounts(brandCode: number): Promise<Map<number, number>> {
+    const rows = await query<{ code: number; n: number }>(
+      'catalog.brand_category_counts',
+      `WITH RECURSIVE tree(root, code) AS (
+              SELECT code, code FROM categories
+              UNION SELECT t.root, c.code FROM tree t JOIN categories c ON c.parent_code = t.code)
+       SELECT t.root AS code, count(DISTINCT p.id)::int AS n
+         FROM tree t JOIN product_catalog p ON t.code = ANY (p.category) AND ${VISIBLE} AND p.brand_code = $1
+        GROUP BY t.root`,
+      [brandCode],
+    );
+    return new Map(rows.map((r) => [r.code, r.n]));
+  },
+
+  /** A brand's logo address (Liateam's image host only), for the logo route. */
+  async brandLogo(code: number): Promise<string | null> {
+    const row = await queryOne<{ image_url: string | null }>(
+      'catalog.brand_logo',
+      'SELECT image_url FROM brands WHERE code = $1 AND in_source',
+      [code],
+    );
+    return row?.image_url ?? null;
+  },
+
+  /**
+   * Brands Liateam lists (its order), each with its visible products, its logo and a product photo for its tile
+   * (newest in stock). Brands with nothing to sell are left out.
+   */
+  async listBrands(): Promise<BrandRow[]> {
+    return query<BrandRow>(
+      'catalog.list_brands',
+      `SELECT b.code, b.name, b.latin_name, b.slug, count(p.id)::int AS product_count, b.image_url AS logo_url,
+              (array_agg(p.image_url ORDER BY (p.stock > 0) DESC, p.first_seen_at DESC)
+                 FILTER (WHERE p.image_url IS NOT NULL))[1] AS image_url
+         FROM brands b
+         JOIN product_catalog p ON p.brand_code = b.code AND ${VISIBLE}
+        WHERE b.in_source
+        GROUP BY b.code
+        ORDER BY b.position NULLS LAST, b.code`,
+    );
+  },
+
   /**
    * Home-page hero slides the bot mirrors from Liateam (public.hero_slides), in order, each with its destination:
    * a visible product (name, slug_en) or a listed category (name). Slides whose destination is gone are left out.
@@ -331,6 +377,16 @@ export const catalogRepository = {
         ORDER BY h.position`,
     );
   },
+};
+
+export type BrandRow = {
+  code: number;
+  name: string;
+  latin_name: string | null;
+  slug: string;
+  product_count: number;
+  logo_url: string | null;
+  image_url: string | null;
 };
 
 export type HeroSlideRow = {

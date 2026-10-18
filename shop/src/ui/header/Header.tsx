@@ -3,7 +3,7 @@ import { formatToman, formatTomanShort, type Toman } from '@/lib/format/money';
 import { formatNumber, toFaDigits } from '@/lib/format/number';
 import { Icon } from '../icon/Icon';
 import { Container } from '../layout/Layout';
-import { MegaMenu } from './MegaMenu';
+import { BrandMenu, MegaMenu } from './MegaMenu';
 import { MobileMenu } from './MobileMenu';
 import { SearchBox } from './SearchBox';
 import s from './Header.module.css';
@@ -12,7 +12,6 @@ export type Brand = { name: string; latin: string; homeHref?: string };
 export type NavItem = {
   label: string;
   href: string;
-  highlight?: boolean;
   current?: boolean;
   /** visible products (shown in the menus) */
   count?: number;
@@ -27,6 +26,13 @@ export type HeaderProps = {
   /** top-level categories with their sub-categories: the bar under the search row, the mega menu, the drawer */
   categories: readonly NavItem[];
   allCategoriesHref: string;
+  /** «فروشگاه»: all products (its menu is the category tree) */
+  shopHref: string;
+  /** «برندها»: brands with products, in Liateam's order (imageUrl = the logo) */
+  brands: readonly NavItem[];
+  brandsHref: string;
+  /** plain bar links after the menus (about, contact, FAQ) */
+  pages: readonly { label: string; href: string }[];
   searchAction?: string;
   searchQuery?: string;
   cartCount: number;
@@ -40,7 +46,11 @@ export type HeaderProps = {
   links: { cart: string; account: string; wallet: string; login: string; orders: string; favorites: string };
 };
 
-/** SiteHeader: top bar, logo + search + wallet/account/cart, category bar (desktop); compact header (mobile). */
+/**
+ * SiteHeader: top bar, logo + search + wallet/account/cart, then the menu bar like Liateam's: «فروشگاه» (all
+ * products; hover → the category tree), «برندها» (brands page; hover → the brands), about / contact / FAQ
+ * (desktop); compact header with the same items in the drawer (mobile).
+ */
 export function Header(p: HeaderProps) {
   const home = p.brand.homeHref ?? '/';
   const wallet = p.walletToman;
@@ -111,20 +121,16 @@ export function Header(p: HeaderProps) {
           </div>
         </Container>
 
-        <nav aria-label="دسته‌بندی‌ها" className={s.nav}>
+        <nav aria-label="منوی اصلی" className={s.nav}>
           <Container className={s.navInner}>
-            <MegaMenu items={p.categories} allHref={p.allCategoriesHref} />
+            <MegaMenu items={p.categories} href={p.shopHref} allHref={p.allCategoriesHref} />
+            <BrandMenu items={p.brands} href={p.brandsHref} />
             <span className={s.navRule} aria-hidden="true" />
             <ul className={s.navList}>
-              {p.categories.map((c) => (
-                <li key={c.href}>
-                  <Link
-                    href={c.href}
-                    className={`${s.navLink} ${c.highlight ? s.navHighlight : ''}`}
-                    aria-current={c.current ? 'page' : undefined}
-                  >
-                    {c.highlight && <Icon name="bolt" size={19} />}
-                    {c.label}
+              {p.pages.map((x) => (
+                <li key={x.href}>
+                  <Link href={x.href} className={s.navLink}>
+                    {x.label}
                   </Link>
                 </li>
               ))}
@@ -147,7 +153,15 @@ export function Header(p: HeaderProps) {
         </div>
         <div className={s.mobileRow}>
           <div className={s.mobileGroup}>
-            <MobileMenu items={p.categories} allHref={p.allCategoriesHref} brandName={p.brand.name} />
+            <MobileMenu
+              items={p.categories}
+              allHref={p.allCategoriesHref}
+              shopHref={p.shopHref}
+              brands={p.brands}
+              brandsHref={p.brandsHref}
+              pages={p.pages}
+              brandName={p.brand.name}
+            />
             <Link href={home} className={s.mobileLogo} aria-label={`${p.brand.name} — صفحه اصلی`}>
               {p.brand.name}
               <span className={s.logoDot}>.</span>

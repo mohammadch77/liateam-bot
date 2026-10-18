@@ -42,12 +42,42 @@ export async function headerCategories(): Promise<NavItem[]> {
   }
 }
 
-export function headerProps(user: CurrentUser | null, categories: NavItem[] = []): HeaderProps {
+/** The header's «برندها» menu: brands with products, logo as the picture. Empty (link only) if the catalog is down. */
+export async function headerBrands(): Promise<NavItem[]> {
+  try {
+    return (await catalogService.brands()).map((b) => ({
+      label: b.name,
+      href: b.href,
+      count: b.count,
+      imageUrl: b.logoUrl,
+    }));
+  } catch (e) {
+    logger.warn('site.header_brands_unavailable', { code: toAppError(e).code });
+    return [];
+  }
+}
+
+/** Plain links of the menu bar, after «فروشگاه» and «برندها» (as on Liateam; placeholders until phase 3). */
+const PAGES = [
+  { label: 'درباره ما', href: '/about' },
+  { label: 'تماس با ما', href: '/contact' },
+  { label: 'سوالات متداول', href: '/help/faq' },
+];
+
+export function headerProps(
+  user: CurrentUser | null,
+  categories: NavItem[] = [],
+  brands: NavItem[] = [],
+): HeaderProps {
   const c = getConfig();
   return {
     brand: { name: c.BRAND_NAME, latin: c.BRAND_LATIN },
     categories,
     allCategoriesHref: '/categories',
+    shopHref: '/shop',
+    brands,
+    brandsHref: '/brands',
+    pages: PAGES,
     cartCount: 0,
     signedIn: user !== null,
     walletToman: null, // wallet arrives in phase 2

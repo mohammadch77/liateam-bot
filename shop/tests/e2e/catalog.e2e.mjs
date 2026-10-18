@@ -28,7 +28,7 @@ const cardPrices = async () =>
 // ── 1. home: real categories and products ──
 await go('/');
 const bubbles = await page.locator('nav[aria-label="دسته‌بندی‌های اصلی"] a').count();
-const navCats = await page.locator('header nav[aria-label="دسته‌بندی‌ها"] ul a').count();
+const navCats = await page.locator('header ul[aria-label="دسته‌بندی‌های اصلی"] > li > a').count();
 const homeCards = await cards().count();
 const dbRoots = Number(sql(`select count(*) from categories where parent_code is null and name is not null`));
 check(

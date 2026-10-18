@@ -13,6 +13,9 @@ const { chromium } = require('playwright');
 const PAGES = [
   '/',
   '/categories',
+  '/shop',
+  '/brands',
+  '/brands/trust-pro',
   '/c/173', // a parent category (redirects to its canonical /c/173-…)
   '/c/173?sort=price_asc&inStock=1&page=1',
   '/p/541', // a product (redirects to /p/541-…)

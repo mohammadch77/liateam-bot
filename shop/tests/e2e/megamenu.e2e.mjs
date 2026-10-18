@@ -1,4 +1,4 @@
-// Mega menu (desktop) and category drawer (mobile) end to end: Liateam's order from the database, hover /
+// «فروشگاه» mega menu (desktop: hover the item or its chevron button) and category drawer (mobile) end to end: Liateam's order from the database, hover /
 // click / outside click / Esc, keyboard Tab order, links, accordion, no horizontal scroll at 390–1920 px.
 import { BASE, check, chromium, finish, requireLocalApp, shot, sql } from './_harness.mjs';
 
@@ -17,7 +17,7 @@ const b = await chromium.launch();
 // ── desktop ──
 const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
 await p.goto(BASE + '/', { waitUntil: 'load' });
-const trigger = p.getByRole('button', { name: 'دسته‌بندی کالاها' });
+const trigger = p.getByRole('button', { name: 'دسته‌بندی‌های فروشگاه' });
 const panel = p.locator(`#${await trigger.getAttribute('aria-controls')}`.replace(/:/g, '\\:'));
 const mainTop = () => p.locator('main').evaluate((m) => m.getBoundingClientRect().top);
 const top0 = await mainTop();
@@ -121,10 +121,14 @@ await m.goto(BASE + '/', { waitUntil: 'load' });
 await m.getByRole('button', { name: 'منو' }).click();
 const drawer = m.getByRole('dialog');
 check('drawer opens', await drawer.isVisible());
-const mroots = await drawer.locator('nav > ul > li > details > summary, nav > ul > li > a').allInnerTexts();
+const mroots = (
+  await drawer
+    .locator('nav > ul:first-of-type > li > details > summary, nav > ul:first-of-type > li > a')
+    .allInnerTexts()
+).map((t) => t.trim());
 check(
-  'drawer order = Liateam menu',
-  JSON.stringify(mroots.map((t) => t.trim())) === JSON.stringify(LIATEAM),
+  'drawer: «همه‌ی محصولات», then the categories in Liateam order',
+  mroots[0] === 'همه‌ی محصولات' && JSON.stringify(mroots.slice(1)) === JSON.stringify(LIATEAM),
   mroots.join(' | '),
 );
 await drawer.getByText('آرایشی', { exact: true }).click();
@@ -159,7 +163,7 @@ await m.close();
 for (const w of [390, 768, 1024, 1280, 1440, 1920]) {
   const q = await b.newPage({ viewport: { width: w, height: 900 } });
   await q.goto(BASE + '/', { waitUntil: 'load' });
-  if (w >= 1024) await q.getByRole('button', { name: 'دسته‌بندی کالاها' }).click();
+  if (w >= 1024) await q.getByRole('button', { name: 'دسته‌بندی‌های فروشگاه' }).click();
   else await q.getByRole('button', { name: 'منو' }).click();
   const over = await q.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   check(`${w}px: menu open, no horizontal scroll`, over <= 0, `overflow ${over}px`);

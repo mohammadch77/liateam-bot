@@ -1,5 +1,5 @@
 // Search end to end: suggestions while typing (debounce, highlight, picture/brand/price), Arabic letters and
-// misspellings, keyboard (↑/↓/Enter/Esc, «/»), click and Enter to a product, full results ranked by relevance,
+// misspellings, keyboard (↑/↓/Enter/Esc; no «/» shortcut), click and Enter to a product, full results ranked by relevance,
 // sort, empty state, no horizontal scroll at 390–1920 px. Read-only: can run against any URL of the app.
 import { BASE, check, chromium, finish, SHOTS, shot } from './_harness.mjs';
 
@@ -16,9 +16,10 @@ const list = p.locator('header [class*=desktop] [role=listbox]');
 const options = list.locator('[role=option]');
 const opts = async () => (await options.allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
 
-// «/» focuses the box
+// no «/» shortcut (removed on purpose): the key does nothing, the box is focused by clicking it
 await p.keyboard.press('/');
-check('«/» focuses the search box', await box.evaluate((el) => el === document.activeElement));
+check('«/» does not grab focus', !(await box.evaluate((el) => el === document.activeElement)));
+await box.click();
 
 // gradual typing updates suggestions; debounce keeps requests few
 await box.pressSequentially('ری', { delay: 60 });

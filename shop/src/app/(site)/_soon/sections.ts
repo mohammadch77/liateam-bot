@@ -13,6 +13,7 @@ export const COMING_SOON = {
   'help/order': { title: 'نحوه‌ی ثبت سفارش', icon: 'support_agent' },
   'help/shipping': { title: 'روش‌های ارسال و هزینه', icon: 'local_shipping' },
   'help/payment': { title: 'شیوه‌های پرداخت', icon: 'lock' },
+  'help/faq': { title: 'سوالات متداول', icon: 'support_agent' },
   'legal/returns': { title: 'شرایط بازگشت کالا', icon: 'assignment_return' },
   'legal/privacy': { title: 'حریم خصوصی', icon: 'lock' },
   'legal/terms': { title: 'شرایط استفاده', icon: 'verified' },
