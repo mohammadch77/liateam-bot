@@ -145,3 +145,28 @@ export async function fetchProductPages(codes, onPage) {
   }
   return out;
 }
+
+/**
+ * Liateam's home page as an RSC payload (for the hero slides). One request, after a short pause like a person
+ * arriving; throws on anything but HTTP 200 (the caller keeps the stored slides).
+ */
+export async function fetchHomePage() {
+  const ctx = await request.newContext({
+    baseURL: config.baseUrl,
+    storageState: config.storageStatePath,
+    extraHTTPHeaders: {
+      RSC: '1',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36',
+      'Accept-Language': 'fa-IR,fa;q=0.9',
+    },
+    maxRedirects: 0,
+  });
+  try {
+    await sleep(4000 + Math.random() * 8000);
+    const res = await ctx.get('/?_rsc');
+    if (res.status() !== 200) throw new Error(`HTTP ${res.status()} در صفحه‌ی اصلی`);
+    return await res.text();
+  } finally {
+    await ctx.dispose();
+  }
+}

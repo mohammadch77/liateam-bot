@@ -8,6 +8,7 @@ import { formatToman } from '@/lib/format/money';
 import { catalogService } from '@/server/services/catalog.service';
 import { Container, Icon, ProductCard, ProductGrid, Section } from '@/ui';
 import { CatalogUnavailable } from './_catalog/CatalogListing';
+import { HeroSlider } from './HeroSlider';
 import s from './home.module.css';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -34,64 +35,71 @@ export default async function HomePage() {
   return (
     <div className={s.home}>
       <Container>
-        <section className={s.hero} aria-labelledby="hero-title">
-          <div className={s.heroText}>
-            <span className={s.kicker}>
-              <span className={s.kickerDot} aria-hidden="true" />
-              مستقیم از تأمین‌کننده رسمی
-            </span>
-            <h1 id="hero-title" className={s.heroTitle}>
-              درخشش اصیل،
-              <br />
-              با <span className={s.heroAccent}>ضمانت اصالت</span>
-            </h1>
-            <p className={s.heroLead}>
-              سرم‌ها، ضدآفتاب‌ها، عطرها و محصولات مراقبت مو و پوست؛ همه اصل، با قیمت به‌روز و ارسال به سراسر
-              ایران.
-            </p>
-            <div className={s.heroCtas}>
-              <Link href="/categories" className={s.ctaPrimary}>
-                خرید کنید
-                <Icon name="arrow_back" size={20} />
-              </Link>
-              <Link href="/search?sort=newest" className={s.ctaSecondary}>
-                جدیدترین‌ها
-              </Link>
+        {data.heroSlides.length > 0 ? (
+          <>
+            <h1 className="sr-only">{`${getConfig().BRAND_NAME} | فروشگاه محصولات آرایشی و بهداشتی اصل`}</h1>
+            <HeroSlider slides={data.heroSlides} />
+          </>
+        ) : (
+          <section className={s.hero} aria-labelledby="hero-title">
+            <div className={s.heroText}>
+              <span className={s.kicker}>
+                <span className={s.kickerDot} aria-hidden="true" />
+                مستقیم از تأمین‌کننده رسمی
+              </span>
+              <h1 id="hero-title" className={s.heroTitle}>
+                درخشش اصیل،
+                <br />
+                با <span className={s.heroAccent}>ضمانت اصالت</span>
+              </h1>
+              <p className={s.heroLead}>
+                سرم‌ها، ضدآفتاب‌ها، عطرها و محصولات مراقبت مو و پوست؛ همه اصل، با قیمت به‌روز و ارسال به سراسر
+                ایران.
+              </p>
+              <div className={s.heroCtas}>
+                <Link href="/categories" className={s.ctaPrimary}>
+                  خرید کنید
+                  <Icon name="arrow_back" size={20} />
+                </Link>
+                <Link href="/search?sort=newest" className={s.ctaSecondary}>
+                  جدیدترین‌ها
+                </Link>
+              </div>
+              <ul className={s.heroTrust}>
+                <li>
+                  <Icon name="verified" size={19} className={s.trustIcon} />
+                  ضمانت اصالت
+                </li>
+                <li>
+                  <Icon name="local_shipping" size={19} className={s.trustIcon} />
+                  ارسال سریع
+                </li>
+                <li>
+                  <Icon name="assignment_return" size={19} className={s.trustIcon} />۷ روز بازگشت
+                </li>
+              </ul>
             </div>
-            <ul className={s.heroTrust}>
-              <li>
-                <Icon name="verified" size={19} className={s.trustIcon} />
-                ضمانت اصالت
-              </li>
-              <li>
-                <Icon name="local_shipping" size={19} className={s.trustIcon} />
-                ارسال سریع
-              </li>
-              <li>
-                <Icon name="assignment_return" size={19} className={s.trustIcon} />۷ روز بازگشت
-              </li>
-            </ul>
-          </div>
 
-          {hero?.image_url && (
-            <Link
-              href={productPath(hero.id, hero.name, hero.slug_en)}
-              className={s.heroVisual}
-              aria-label={hero.name}
-            >
-              <span className={s.heroPedestal} aria-hidden="true" />
-              <span className={s.heroImage}>
-                <Image src={hero.image_url} alt="" fill priority sizes="(min-width: 1024px) 520px, 80vw" />
-              </span>
-              <span className={s.heroChip}>
-                <span className={s.heroChipName}>{hero.name.replace(/\s+/g, ' ')}</span>
-                <b className={s.heroChipPrice}>
-                  {formatToman(hero.price)} <span>تومان</span>
-                </b>
-              </span>
-            </Link>
-          )}
-        </section>
+            {hero?.image_url && (
+              <Link
+                href={productPath(hero.id, hero.name, hero.slug_en)}
+                className={s.heroVisual}
+                aria-label={hero.name}
+              >
+                <span className={s.heroPedestal} aria-hidden="true" />
+                <span className={s.heroImage}>
+                  <Image src={hero.image_url} alt="" fill priority sizes="(min-width: 1024px) 520px, 80vw" />
+                </span>
+                <span className={s.heroChip}>
+                  <span className={s.heroChipName}>{hero.name.replace(/\s+/g, ' ')}</span>
+                  <b className={s.heroChipPrice}>
+                    {formatToman(hero.price)} <span>تومان</span>
+                  </b>
+                </span>
+              </Link>
+            )}
+          </section>
+        )}
 
         {data.categories.length > 0 && (
           <nav aria-label="دسته‌بندی‌های اصلی" className={s.bubbles}>

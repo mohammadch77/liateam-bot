@@ -314,4 +314,33 @@ export const catalogRepository = {
     );
     return new Map(rows.map((r) => [r.code, r.image_url]));
   },
+
+  /**
+   * Home-page hero slides the bot mirrors from Liateam (public.hero_slides), in order, each with its destination:
+   * a visible product (name, slug_en) or a listed category (name). Slides whose destination is gone are left out.
+   */
+  async listHeroSlides(): Promise<HeroSlideRow[]> {
+    return query<HeroSlideRow>(
+      'catalog.hero_slides',
+      `SELECT h.position, h.image_url, h.portrait_url, h.color, h.target_type, h.target_code,
+              p.name AS product_name, p.slug_en, c.name AS category_name
+         FROM hero_slides h
+         LEFT JOIN product_catalog p ON h.target_type = 'product' AND p.id = h.target_code AND ${VISIBLE}
+         LEFT JOIN categories c ON h.target_type = 'category' AND c.code = h.target_code AND c.in_source
+        WHERE p.id IS NOT NULL OR c.code IS NOT NULL
+        ORDER BY h.position`,
+    );
+  },
+};
+
+export type HeroSlideRow = {
+  position: number;
+  image_url: string;
+  portrait_url: string | null;
+  color: string | null;
+  target_type: 'product' | 'category';
+  target_code: number;
+  product_name: string | null;
+  slug_en: string | null;
+  category_name: string | null;
 };

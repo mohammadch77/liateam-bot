@@ -311,12 +311,49 @@ async function listing(params: ListParams, extra: { categories?: number[] } = {}
   };
 }
 
+export type HeroSlide = {
+  href: string;
+  /** what the slide leads to (our product / category name; Liateam's own slide labels are internal) */
+  label: string;
+  image: string;
+  portrait: string | null;
+  color: string | null;
+};
+
+const LIATEAM_IMAGE = /^https:\/\/s3\.liateam\.ir\//;
+
+/**
+ * The hero slides, ready to link: products by their English slug, categories by their page. Never fails the home
+ * page: without the table (bot not updated, grant 007 not run) there are simply no slides and the static hero shows.
+ */
+async function loadHeroSlides(): Promise<HeroSlide[]> {
+  try {
+    const rows = await catalogRepository.listHeroSlides();
+    return rows
+      .filter((r) => LIATEAM_IMAGE.test(r.image_url))
+      .map((r) => ({
+        href:
+          r.target_type === 'product'
+            ? productPath(r.target_code, r.product_name, r.slug_en)
+            : categoryPath(r.target_code, clean(r.category_name ?? '')),
+        label: clean((r.target_type === 'product' ? r.product_name : r.category_name) ?? ''),
+        image: r.image_url,
+        portrait: r.portrait_url && LIATEAM_IMAGE.test(r.portrait_url) ? r.portrait_url : null,
+        color: r.color && /^#[0-9a-f]{6}$/i.test(r.color) ? r.color : null,
+      }));
+  } catch (e) {
+    logger.warn('catalog.hero_slides_unavailable', { err: e });
+    return [];
+  }
+}
+
 export const catalogService = {
   async home() {
-    const [{ list }, newest, inStock] = await Promise.all([
+    const [{ list }, newest, inStock, heroSlides] = await Promise.all([
       categoryNames(),
       catalogRepository.listProducts({ sort: 'newest', limit: 10, offset: 0, inStockOnly: true }),
       catalogRepository.listProducts({ sort: 'price_desc', limit: 10, offset: 0, inStockOnly: true }),
+      loadHeroSlides(),
     ]);
     const names = new Map(list.map((c) => [c.code, c.name]));
     const topCategories = list.filter((c) => c.parentCode === null || !names.has(c.parentCode)).slice(0, 8);
@@ -326,6 +363,7 @@ export const catalogService = {
       newest: newest.rows.map((r) => toView(r, names)),
       featured: inStock.rows.map((r) => toView(r, names)),
       featuredHero: inStock.rows.find((r) => r.image_url) ?? null,
+      heroSlides,
     };
   },
 

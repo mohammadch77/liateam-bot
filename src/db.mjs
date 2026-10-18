@@ -117,6 +117,17 @@ CREATE TABLE IF NOT EXISTS product_images (     -- extra photos in Liateam's ord
   alt        TEXT,
   PRIMARY KEY (product_id, position)
 );
+CREATE TABLE IF NOT EXISTS hero_slides (        -- Liateam home-page hero slides we can link on our site, in order
+  position     INTEGER PRIMARY KEY,
+  source_code  INTEGER,                          -- Liateam's slide code
+  image_url    TEXT NOT NULL,                    -- https://s3.liateam.ir/… only (hero.mjs IMAGE_HOST), wide
+  portrait_url TEXT,                             -- tall photo for phones, same host
+  color        TEXT,                             -- #rrggbb backdrop while the photo loads
+  alt          TEXT,
+  target_type  TEXT NOT NULL CHECK (target_type IN ('product', 'category')),
+  target_code  INTEGER NOT NULL,                 -- supplier_products.id or categories.code
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 -- What changed in the catalog, run by run (shown in the dashboard; not only failures).
 CREATE TABLE IF NOT EXISTS product_events (
   id         SERIAL PRIMARY KEY,
@@ -581,6 +592,50 @@ export async function applySettings(db, config) {
     }
   }
   return applied;
+}
+
+/**
+ * Stores the parsed hero slides (hero.mjs). Slides whose product / category is not in our catalog are skipped
+ * (reason unknown-product / unknown-category). Rewritten only when the resulting slides changed (hash in
+ * bot_status 'hero'). @returns {{ changed: boolean, slides: object[], skipped: object[] }}
+ */
+export async function saveHeroSlides(db, parsed, hashOf) {
+  const { rows: products } = await db.query(
+    'SELECT id FROM supplier_products WHERE missing_since IS NULL AND id = ANY ($1)',
+    [parsed.slides.filter((s) => s.target_type === 'product').map((s) => s.target_code)]);
+  const { rows: cats } = await db.query(
+    'SELECT code FROM categories WHERE in_source AND code = ANY ($1)',
+    [parsed.slides.filter((s) => s.target_type === 'category').map((s) => s.target_code)]);
+  const known = { product: new Set(products.map((r) => r.id)), category: new Set(cats.map((r) => r.code)) };
+  const slides = [];
+  const skipped = [...parsed.skipped];
+  for (const s of parsed.slides) {
+    if (known[s.target_type].has(s.target_code)) slides.push(s);
+    else skipped.push({ source_code: s.source_code, title: s.alt, link: `${s.target_type}/${s.target_code}`, reason: `unknown-${s.target_type}` });
+  }
+  const hash = hashOf(slides);
+  const { rows: [prev] } = await db.query(`SELECT value FROM bot_status WHERE key = 'hero'`);
+  const changed = prev?.value?.hash !== hash;
+  if (changed) {
+    await db.query('BEGIN');
+    try {
+      await db.query('DELETE FROM hero_slides');
+      for (const [i, s] of slides.entries()) {
+        await db.query(
+          `INSERT INTO hero_slides (position, source_code, image_url, portrait_url, color, alt, target_type, target_code)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [i, s.source_code, s.image_url, s.portrait_url, s.color, s.alt, s.target_type, s.target_code]);
+      }
+      await db.query('COMMIT');
+    } catch (e) {
+      await db.query('ROLLBACK');
+      throw e;
+    }
+  }
+  const now = new Date().toISOString();
+  await setStatus(db, 'hero', { hash, count: slides.length, skipped, checked_at: now,
+    changed_at: changed ? now : (prev?.value?.changed_at ?? now) });
+  return { changed, slides, skipped };
 }
 
 export async function setStatus(db, key, value) {

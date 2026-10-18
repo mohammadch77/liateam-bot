@@ -5,10 +5,11 @@ import fs from 'node:fs';
 import { config } from './config.mjs';
 import { log } from './logger.mjs';
 import { login, hasSession, AuthError } from './auth.mjs';
-import { fetchAllProducts, fetchProductPages } from './source.mjs';
+import { fetchAllProducts, fetchProductPages, fetchHomePage } from './source.mjs';
 import { StructureError } from './rsc.mjs';
 import { checkProduct, checkUnitDrift, UnitError } from './sanity.mjs';
-import { openDb, loadPrevious, upsertProducts, syncCategories, recordRun, diffCatalog, recordEvents, applySettings, setStatus, detailsDue, saveDetails, saveRich, syncBrands, assignSlugs } from './db.mjs';
+import { openDb, loadPrevious, upsertProducts, syncCategories, recordRun, diffCatalog, recordEvents, applySettings, setStatus, detailsDue, saveDetails, saveRich, syncBrands, assignSlugs, saveHeroSlides } from './db.mjs';
+import { parseHeroSlides, heroHash, SKIP_REASON_FA } from './hero.mjs';
 import { sectionHashes } from './product-details.mjs';
 import { KNOWN_BRAND_LATIN, englishSlug, persianSlug, transliterate } from './slug.mjs';
 
@@ -251,6 +252,24 @@ async function main() {
         alertLines.push(`🧩 صفحه‌ی محصولات لیاتیم عوض شده: برند/توضیحات ${details.notFound.length} محصول خوانده نشد (مقادیر قبلی حفظ شد).`);
       } else if (details.notFound.length) {
         log.warn(`details: product object not found on ${details.notFound.length} page(s)`, { ids: details.notFound });
+      }
+    }
+
+    // Hero slides of Liateam's home page: one extra page at most every heroEveryHours. A failure never fails the
+    // run and never wipes the stored slides.
+    const { rows: [heroPrev] } = await db.query(`SELECT value FROM bot_status WHERE key = 'hero'`);
+    const heroAge = (Date.now() - Date.parse(heroPrev?.value?.checked_at ?? '1970-01-01')) / 3_600_000;
+    if (config.heroEveryHours > 0 && !(heroAge < config.heroEveryHours * 0.9)) {
+      try {
+        const parsed = parseHeroSlides(await fetchHomePage());
+        if (!parsed.found) alertLines.push('🧩 اسلایدر صفحه‌ی اصلی لیاتیم پیدا نشد (ساختار صفحه عوض شده؟) — اسلایدهای قبلی حفظ شد.');
+        else {
+          const r = await saveHeroSlides(db, parsed, heroHash);
+          log.info(`hero: ${r.slides.length} slides${r.changed ? ' (changed, rewritten)' : ', unchanged'}, ${r.skipped.length} skipped`,
+            { skipped: r.skipped.map((x) => `${x.source_code} ${x.title}: ${SKIP_REASON_FA[x.reason] ?? x.reason}`) });
+        }
+      } catch (e) {
+        log.warn('hero: home page could not be read — stored slides kept', { error: e.message });
       }
     }
 

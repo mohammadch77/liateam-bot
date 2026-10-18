@@ -86,7 +86,7 @@ try {
   }
   const { rows: priceCols } = await db.query(
     `SELECT table_name || '.' || column_name AS c FROM information_schema.columns
-      WHERE table_schema = 'public' AND table_name IN ('brands','product_attributes','product_faqs','product_reviews','product_images')
+      WHERE table_schema = 'public' AND table_name IN ('brands','product_attributes','product_faqs','product_reviews','product_images','hero_slides')
         AND column_name ~* '(price|cost|payable|discount)'`);
   ok('rich-content tables have no price-like column', !priceCols.length, priceCols.map((r) => r.c).join(', '));
   const { rows: [html] } = await db.query(

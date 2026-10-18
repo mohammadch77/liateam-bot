@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const ALL = ['auth', 'catalog', 'megamenu', 'search', 'product'];
+const ALL = ['auth', 'catalog', 'megamenu', 'search', 'product', 'hero'];
 const wanted = process.argv.slice(2);
 const unknown = wanted.filter((n) => !ALL.includes(n));
 if (unknown.length) {

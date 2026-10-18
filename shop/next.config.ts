@@ -22,7 +22,8 @@ const nextConfig: NextConfig = {
     formats: ['image/webp'],
     minimumCacheTTL: 60 * 60 * 24 * 7,
     // Few sizes on purpose: every size is a separate fetch + cache entry (see scripts/warm-images.mjs).
-    deviceSizes: [390, 640, 828, 1080],
+    // 1440/1920 only for the full-width home hero banners (1320 px wide at most)
+    deviceSizes: [390, 640, 828, 1080, 1440, 1920],
     imageSizes: [96, 160, 240, 320],
   },
 };
