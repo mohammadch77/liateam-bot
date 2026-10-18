@@ -32,10 +32,13 @@ try {
     const d = entry.details;
     const r = await saveDetails(db, id, d);
     const sections = d.rich ? await saveRich(db, id, d.rich, sectionHashes(d.rich)) : [];
-    if (!brands && d.brands.length) brands = d.brands;
+    // mirrored with the first page, so slugs can be assigned even if the run is stopped halfway
+    if (!brands && d.brands.length) {
+      brands = d.brands;
+      await syncBrands(db, brands, transliterate, KNOWN_BRAND_LATIN);
+    }
     console.log(`${id}: ${r}, sections changed: ${sections.join(' ') || '—'} (brand: ${d.brand ?? '—'})`);
   });
-  if (brands) await syncBrands(db, brands, transliterate, KNOWN_BRAND_LATIN);
   console.log(`${brands?.length ?? 0} brands mirrored, ${await assignSlugs(db, englishSlug, persianSlug)} new slugs`);
 } finally {
   await db.end();

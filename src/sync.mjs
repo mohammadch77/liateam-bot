@@ -162,7 +162,11 @@ async function main() {
       if ((await saveDetails(db, id, d)) === 'changed') details.changed.push(id);
       else details.unchanged++;
       if (d.rich) for (const s of await saveRich(db, id, d.rich, sectionHashes(d.rich))) details.rich[s] = (details.rich[s] ?? 0) + 1;
-      if (!details.brands && d.brands.length) details.brands = d.brands; // the same list is on every page
+      // the same list is on every page: mirror it with the first page read, so an interrupted run still has brands
+      if (!details.brands && d.brands.length) {
+        details.brands = d.brands;
+        await syncBrands(db, d.brands, transliterate, KNOWN_BRAND_LATIN);
+      }
     };
 
     // Once a day: verify 3 random products against their own product page (3 extra requests).
@@ -229,7 +233,7 @@ async function main() {
         .slice(0, config.detailsPerRun);
       if (due.length) await fetchProductPages(due, keepDetails);
     }
-    if (details.brands) await syncBrands(db, details.brands, transliterate, KNOWN_BRAND_LATIN);
+
     const slugged = await assignSlugs(db, englishSlug, persianSlug);
     if (details.read.size) {
       log.info(`rich sections: ${Object.entries(details.rich).map(([k, v]) => `${k} ${v}`).join(', ') || 'no change'}; ` +
