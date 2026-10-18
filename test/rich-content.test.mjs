@@ -113,3 +113,40 @@ test('English slugs are unique across the whole catalog (the code makes them so)
   const slugs = names.map((name, i) => englishSlug({ code: 100 + i, name, brandLatin: 'Trust Pro' }));
   assert.equal(new Set(slugs).size, slugs.length);
 });
+
+test('gallery: extra photos in Liateam order, own image host only, main photo not repeated', () => {
+  const raw = (id) => JSON.parse(/"productData":(\{.*?\}),"pagination"/s.exec(page(id))[1]);
+  for (const [id, n] of [[541, 5], [301, 4], [372, 2]]) {
+    const g = parse(id).rich.gallery;
+    const src = raw(id).gallery_images.map((x) => x.image);
+    assert.equal(g.length, n, `${id}`);
+    assert.deepEqual(g.map((x) => x.url), src, `${id}: order kept`);
+    assert.ok(g.every((x) => x.url.startsWith('https://s3.liateam.ir/')));
+  }
+});
+
+test('gallery: foreign hosts, scripts, duplicates and the main photo are dropped', async () => {
+  const { parseGallery } = await import('../src/product-details.mjs');
+  const main = 'https://s3.liateam.ir/lamia/public/product_group/home_page/1.png';
+  const g = parseGallery({
+    home_page_image: main,
+    gallery_images: [
+      { image: main },
+      { image: 'https://s3.liateam.ir/lamia/public/product_group/gallery_image/2.png', alt_image: '<b>عکس</b> دو' },
+      { image: 'https://evil.example/x.png' },
+      { image: 'javascript:alert(1)' },
+      { image: 'https://s3.liateam.ir/lamia/public/product_group/gallery_image/2.png' },
+      { image: 'http://s3.liateam.ir/lamia/public/product_group/gallery_image/3.png' },
+      null,
+    ],
+  });
+  assert.deepEqual(g, [{ url: 'https://s3.liateam.ir/lamia/public/product_group/gallery_image/2.png', alt: 'عکس دو' }]);
+  assert.deepEqual(parseGallery({ home_page_image: main }), []); // single photo → no gallery
+});
+
+test('gallery hash: changes only when the photos change', () => {
+  const a = parse(541).rich;
+  const b = { ...a, gallery: [...a.gallery].reverse() };
+  const changed = Object.keys(sectionHashes(a)).filter((k) => sectionHashes(a)[k] !== sectionHashes(b)[k]);
+  assert.deepEqual(changed, ['gallery']);
+});

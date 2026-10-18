@@ -1,7 +1,7 @@
 // Checks the rich product-page sections end to end. Exit 1 on any failure.
 //   node scripts/check-rich-content.mjs            saved pages in explore/output/pdp (no network)
 //   node scripts/check-rich-content.mjs --live 10  10 random product pages read now (6-18 s apart)
-// 1. Every section a Liateam page has (specs, how-to-use, video, FAQ, reviews, brand) is in our database too.
+// 1. Every section a Liateam page has (specs, how-to-use, video, FAQ, reviews, gallery in order, brand) is in our database too.
 // 2. Nothing the shop can read is a cost: no cost_price / payable / production price for the shop roles, and no
 //    price-like column in the rich-content tables. Stored text holds no HTML.
 import fs from 'node:fs';
@@ -42,6 +42,7 @@ try {
               (SELECT count(*)::int FROM product_attributes WHERE product_id = p.id) AS attributes,
               (SELECT count(*)::int FROM product_faqs WHERE product_id = p.id) AS faqs,
               (SELECT count(*)::int FROM product_reviews WHERE product_id = p.id) AS reviews,
+              (SELECT array_agg(url ORDER BY position) FROM product_images WHERE product_id = p.id) AS gallery,
               EXISTS (SELECT 1 FROM brands b WHERE b.code = p.brand_code) AS brand_row
          FROM supplier_products p WHERE p.id = $1`, [id]);
     const x = d.rich;
@@ -53,10 +54,11 @@ try {
       video: x.video && !(p?.video_url || p?.video_embed_url),
       faqs: x.faqs.length && !(p?.faqs >= x.faqs.length),
       reviews: x.reviews.length && !(p?.reviews >= Math.min(4, x.reviews.length)),
+      gallery: x.gallery.length && JSON.stringify(p?.gallery ?? []) !== JSON.stringify(x.gallery.map((g) => g.url)),
     };
     for (const [k, bad] of Object.entries(need)) if (bad) (missing[k] ??= []).push(id);
   }
-  for (const k of ['brand', 'attributes', 'features', 'how_to_use', 'video', 'faqs', 'reviews']) {
+  for (const k of ['brand', 'attributes', 'features', 'how_to_use', 'video', 'faqs', 'reviews', 'gallery']) {
     const has = [...pages.values()].filter((d) => (k === 'brand' ? d.rich.brandCode : k === 'how_to_use' ? d.rich.howToUse
       : k === 'video' ? d.rich.video : d.rich[k].length)).length;
     ok(`${k}: in our DB wherever Liateam has it`, !missing[k], `${has}/${pages.size} have it at the source` +
@@ -76,13 +78,13 @@ try {
       leaked.length ? leaked.map((r) => `${r.table_name}.${r.column_name}`).join(', ') : `${rows.length} readable columns`);
     const { rows: [rich] } = await db.query(
       `SELECT bool_and(has_table_privilege($1, t, 'SELECT')) AS ok
-         FROM unnest(array['public.brands','public.product_attributes','public.product_faqs','public.product_reviews']) t`,
+         FROM unnest(array['public.brands','public.product_attributes','public.product_faqs','public.product_reviews','public.product_images']) t`,
       [rolname]);
     ok(`${rolname}: can read the rich-content tables`, !!rich.ok);
   }
   const { rows: priceCols } = await db.query(
     `SELECT table_name || '.' || column_name AS c FROM information_schema.columns
-      WHERE table_schema = 'public' AND table_name IN ('brands','product_attributes','product_faqs','product_reviews')
+      WHERE table_schema = 'public' AND table_name IN ('brands','product_attributes','product_faqs','product_reviews','product_images')
         AND column_name ~* '(price|cost|payable|discount)'`);
   ok('rich-content tables have no price-like column', !priceCols.length, priceCols.map((r) => r.c).join(', '));
   const { rows: [html] } = await db.query(

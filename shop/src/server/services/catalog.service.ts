@@ -106,6 +106,8 @@ export type ReviewView = {
 
 /** The product page's sections. Empty ones are hidden by the page (no empty tab). */
 export type ProductContent = {
+  /** main photo first, then the gallery in Liateam's order; Liateam's image host only (served by our optimiser) */
+  images: Array<{ url: string; alt: string }>;
   summary: string[];
   features: string[];
   /** ArvanCloud player URL (re-checked here), shown in a sandboxed iframe */
@@ -122,6 +124,7 @@ export type ProductContent = {
 
 const VIDEO_PLAYER =
   /^https:\/\/player\.arvancloud\.ir\/index\.html\?config=https:\/\/[a-z0-9-]+\.arvanvod\.ir\/[\w/.-]+\.json$/i;
+const IMAGE_HOST = /^https:\/\/s3\.liateam\.ir\//;
 const textLines = (s: string | null) =>
   (s ?? '')
     .split('\n')
@@ -148,7 +151,18 @@ function toContent(row: ProductDetailRow, c: ProductContentRows, site: SiteRevie
     })),
   ].sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
   const summary = textLines(row.summary);
+  const seen = new Set<string>();
+  const images = [...(row.image_url ? [{ url: row.image_url, alt: null }] : []), ...c.images].flatMap(
+    (img, i) => {
+      if (!IMAGE_HOST.test(img.url) || seen.has(img.url)) return [];
+      seen.add(img.url);
+      return [
+        { url: img.url, alt: i === 0 ? clean(row.name) : (img.alt ?? `${clean(row.name)} — تصویر ${i + 1}`) },
+      ];
+    },
+  );
   return {
+    images,
     summary,
     // Liateam's features usually repeat the summary lines; show them once
     features: row.features.filter((f) => !summary.includes(f.trim())),

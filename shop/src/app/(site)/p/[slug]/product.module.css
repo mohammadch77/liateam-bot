@@ -74,6 +74,49 @@
   opacity: 0.55;
 }
 
+/* thumbnails (Product Page.dc.html): 5 per row, the selected one framed in the accent colour */
+.gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.thumbs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+@media (min-width: 1024px) {
+  .thumbs {
+    gap: 10px;
+  }
+}
+.thumb {
+  position: relative;
+  display: block;
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  border: 2px solid var(--color-line);
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 30%, #fff, var(--color-stage-mid));
+  transition: border-color var(--motion-fast) var(--motion-ease);
+}
+.thumb img {
+  object-fit: contain;
+  padding: 8%;
+  mix-blend-mode: multiply;
+}
+.thumb:hover {
+  border-color: var(--color-line-strong);
+}
+.thumb[aria-current='true'] {
+  border-color: var(--color-accent);
+}
+.thumb:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-field);
+}
+
 .info {
   display: flex;
   flex-direction: column;

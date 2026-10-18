@@ -239,11 +239,129 @@ const anon = await fetch(`${BASE}/p/${slugOf(bare)}`, { method: 'POST', body: 'x
 check('5i no session → cannot post a review', anon.status >= 400 || !(await anon.text()).includes('ثبت شد'));
 sql(`delete from ${SCHEMA}.site_reviews where user_id = ${userId}`);
 
+// ── 7. gallery: main photo + thumbnails in Liateam's order; single photo → no thumbnails ──
+const multi = Number(
+  one(`select p.id from product_catalog p where ${VISIBLE} and p.image_url is not null and p.gallery_count >= 2
+         order by p.gallery_count desc, p.id limit 1`) || 0,
+);
+// Liateam has (almost) no product with a single photo: when none exists, a product's gallery is emptied for the
+// check and restored right after (same pattern as the catalog test's price changes).
+let single = Number(
+  one(`select p.id from product_catalog p where ${VISIBLE} and p.image_url is not null and p.gallery_count = 0
+         and (select s.content_hashes ? 'gallery' from supplier_products s where s.id = p.id) order by p.id limit 1`) ||
+    0,
+);
+let restoreGallery = null;
+if (!single) {
+  single = Number(
+    one(
+      `select p.id from product_catalog p where ${VISIBLE} and p.image_url is not null and p.id <> ${multi} and p.gallery_count > 0 order by p.id limit 1`,
+    ),
+  );
+  const saved = one(`select gallery_count from supplier_products where id = ${single}`);
+  sql(`create table if not exists public.e2e_images_backup as select * from product_images where false`);
+  sql(`insert into public.e2e_images_backup select * from product_images where product_id = ${single}`);
+  sql(
+    `delete from product_images where product_id = ${single}; update supplier_products set gallery_count = 0 where id = ${single}`,
+  );
+  restoreGallery = () => {
+    sql(
+      `insert into product_images select * from public.e2e_images_backup where product_id = ${single} on conflict do nothing`,
+    );
+    sql(
+      `update supplier_products set gallery_count = ${saved} where id = ${single}; drop table public.e2e_images_backup`,
+    );
+  };
+}
+check(
+  '7 test data: products with a gallery and with one photo',
+  multi > 0 && single > 0,
+  `${multi}, ${single}`,
+);
+const photosLoaded = () =>
+  page
+    .waitForFunction(
+      () => [...document.querySelectorAll('#gallery img')].every((i) => i.complete && i.naturalWidth > 0),
+      null,
+      {
+        timeout: 60000,
+      },
+    )
+    .catch(() => {});
+const optimised = (src) => new URL(src, BASE).searchParams.get('url') ?? src;
+const dbImages = [
+  one(`select image_url from product_catalog where id = ${multi}`),
+  ...sql(`select url from product_images where product_id = ${multi} order by position`).split('\n'),
+].filter((u, i, a) => u && a.indexOf(u) === i);
+await page.setViewportSize({ width: 1440, height: 900 });
+await go(`/p/${slugOf(multi)}`);
+const thumbs = page.locator('ul[aria-label="تصاویر محصول"] a');
+const thumbSrcs = await thumbs.locator('img').evaluateAll((imgs) => imgs.map((i) => i.getAttribute('src')));
+check(
+  '7a thumbnails: main photo first, then the gallery in the stored order',
+  JSON.stringify(thumbSrcs.map(optimised)) === JSON.stringify(dbImages),
+  `${thumbSrcs.length} thumbnails`,
+);
+const allImgs = await page
+  .locator('#gallery img')
+  .evaluateAll((imgs) => imgs.map((i) => i.currentSrc || i.src));
+check(
+  '7b every photo through /_next/image (no hotlink to the supplier)',
+  allImgs.every((u) => u.includes('/_next/image') && !u.startsWith('https://s3.')),
+);
+const bigSrc = () => page.locator('#gallery [class*=stage] img').getAttribute('src');
+await thumbs.nth(2).click();
+await page
+  .waitForFunction(
+    (want) =>
+      decodeURIComponent(
+        document.querySelector('#gallery [class*=stage] img')?.getAttribute('src') ?? '',
+      ).includes(want),
+    dbImages[2],
+    { timeout: 10000 },
+  )
+  .catch(() => {});
+check(
+  '7c clicking a thumbnail swaps the large photo (no page load)',
+  optimised(await bigSrc()) === dbImages[2] &&
+    (await thumbs.nth(2).getAttribute('aria-current')) === 'true' &&
+    !page.url().includes('img='),
+);
+await photosLoaded();
+await shot(page, 'gallery-desktop.png', { clip: { x: 0, y: 0, width: 1440, height: 900 } });
+// no-JavaScript fallback: the thumbnail links point at ?img=N, and the server renders that photo large
+const njHtml = await (await fetch(`${BASE}/p/${slugOf(multi)}?img=2`)).text();
+const njStage = /class="[^"]*stage[^"]*"[\s\S]*?<img[^>]*src="([^"]+)"/
+  .exec(njHtml)?.[1]
+  ?.replace(/&amp;/g, '&');
+check(
+  '7d without JavaScript: thumbnail links are ?img=N and the server shows that photo',
+  njHtml.includes('href="?img=2#gallery"') && optimised(njStage ?? '') === dbImages[1],
+  optimised(njStage ?? '-'),
+);
+await go(`/p/${slugOf(single)}`);
+check(
+  '7e one photo → no thumbnail strip',
+  (await page.locator('ul[aria-label="تصاویر محصول"]').count()) === 0 &&
+    (await page.locator('#gallery [class*=stage] img').count()) === 1,
+);
+restoreGallery?.();
+const gHtml = await (await fetch(`${BASE}/p/${slugOf(multi)}`)).text();
+check(
+  '7f no cost price in the gallery page output',
+  !gHtml.includes(one(`select cost_price from supplier_products where id = ${multi}`)) &&
+    !/cost_price|payable_price|production_price/.test(gHtml),
+);
+await page.setViewportSize({ width: 390, height: 844 });
+await go(`/p/${slugOf(multi)}`);
+await photosLoaded();
+await shot(page, 'gallery-mobile.png');
+
 // ── 6. responsive: no horizontal scroll 390 → 1920, both layouts ──
 const overflow = [];
 for (const width of [390, 768, 1024, 1280, 1440, 1920]) {
   await page.setViewportSize({ width, height: 900 });
-  for (const id of [full, bare]) {
+  for (const id of [full, bare, multi]) {
     await go(`/p/${slugOf(id)}`);
     const extra = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

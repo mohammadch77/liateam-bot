@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { cache, type ReactNode } from 'react';
@@ -17,10 +16,14 @@ import { REVIEW_POLICY } from '@/server/services/review.service';
 import { getCurrentUser } from '@/server/services/session.service';
 import { Badge, Breadcrumb, Button, Container, Icon, Price, ProductCard, ProductGrid, Section } from '@/ui';
 import { CatalogUnavailable } from '../../_catalog/CatalogListing';
+import { Gallery } from './Gallery';
 import { ReviewForm } from './ReviewForm';
 import s from './product.module.css';
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = {
+  params: Promise<{ slug: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
 
 const loadProduct = cache(async (id: number) => catalogService.product(id));
 
@@ -42,8 +45,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function ProductPage({ params }: Props) {
+export default async function ProductPage({ params, searchParams }: Props) {
   const { slug } = await params;
+  // ?img=N: the gallery photo chosen without JavaScript (thumbnail links)
+  const imgParam = Number((await searchParams)?.img);
+  const imageIndex = Number.isInteger(imgParam) && imgParam >= 1 && imgParam <= 50 ? imgParam - 1 : 0;
   const id = idFromSlug(slug);
   if (id === null) notFound();
 
@@ -106,20 +112,7 @@ export default async function ProductPage({ params }: Props) {
       />
 
       <article className={s.product}>
-        <div className={s.gallery}>
-          <div className={out ? `${s.stage} ${s.out}` : s.stage}>
-            <span className={s.pedestal} aria-hidden="true" />
-            {p.imageUrl ? (
-              <span className={s.image}>
-                <Image src={p.imageUrl} alt={p.name} fill priority sizes="(min-width: 1024px) 560px, 92vw" />
-              </span>
-            ) : (
-              <span className={s.noImage} role="img" aria-label="بدون عکس">
-                <Icon name="spa" size={96} />
-              </span>
-            )}
-          </div>
-        </div>
+        <Gallery images={c.images} initial={imageIndex} name={p.name} out={out} />
 
         <div className={s.info}>
           {/* brand when the sync bot has read it from the product page, otherwise the main category */}

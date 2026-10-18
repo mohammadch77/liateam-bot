@@ -178,6 +178,25 @@ function parseReviews(text) {
   return { reviews, total: Math.max(total, reviews.length) };
 }
 
+// Same rule as every other image we keep: Liateam's own image host only (the shop serves them through its
+// optimiser, never hotlinked).
+const IMAGE_HOST = /^https:\/\/s3\.liateam\.ir\/[\w/.%-]+\.(?:png|jpe?g|webp|gif|avif)$/i;
+
+/** Extra product photos in Liateam's order; the main photo (home_page_image → image_url) is not repeated. */
+export function parseGallery(product) {
+  const main = typeof product.home_page_image === 'string' ? product.home_page_image.trim() : null;
+  const seen = new Set(main ? [main] : []);
+  const out = [];
+  for (const g of Array.isArray(product.gallery_images) ? product.gallery_images : []) {
+    const url = typeof g?.image === 'string' ? g.image.trim() : '';
+    if (!IMAGE_HOST.test(url) || seen.has(url)) continue;
+    seen.add(url);
+    out.push({ url, alt: cleanText(g.alt_image, 200) });
+    if (out.length >= 12) break;
+  }
+  return out;
+}
+
 /** The product's tabs: summary, features, specs, how-to-use, video, FAQ, reviews, rating, brand code. */
 export function parseRich(text, product) {
   const lines = (v) => (cleanText(resolveRef(text, v)) ?? '').split('\n').filter(Boolean);
@@ -201,6 +220,7 @@ export function parseRich(text, product) {
     rating: Number.isFinite(rating) && rating >= 0 && rating <= 100 ? Math.round(rating) : null,
     brandCode: Number.isInteger(brandCode) && brandCode > 0 ? brandCode : null,
     country: cleanText(product.country, 60),
+    gallery: parseGallery(product),
   };
 }
 
@@ -237,5 +257,6 @@ export function sectionHashes(rich) {
     faqs: h(rich.faqs),
     reviews: h([rich.reviews, rich.total]),
     meta: h([rich.rating, rich.brandCode, rich.country]),
+    gallery: h(rich.gallery),
   };
 }

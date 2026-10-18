@@ -133,6 +133,8 @@ export type ProductContentRows = {
     reply: string | null;
     created_at: Date | null;
   }>;
+  /** extra photos in Liateam's order (the main one is image_url) */
+  images: Array<{ url: string; alt: string | null }>;
 };
 
 export type CategoryRow = {
@@ -227,7 +229,7 @@ export const catalogRepository = {
 
   /** Specs, FAQ and synced reviews in Liateam's order (public.product_* tables, read-only). */
   async getProductContent(id: number): Promise<ProductContentRows> {
-    const [attributes, faqs, reviews] = await Promise.all([
+    const [attributes, faqs, reviews, images] = await Promise.all([
       query<ProductContentRows['attributes'][number]>(
         'catalog.product_attributes',
         'SELECT key, value FROM public.product_attributes WHERE product_id = $1 ORDER BY position',
@@ -244,8 +246,13 @@ export const catalogRepository = {
           WHERE product_id = $1 ORDER BY position`,
         [id],
       ),
+      query<ProductContentRows['images'][number]>(
+        'catalog.product_images',
+        'SELECT url, alt FROM public.product_images WHERE product_id = $1 ORDER BY position',
+        [id],
+      ),
     ]);
-    return { attributes, faqs, reviews };
+    return { attributes, faqs, reviews, images };
   },
 
   /** Old address → canonical one: the English slug and name of a visible product (cheap, for the redirect). */
