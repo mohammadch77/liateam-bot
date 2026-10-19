@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { cache, type ReactNode } from 'react';
@@ -17,6 +18,7 @@ import { getCurrentUser } from '@/server/services/session.service';
 import { Badge, Breadcrumb, Button, Container, Icon, Price, ProductCard, ProductGrid, Section } from '@/ui';
 import { CatalogUnavailable } from '../../_catalog/CatalogListing';
 import { Gallery } from './Gallery';
+import { OpenSectionOnHash } from './OpenSectionOnHash';
 import { ReviewForm } from './ReviewForm';
 import s from './product.module.css';
 
@@ -30,16 +32,40 @@ const loadProduct = cache(async (id: number) => catalogService.product(id));
 const dateFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'medium', timeStyle: 'short' });
 const dayFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'medium' });
 
+/**
+ * One fixed template for every product (Product Page.dc.html), whatever Liateam filled in: the same five sections
+ * in the same place, each with a same-shaped empty state; long text and long lists are folded, never dropped.
+ */
+const LIMITS = {
+  /** key features in the card at the top */
+  keyFeatures: 5,
+  /** spec rows shown before «همه‌ی مشخصات» */
+  specs: 8,
+  faqs: 5,
+  reviews: 4,
+  /** a text block longer than this (characters) is folded at ~8 lines with «ادامه‌ی مطلب» */
+  foldAt: 300,
+} as const;
+
+/**
+ * Our own general care note under «نحوه مصرف», the same for every product (not Liateam's text; listed in
+ * docs/phase1-handover.md). It makes no claim about a particular product or its packaging.
+ */
+const CARE_NOTE =
+  'پیش از نخستین مصرف، محصول را روی ناحیه‌ی کوچکی از پوست امتحان کنید. در صورت بروز قرمزی، خارش یا سوزش، مصرف را قطع کنید و با پزشک مشورت کنید. دور از دسترس کودکان نگهداری شود.';
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const id = idFromSlug((await params).slug);
   if (id === null) return {};
   const data = await loadProduct(id).catch(() => null);
   if (!data) return { title: 'محصول' };
-  const { product: p } = data;
-  const brand = getConfig().BRAND_NAME;
+  const { product: p, content: c } = data;
+  const site = getConfig().BRAND_NAME;
+  // our own wording from name + brand + size (Liateam's meta texts are kept by the bot but never used here)
+  const label = [p.name, c.size].filter(Boolean).join('، ');
   return {
-    title: `${p.name} | ${brand}`,
-    description: `خرید ${p.name}${p.brandName ? ` از برند ${p.brandName}` : ''}، اصل با قیمت ${formatTomanText(p.priceToman)} از ${brand}.`,
+    title: `${p.name} | ${site}`,
+    description: `خرید ${label}${p.brandName ? ` از برند ${p.brandName}` : ''}؛ اصل، با قیمت ${formatTomanText(p.priceToman)} و ارسال به سراسر ایران از ${site}.`,
     alternates: { canonical: p.href },
     openGraph: { title: p.name, images: p.imageUrl ? [{ url: p.imageUrl }] : undefined },
   };
@@ -64,7 +90,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
     );
   }
   if (!data) notFound();
-  const { product: p, description, content: c, trail, related } = data;
+  const { product: p, brand, description, content: c, trail, related } = data;
   const user = await getCurrentUser().catch(() => null);
 
   const main = p.categories[0];
@@ -89,16 +115,28 @@ export default async function ProductPage({ params, searchParams }: Props) {
     },
   };
 
-  // Sections with content only: a tab without data is never shown.
-  const hasIntro =
-    description.length > 0 || c.summary.length > 0 || c.features.length > 0 || !!c.videoEmbedUrl;
+  // key features: the summary lines first (Liateam's headline points), then the other features; one product has neither
+  const keyFeatures = [...new Set([...c.summary, ...c.features])].slice(0, LIMITS.keyFeatures);
+  const descriptionLength = description.reduce(
+    (n, b) =>
+      n +
+      (b.kind === 'paragraph'
+        ? b.lines.join(' ').length
+        : b.kind === 'list'
+          ? b.items.join(' ').length
+          : b.text.length),
+    0,
+  );
+  // beside «معرفی»: the video, else the second gallery photo (else the first): the section always has the same shape
+  const sidePhoto = c.images[1] ?? c.images[0] ?? null;
+
   const tabs = [
-    hasIntro && { id: 'intro', label: 'معرفی' },
-    c.attributes.length > 0 && { id: 'specs', label: 'مشخصات' },
-    c.howToUse.length > 0 && { id: 'how', label: 'نحوه مصرف' },
-    c.faqs.length > 0 && { id: 'faq', label: 'پرسش‌های متداول' },
+    { id: 'intro', label: 'معرفی' },
+    { id: 'specs', label: 'مشخصات' },
+    { id: 'how', label: 'نحوه مصرف' },
+    { id: 'faq', label: c.faqs.length ? `پرسش‌ها (${toFaDigits(c.faqs.length)})` : 'پرسش‌ها' },
     { id: 'reviews', label: c.reviewsTotal ? `دیدگاه‌ها (${toFaDigits(c.reviewsTotal)})` : 'دیدگاه‌ها' },
-  ].filter((t): t is { id: string; label: string } => !!t);
+  ];
 
   return (
     <Container className={s.page}>
@@ -111,21 +149,37 @@ export default async function ProductPage({ params, searchParams }: Props) {
         ]}
       />
 
+      {/* ── top: gallery | information | buy box ── */}
       <article className={s.product}>
-        <Gallery images={c.images} initial={imageIndex} name={p.name} out={out} />
+        <Gallery images={c.images} initial={imageIndex} name={p.name} out={out} tint={c.color} />
 
         <div className={s.info}>
-          {/* brand when the sync bot has read it from the product page, otherwise the main category */}
-          {p.brandName ? (
-            <span className={s.category}>{p.brandName}</span>
-          ) : (
-            main && (
-              <Link href={main.href} className={s.category}>
+          <div className={s.chipsRow}>
+            {brand ? (
+              <Link href={brand.href} className={s.brandChip}>
+                {brand.name}
+              </Link>
+            ) : (
+              p.brandName && <span className={s.brandChip}>{p.brandName}</span>
+            )}
+            {main && (
+              <Link href={main.href} className={s.categoryLink}>
                 {main.name}
               </Link>
-            )
-          )}
+            )}
+          </div>
           <h1 className={s.name}>{p.name}</h1>
+
+          <p className={s.ratingLine}>
+            {c.recommendPercent !== null && (
+              <a href="#reviews" className={s.ratingStrong}>
+                <Icon name="check_circle" size={17} />
+                {toFaDigits(c.recommendPercent)}٪ پیشنهاد
+              </a>
+            )}
+            <a href="#reviews">{toFaDigits(c.reviewsTotal)} دیدگاه</a>
+            <a href="#faq">{toFaDigits(c.faqs.length)} پرسش</a>
+          </p>
 
           <div className={s.badges}>
             {out ? (
@@ -137,78 +191,98 @@ export default async function ProductPage({ params, searchParams }: Props) {
             )}
             <Badge tone="genuine" />
           </div>
-          {c.recommendPercent !== null && (
-            <a href="#reviews" className={s.recommendLink}>
-              <Icon name="check_circle" size={18} />
-              {toFaDigits(c.recommendPercent)}٪ از خریداران این کالا را پیشنهاد کرده‌اند
-            </a>
-          )}
 
-          <div className={s.buyBox}>
-            {out ? (
-              <>
-                <p className={s.outText}>این کالا در حال حاضر موجود نیست.</p>
-                <Button variant="outline" icon="notifications" disabled block>
-                  خبرم کن (به‌زودی)
-                </Button>
-              </>
+          <section className={s.card} aria-labelledby="key-features">
+            <h2 id="key-features" className={s.cardTitle}>
+              ویژگی‌های کلیدی
+            </h2>
+            {keyFeatures.length > 0 ? (
+              <ul className={s.checks}>
+                {keyFeatures.map((f, i) => (
+                  <li key={i}>
+                    <Icon name="check_circle" size={18} className={s.checkIcon} />
+                    {f}
+                  </li>
+                ))}
+              </ul>
             ) : (
-              <>
-                <Price toman={p.priceToman} size="lg" />
-                {/* cart slot: the cart arrives in phase 2 */}
-                <Button size="lg" block icon="add_shopping_cart" disabled aria-describedby="cart-soon">
-                  افزودن به سبد
-                </Button>
-                <span id="cart-soon" className={s.soon}>
-                  خرید آنلاین به‌زودی فعال می‌شود.
-                </span>
-              </>
+              <p className={s.muted}>ویژگی‌ای برای این محصول ثبت نشده است.</p>
             )}
-            <ul className={s.facts}>
-              <li>
-                <Icon name="verified" size={19} className={s.factIcon} />
-                ضمانت اصالت؛ مستقیم از تأمین‌کننده رسمی
-              </li>
-              <li>
-                <Icon name="local_shipping" size={19} className={s.factIcon} />
-                ارسال به سراسر ایران
-              </li>
-              <li>
-                <Icon name="refresh" size={19} className={s.factIcon} />
-                قیمت و موجودی به‌روز: {dateFa.format(p.updatedAt)}
-              </li>
-            </ul>
-          </div>
+            {c.concerns.length > 0 && (
+              <p className={s.concerns}>
+                <span>مناسب برای:</span>
+                {c.concerns.map((x) => (
+                  <span key={x} className={s.concern}>
+                    {x}
+                  </span>
+                ))}
+              </p>
+            )}
+          </section>
 
-          <dl className={s.specs} aria-label="اطلاعات کالا">
-            {p.brandName && (
-              <div>
-                <dt>برند</dt>
-                <dd>{p.brandName}</dd>
-              </div>
-            )}
-            {p.categories.length > 0 && (
-              <div>
-                <dt>دسته‌بندی</dt>
-                <dd>
-                  {p.categories.map((cat, i) => (
-                    <span key={cat.code}>
-                      {i > 0 && '، '}
-                      <Link href={cat.href}>{cat.name}</Link>
-                    </span>
-                  ))}
-                </dd>
-              </div>
-            )}
+          <dl className={`${s.card} ${s.quickSpecs}`} aria-label="مشخصات سریع">
             <div>
-              <dt>کد کالا</dt>
-              <dd className="tnum">{toFaDigits(p.id)}</dd>
+              <dt>برند</dt>
+              <dd>{brand ? <Link href={brand.href}>{brand.name}</Link> : (p.brandName ?? '—')}</dd>
+            </div>
+            <div>
+              <dt>حجم</dt>
+              <dd>{c.size ?? '—'}</dd>
+            </div>
+            <div>
+              <dt>کشور سازنده</dt>
+              <dd>{c.country ?? '—'}</dd>
             </div>
           </dl>
         </div>
+
+        <aside className={s.buyBox} aria-label="خرید">
+          {out ? (
+            <>
+              <p className={s.outText}>این کالا در حال حاضر موجود نیست.</p>
+              <Button variant="outline" icon="notifications" disabled block>
+                خبرم کن (به‌زودی)
+              </Button>
+            </>
+          ) : (
+            <>
+              <Price toman={p.priceToman} size="lg" />
+              {/* cart slot: the cart arrives in phase 2 */}
+              <Button size="lg" block icon="add_shopping_cart" disabled aria-describedby="cart-soon">
+                افزودن به سبد
+              </Button>
+              <span id="cart-soon" className={s.soon}>
+                خرید آنلاین به‌زودی فعال می‌شود.
+              </span>
+            </>
+          )}
+          <ul className={s.facts}>
+            <li>
+              <Icon name="verified" size={19} className={s.factIcon} />
+              ضمانت اصالت؛ مستقیم از تأمین‌کننده رسمی
+            </li>
+            <li>
+              <Icon name="local_shipping" size={19} className={s.factIcon} />
+              ارسال به سراسر ایران
+            </li>
+            <li>
+              <Icon name="refresh" size={19} className={s.factIcon} />
+              قیمت و موجودی به‌روز: {dateFa.format(p.updatedAt)}
+            </li>
+          </ul>
+          <span className={s.code}>کد کالا: {toFaDigits(p.id)}</span>
+        </aside>
       </article>
 
-      {/* in-page tabs (Product Page.dc.html): anchors to the sections below, sticky while scrolling */}
+      {/* phones: price + button stay at the bottom while scrolling (above the tab bar) */}
+      <div className={s.stickyBuy} aria-hidden="true">
+        {out ? <span className={s.outText}>ناموجود</span> : <Price toman={p.priceToman} />}
+        <Button size="md" icon="add_shopping_cart" disabled tabIndex={-1}>
+          افزودن به سبد
+        </Button>
+      </div>
+
+      {/* in-page tabs: always the same five, sticky while scrolling (desktop) */}
       <nav className={s.tabs} aria-label="بخش‌های صفحه‌ی محصول">
         <ul>
           {tabs.map((t) => (
@@ -219,92 +293,125 @@ export default async function ProductPage({ params, searchParams }: Props) {
         </ul>
       </nav>
 
+      <OpenSectionOnHash />
       <div className={s.sections}>
-        {hasIntro && (
-          <ProductSection id="intro" title="معرفی محصول">
-            <div className={c.videoEmbedUrl ? s.introGrid : undefined}>
-              <div className={s.prose}>
-                {c.summary.length > 0 && (
-                  <ul className={s.summary}>
-                    {c.summary.map((line, i) => (
-                      <li key={i}>{line}</li>
-                    ))}
-                  </ul>
+        <ProductSection id="intro" title="معرفی محصول" open>
+          <div className={s.introGrid}>
+            <div className={s.prose}>
+              {c.summary.length > 0 && <p className={s.lead}>{c.summary.join(' · ')}</p>}
+              <Fold long={descriptionLength > LIMITS.foldAt} label="ادامه‌ی مطلب">
+                {description.length > 0 ? (
+                  <Description blocks={description} />
+                ) : (
+                  <p>توضیحی برای این محصول ثبت نشده است.</p>
                 )}
-                <Description blocks={description} />
-                {c.features.length > 0 && (
-                  <ul className={s.chips} aria-label="ویژگی‌ها">
-                    {c.features.map((f, i) => (
-                      <li key={i}>{f}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              {c.videoEmbedUrl && (
-                <figure className={s.video}>
-                  {/* only Liateam's ArvanCloud player (checked on the server); sandboxed, no top navigation */}
-                  <iframe
-                    src={c.videoEmbedUrl}
-                    title={`ویدیوی ${p.name}`}
-                    loading="lazy"
-                    sandbox="allow-scripts allow-same-origin allow-presentation"
-                    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    allowFullScreen
-                  />
-                  <figcaption>ویدیوی معرفی محصول</figcaption>
-                </figure>
+              </Fold>
+              {c.features.length > 0 && (
+                <ul className={s.chips} aria-label="ویژگی‌ها">
+                  {c.features.map((f, i) => (
+                    <li key={i}>{f}</li>
+                  ))}
+                </ul>
               )}
             </div>
-          </ProductSection>
-        )}
-
-        {(c.attributes.length > 0 || c.howToUse.length > 0) && (
-          <div className={s.pair}>
-            {c.attributes.length > 0 && (
-              <ProductSection id="specs" title="مشخصات">
-                <dl className={s.attrTable}>
-                  {c.attributes.map((a, i) => (
-                    <div key={i}>
-                      <dt>{a.key}</dt>
-                      <dd>{a.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </ProductSection>
-            )}
-            {c.howToUse.length > 0 && (
-              <ProductSection id="how" title="نحوه مصرف">
-                <ol className={s.steps}>
-                  {c.howToUse.map((line, i) => (
-                    <li key={i}>
-                      <span className={s.stepNo} aria-hidden="true">
-                        {toFaDigits(i + 1)}
-                      </span>
-                      <span>{line}</span>
-                    </li>
-                  ))}
-                </ol>
-              </ProductSection>
+            {c.videoEmbedUrl ? (
+              <figure className={s.media}>
+                {/* only Liateam's ArvanCloud player (checked on the server); sandboxed, no top navigation */}
+                <iframe
+                  src={c.videoEmbedUrl}
+                  title={`ویدیوی ${p.name}`}
+                  loading="lazy"
+                  sandbox="allow-scripts allow-same-origin allow-presentation"
+                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                />
+                <figcaption>ویدیوی معرفی محصول</figcaption>
+              </figure>
+            ) : (
+              sidePhoto && (
+                <figure className={s.media} style={c.color ? { ['--tint' as string]: c.color } : undefined}>
+                  <span className={s.mediaPhoto}>
+                    <Image
+                      src={sidePhoto.url}
+                      alt={sidePhoto.alt}
+                      fill
+                      sizes="(min-width: 1024px) 420px, 92vw"
+                    />
+                  </span>
+                </figure>
+              )
             )}
           </div>
-        )}
+        </ProductSection>
 
-        {c.faqs.length > 0 && (
-          <ProductSection id="faq" title="پرسش‌های متداول">
-            <div className={s.faqList}>
-              {c.faqs.map((f, i) => (
-                <details key={i} className={s.faq}>
-                  <summary>
-                    {f.question}
-                    <Icon name="keyboard_arrow_down" size={22} className={s.faqIcon} />
-                  </summary>
-                  <p>{f.answer}</p>
-                </details>
-              ))}
-            </div>
+        <div className={s.pair}>
+          <ProductSection id="specs" title="مشخصات">
+            {c.attributes.length > 0 ? (
+              <>
+                <AttrTable rows={c.attributes.slice(0, LIMITS.specs)} />
+                {c.attributes.length > LIMITS.specs && (
+                  <details className={s.more}>
+                    <summary>
+                      همه‌ی مشخصات ({toFaDigits(c.attributes.length)})
+                      <Icon name="keyboard_arrow_down" size={20} className={s.moreIcon} />
+                    </summary>
+                    <AttrTable rows={c.attributes.slice(LIMITS.specs)} />
+                  </details>
+                )}
+              </>
+            ) : (
+              <EmptyNote>مشخصاتی برای این محصول ثبت نشده است.</EmptyNote>
+            )}
           </ProductSection>
-        )}
+          <ProductSection id="how" title="نحوه مصرف">
+            {c.howToUse.length > 0 ? (
+              <ol className={s.steps}>
+                {c.howToUse.map((line, i) => (
+                  <li key={i}>
+                    <span className={s.stepNo} aria-hidden="true">
+                      {toFaDigits(i + 1)}
+                    </span>
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <EmptyNote>اطلاعات تکمیلی برای این محصول ثبت نشده است.</EmptyNote>
+            )}
+            <p className={s.careNote} role="note">
+              <Icon name="warning" size={19} />
+              {CARE_NOTE}
+            </p>
+          </ProductSection>
+        </div>
+
+        <ProductSection id="faq" title="پرسش‌های متداول">
+          {c.faqs.length > 0 ? (
+            <div className={s.faqList}>
+              {c.faqs.slice(0, LIMITS.faqs).map((f, i) => (
+                <Faq key={i} question={f.question} answer={f.answer} />
+              ))}
+              {c.faqs.length > LIMITS.faqs && (
+                <details className={s.more}>
+                  <summary>
+                    نمایش همه‌ی {toFaDigits(c.faqs.length)} پرسش
+                    <Icon name="keyboard_arrow_down" size={20} className={s.moreIcon} />
+                  </summary>
+                  <div className={s.faqList}>
+                    {c.faqs.slice(LIMITS.faqs).map((f, i) => (
+                      <Faq key={i} question={f.question} answer={f.answer} />
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          ) : (
+            <EmptyNote>
+              پرسشی برای این محصول ثبت نشده است. <Link href="/contact">سؤالی دارید؟ با ما در تماس باشید</Link>
+            </EmptyNote>
+          )}
+        </ProductSection>
 
         <ProductSection id="reviews" title="دیدگاه خریداران">
           <Reviews content={c} productId={p.id} signedIn={!!user} returnTo={p.href} />
@@ -328,14 +435,75 @@ export default async function ProductPage({ params, searchParams }: Props) {
   );
 }
 
-function ProductSection({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+/**
+ * A section of the page. On phones it is an accordion (native <details>: «معرفی» open, the others folded); from
+ * 1024 px it is always open and its heading is just a heading (product.module.css).
+ */
+function ProductSection({
+  id,
+  title,
+  open = false,
+  children,
+}: {
+  id: string;
+  title: string;
+  open?: boolean;
+  children: ReactNode;
+}) {
   return (
-    <section id={id} className={s.section} aria-labelledby={`${id}-title`}>
-      <h2 id={`${id}-title`} className={s.sectionTitle}>
-        {title}
-      </h2>
-      {children}
-    </section>
+    <details id={id} className={s.section} open={open} data-section={id}>
+      <summary className={s.sectionHead}>
+        <h2 className={s.sectionTitle}>{title}</h2>
+        <Icon name="keyboard_arrow_down" size={24} className={s.sectionIcon} />
+      </summary>
+      <div className={s.sectionBody}>{children}</div>
+    </details>
+  );
+}
+
+/** Long text folded at ~8 lines; «ادامه‌ی مطلب» unfolds it (no JavaScript; the whole text is in the page). */
+function Fold({ long, label, children }: { long: boolean; label: string; children: ReactNode }) {
+  if (!long) return <div className={s.foldBody}>{children}</div>;
+  return (
+    <div className={s.fold}>
+      <div className={s.foldBody}>{children}</div>
+      <details className={s.foldToggle}>
+        <summary>
+          <span className={s.foldMore}>{label}</span>
+          <span className={s.foldLess}>بستن</span>
+          <Icon name="keyboard_arrow_down" size={20} className={s.moreIcon} />
+        </summary>
+      </details>
+    </div>
+  );
+}
+
+function EmptyNote({ children }: { children: ReactNode }) {
+  return <p className={s.emptyNote}>{children}</p>;
+}
+
+function AttrTable({ rows }: { rows: Array<{ key: string; value: string }> }) {
+  return (
+    <dl className={s.attrTable}>
+      {rows.map((a, i) => (
+        <div key={i}>
+          <dt>{a.key}</dt>
+          <dd>{a.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function Faq({ question, answer }: { question: string; answer: string }) {
+  return (
+    <details className={s.faq}>
+      <summary>
+        {question}
+        <Icon name="keyboard_arrow_down" size={22} className={s.faqIcon} />
+      </summary>
+      <p>{answer}</p>
+    </details>
   );
 }
 
@@ -379,6 +547,32 @@ function Stars({ value, size = 17 }: { value: number; size?: number }) {
   );
 }
 
+type ReviewItem = ProductContent['reviews'][number];
+
+function ReviewCard({ r }: { r: ReviewItem }) {
+  return (
+    <article className={s.review}>
+      <header>
+        <span className={s.avatar} aria-hidden="true">
+          {[...r.author][0]}
+        </span>
+        <span className={s.reviewMeta}>
+          <b>{r.author}</b>
+          {r.createdAt && <time dateTime={r.createdAt.toISOString()}>{dayFa.format(r.createdAt)}</time>}
+        </span>
+        {r.stars !== null && <Stars value={r.stars} />}
+      </header>
+      <p className={s.reviewBody}>{r.body}</p>
+      {r.reply && (
+        <details className={s.reply}>
+          <summary>پاسخ فروشگاه</summary>
+          <p>{r.reply}</p>
+        </details>
+      )}
+    </article>
+  );
+}
+
 function Reviews({
   content: c,
   productId,
@@ -390,17 +584,18 @@ function Reviews({
   signedIn: boolean;
   returnTo: string;
 }) {
+  const first = c.reviews.slice(0, LIMITS.reviews);
+  const rest = c.reviews.slice(LIMITS.reviews);
   return (
     <div className={s.reviewsGrid}>
       <aside className={s.reviewsSummary}>
-        {c.recommendPercent !== null && (
-          <p className={s.recommend}>
-            <b>{toFaDigits(c.recommendPercent)}٪</b>
-            <span>از خریداران این کالا را پیشنهاد کرده‌اند</span>
-          </p>
-        )}
-        <p className={s.reviewCount}>
-          {c.reviewsTotal ? `${toFaDigits(c.reviewsTotal)} دیدگاه` : 'بدون دیدگاه'}
+        <p className={s.recommend}>
+          <b>{c.recommendPercent !== null ? `${toFaDigits(c.recommendPercent)}٪` : '—'}</b>
+          <span>
+            از خریداران این کالا را پیشنهاد کرده‌اند
+            <br />
+            {c.reviewsTotal ? `${toFaDigits(c.reviewsTotal)} دیدگاه` : 'بدون دیدگاه'}
+          </span>
         </p>
         {signedIn ? (
           <ReviewForm productId={productId} maxLength={REVIEW_POLICY.maxLength} />
@@ -414,32 +609,23 @@ function Reviews({
         )}
       </aside>
       <div className={s.reviewList}>
-        {c.reviews.length === 0 ? (
-          <p className={s.noReviews}>هنوز نظری ثبت نشده است. اولین نفری باشید که دیدگاه می‌نویسد.</p>
+        {first.length === 0 ? (
+          <EmptyNote>هنوز دیدگاهی ثبت نشده است؛ اولین نفر باشید.</EmptyNote>
         ) : (
-          c.reviews.map((r, i) => (
-            <article key={i} className={s.review}>
-              <header>
-                <span className={s.avatar} aria-hidden="true">
-                  {[...r.author][0]}
-                </span>
-                <span className={s.reviewMeta}>
-                  <b>{r.author}</b>
-                  {r.createdAt && (
-                    <time dateTime={r.createdAt.toISOString()}>{dayFa.format(r.createdAt)}</time>
-                  )}
-                </span>
-                {r.stars !== null && <Stars value={r.stars} />}
-              </header>
-              <p className={s.reviewBody}>{r.body}</p>
-              {r.reply && (
-                <div className={s.reply}>
-                  <b>پاسخ فروشگاه</b>
-                  <p>{r.reply}</p>
-                </div>
-              )}
-            </article>
-          ))
+          first.map((r, i) => <ReviewCard key={i} r={r} />)
+        )}
+        {rest.length > 0 && (
+          <details className={s.more}>
+            <summary>
+              مشاهده‌ی همه‌ی دیدگاه‌ها ({toFaDigits(c.reviews.length)})
+              <Icon name="keyboard_arrow_down" size={20} className={s.moreIcon} />
+            </summary>
+            <div className={s.reviewList}>
+              {rest.map((r, i) => (
+                <ReviewCard key={i} r={r} />
+              ))}
+            </div>
+          </details>
         )}
       </div>
     </div>

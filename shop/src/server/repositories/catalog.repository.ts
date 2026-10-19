@@ -120,6 +120,13 @@ export type ProductDetailRow = ProductRow & {
   video_embed_url: string | null;
   rating_value: number | null;
   reviews_total: number | null;
+  origin_country: string | null;
+  /** NUMERIC comes back as a string */
+  measurement_value: string | null;
+  measurement_unit: 'ml' | 'g' | null;
+  color: string | null;
+  expire_months: number | null;
+  brand_code: number | null;
 };
 
 /** The rich sections of one product page (synced by the bot; plain text, no prices). */
@@ -135,6 +142,8 @@ export type ProductContentRows = {
   }>;
   /** extra photos in Liateam's order (the main one is image_url) */
   images: Array<{ url: string; alt: string | null }>;
+  /** «مناسب برای»: skin/hair concerns in Liateam's order */
+  concerns: string[];
 };
 
 export type CategoryRow = {
@@ -224,7 +233,8 @@ export const catalogRepository = {
     return queryOne<ProductDetailRow>(
       'catalog.get_product',
       `SELECT ${PRODUCT_COLS}, p.description, p.summary, p.features, p.how_to_use, p.video_embed_url,
-              p.rating_value, p.reviews_total
+              p.rating_value, p.reviews_total, p.origin_country, p.measurement_value, p.measurement_unit, p.color,
+              p.expire_months, p.brand_code
          FROM product_catalog p WHERE p.id = $1 AND ${VISIBLE}`,
       [id],
     );
@@ -232,7 +242,7 @@ export const catalogRepository = {
 
   /** Specs, FAQ and synced reviews in Liateam's order (public.product_* tables, read-only). */
   async getProductContent(id: number): Promise<ProductContentRows> {
-    const [attributes, faqs, reviews, images] = await Promise.all([
+    const [attributes, faqs, reviews, images, concerns] = await Promise.all([
       query<ProductContentRows['attributes'][number]>(
         'catalog.product_attributes',
         'SELECT key, value FROM public.product_attributes WHERE product_id = $1 ORDER BY position',
@@ -254,8 +264,13 @@ export const catalogRepository = {
         'SELECT url, alt FROM public.product_images WHERE product_id = $1 ORDER BY position',
         [id],
       ),
+      query<{ title: string }>(
+        'catalog.product_concerns',
+        'SELECT title FROM public.product_concerns WHERE product_id = $1 ORDER BY position',
+        [id],
+      ),
     ]);
-    return { attributes, faqs, reviews, images };
+    return { attributes, faqs, reviews, images, concerns: concerns.map((c) => c.title) };
   },
 
   /** Old address → canonical one: the English slug and name of a visible product (cheap, for the redirect). */

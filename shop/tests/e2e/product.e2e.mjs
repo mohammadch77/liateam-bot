@@ -41,11 +41,11 @@ await go(`/p/${slugOf(full)}`);
 const t1 = await tabs();
 check(
   '1a tabs: intro, specs, how-to-use, FAQ, reviews',
-  t1.length === 5 && t1[0] === 'معرفی' && t1[3] === 'پرسش‌های متداول' && t1[4].startsWith('دیدگاه‌ها'),
+  t1.length === 5 && t1[0] === 'معرفی' && t1[3].startsWith('پرسش‌ها') && t1[4].startsWith('دیدگاه‌ها'),
   t1.join(' | '),
 );
 for (const id of ['intro', 'specs', 'how', 'faq', 'reviews'])
-  check(`1b section #${id} rendered`, (await page.locator(`section#${id}`).count()) === 1);
+  check(`1b section #${id} rendered`, (await page.locator(`[data-section="${id}"]#${id}`).count()) === 1);
 const dbKeys = sql(`select key from product_attributes where product_id = ${full} order by position`).split(
   '\n',
 );
@@ -78,38 +78,29 @@ check(
   authors.length > 0 && authors.every((a) => /^\S+ \S\.$|^\S+$|^خریدار$/.test(a.trim())),
   authors.slice(0, 3).join('، '),
 );
-// width fix: on desktop the description fills the content area (only the video column beside it)
-const widths = await page.evaluate(() => {
-  const sec = document.querySelector('#intro').getBoundingClientRect().width;
-  const prose = document.querySelector('#intro [class*=prose]').getBoundingClientRect().width;
-  return { sec, prose };
+// «معرفی»: text at a readable measure (~72 characters a line), the video beside it
+const intro = await page.evaluate(() => {
+  const prose = document.querySelector('#intro [class*=prose]').getBoundingClientRect();
+  const media = document.querySelector('#intro figure').getBoundingClientRect();
+  return { prose: prose.width, beside: media.right <= prose.left + 2 };
 });
 check(
-  '1g desktop: description uses the content width (beside the video), no empty strip',
-  widths.prose >= widths.sec - 440 - 48 - 2,
-  `${Math.round(widths.prose)} of ${Math.round(widths.sec)} px`,
+  '1g desktop: description at ~72 characters a line, video beside it',
+  intro.prose > 400 && intro.prose <= 800 && intro.beside,
+  `${Math.round(intro.prose)} px`,
 );
 await shot(page, 'product-desktop.png', { fullPage: true });
 
-// ── 2. empty sections have no tab ──
+// ── 2. empty sections keep their tab and show an empty state (one template for every product) ──
 await go(`/p/${slugOf(bare)}`);
 const t2 = await tabs();
 check(
-  '2a no FAQ → no FAQ tab or section; no video → no iframe',
-  !t2.includes('پرسش‌های متداول') &&
-    (await page.locator('#faq').count()) === 0 &&
-    (await page.locator('#intro iframe').count()) === 0,
+  '2a no FAQ → the FAQ tab stays, with «پرسشی … ثبت نشده» + contact link; no video → a photo instead',
+  t2.length === 5 &&
+    (await page.locator('#faq a[href="/contact"]').count()) === 1 &&
+    (await page.locator('#intro iframe').count()) === 0 &&
+    (await page.locator('#intro figure img').count()) === 1,
   t2.join(' | '),
-);
-const bareW = await page.evaluate(() => {
-  const sec = document.querySelector('#intro')?.getBoundingClientRect().width ?? 0;
-  const prose = document.querySelector('#intro [class*=prose]')?.getBoundingClientRect().width ?? 0;
-  return { sec, prose };
-});
-check(
-  '2b desktop without video: description spans the full content width',
-  bareW.prose > 0 && bareW.prose >= bareW.sec - 2,
-  `${Math.round(bareW.prose)} of ${Math.round(bareW.sec)} px`,
 );
 const noHow = Number(
   one(
@@ -118,7 +109,11 @@ const noHow = Number(
 );
 if (noHow) {
   await go(`/p/${slugOf(noHow)}`);
-  check('2c how-to-use empty or only «.» → tab hidden', !(await tabs()).includes('نحوه مصرف'));
+  check(
+    '2c how-to-use empty or only «.» → tab stays, «اطلاعات تکمیلی … ثبت نشده است»',
+    (await tabs()).includes('نحوه مصرف') &&
+      (await page.getByText('اطلاعات تکمیلی برای این محصول ثبت نشده است').count()) === 1,
+  );
 }
 const noReviews = Number(
   one(`select p.id from product_catalog p where ${VISIBLE}
@@ -126,7 +121,7 @@ const noReviews = Number(
 );
 if (noReviews) {
   await go(`/p/${slugOf(noReviews)}`);
-  check('2d no reviews → «هنوز نظری ثبت نشده»', (await page.getByText('هنوز نظری ثبت نشده').count()) === 1);
+  check('2d no reviews → «اولین نفر باشید»', (await page.getByText('اولین نفر باشید').count()) === 1);
 }
 
 // ── 3. nothing internal on the page ──

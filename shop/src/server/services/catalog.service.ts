@@ -120,7 +120,23 @@ export type ProductContent = {
   reviews: ReviewView[];
   /** reviews on Liateam + approved ones on our site */
   reviewsTotal: number;
+  /** «۱۵ میلی‌لیتر» / «۷۵ گرم», or null */
+  size: string | null;
+  country: string | null;
+  /** shelf life after production, in months */
+  expireMonths: number | null;
+  /** Liateam's product colour (#rrggbb): the gallery backdrop tint */
+  color: string | null;
+  concerns: string[];
 };
+
+const UNIT_FA = { ml: 'میلی‌لیتر', g: 'گرم' } as const;
+/** 15 + 'ml' → «۱۵ میلی‌لیتر» (whole numbers without decimals) */
+export function sizeLabel(value: string | number | null, unit: 'ml' | 'g' | null): string | null {
+  const n = Number(value);
+  if (!unit || !(unit in UNIT_FA) || !Number.isFinite(n) || n <= 0) return null;
+  return `${new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }).format(n)} ${UNIT_FA[unit]}`;
+}
 
 const VIDEO_PLAYER =
   /^https:\/\/player\.arvancloud\.ir\/index\.html\?config=https:\/\/[a-z0-9-]+\.arvanvod\.ir\/[\w/.-]+\.json$/i;
@@ -173,6 +189,11 @@ function toContent(row: ProductDetailRow, c: ProductContentRows, site: SiteRevie
     faqs: c.faqs,
     reviews: reviews.slice(0, PRODUCT_REVIEWS_SHOWN),
     reviewsTotal: (row.reviews_total ?? c.reviews.length) + site.length,
+    size: sizeLabel(row.measurement_value, row.measurement_unit),
+    country: row.origin_country ? clean(row.origin_country) : null,
+    expireMonths: row.expire_months,
+    color: row.color && /^#[0-9a-f]{6}$/i.test(row.color) ? row.color : null,
+    concerns: c.concerns.map(clean).filter(Boolean),
   };
 }
 
@@ -464,12 +485,16 @@ export const catalogService = {
           offset: 0,
         })
       : { rows: [] };
-    const [content, siteReviews] = await Promise.all([
+    const [content, siteReviews, brands] = await Promise.all([
       catalogRepository.getProductContent(id),
       reviewRepository.approvedFor(id, PRODUCT_REVIEWS_SHOWN),
+      brandList().catch(() => [] as BrandView[]),
     ]);
+    const brand = brands.find((b) => b.code === row.brand_code) ?? null;
     return {
       product,
+      /** the brand's page, when the brand has one (products to sell) */
+      brand: brand ? { name: brand.name, href: brand.href } : null,
       description: descriptionBlocks(row.description),
       content: toContent(row, content, siteReviews),
       trail,

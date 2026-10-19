@@ -17,17 +17,24 @@ export function Gallery({
   initial,
   name,
   out,
+  tint,
 }: {
   images: Img[];
   initial: number;
   name: string;
   out: boolean;
+  /** Liateam's product colour (#rrggbb): a soft wash over the stage, so each product keeps its own mood */
+  tint?: string | null;
 }) {
   const [index, setIndex] = useState(initial >= 0 && initial < images.length ? initial : 0);
   const current = images[index];
 
   return (
-    <div className={s.gallery} id="gallery">
+    <div
+      className={s.gallery}
+      id="gallery"
+      style={tint ? ({ '--tint': tint } as React.CSSProperties) : undefined}
+    >
       <div className={out ? `${s.stage} ${s.out}` : s.stage}>
         <span className={s.pedestal} aria-hidden="true" />
         {current ? (

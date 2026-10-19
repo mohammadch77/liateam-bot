@@ -1,10 +1,19 @@
-/* Product Page.dc.html: gallery on the pedestal stage + info/buy box. */
+/* Product Page.dc.html — one fixed template for every product: gallery | information | buy box, then five
+   sections in a fixed order (desktop: open, with sticky tabs; phones: accordions with «معرفی» open). */
 .page {
   display: flex;
   flex-direction: column;
   gap: 16px;
   padding-block: 16px 40px;
 }
+@media (max-width: 1023px) {
+  /* room for the sticky buy bar above the tab bar */
+  .page {
+    padding-bottom: 84px;
+  }
+}
+
+/* ── top: 1 column on phones, gallery | (information + buy) on tablets, 3 columns from 1200 px ── */
 .product {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -12,13 +21,38 @@
 }
 @media (min-width: 1024px) {
   .product {
-    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-    gap: 48px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: 'gallery info' 'gallery buy';
+    gap: 24px 40px;
     align-items: start;
   }
   .gallery {
+    grid-area: gallery;
     position: sticky;
     top: 16px;
+  }
+  .info {
+    grid-area: info;
+  }
+  .buyBox {
+    grid-area: buy;
+  }
+}
+@media (min-width: 1200px) {
+  .product {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) 300px;
+    grid-template-areas: 'gallery info buy';
+    gap: 32px;
+  }
+  .buyBox {
+    position: sticky;
+    top: 16px;
+  }
+}
+@media (min-width: 1440px) {
+  .product {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) 320px;
+    gap: 40px;
   }
 }
 
@@ -31,11 +65,12 @@
   border-radius: var(--radius-panel);
   border: 1px solid var(--color-line);
   overflow: hidden;
+  /* the product's own colour (Liateam), washed out to a soft tint; the Avina blush without one */
   background: radial-gradient(
     110% 85% at 50% 18%,
     #fff 0%,
-    var(--color-stage-mid) 55%,
-    var(--color-stage-edge) 100%
+    color-mix(in srgb, var(--tint, var(--color-stage-mid)) 14%, var(--color-stage-mid)) 55%,
+    color-mix(in srgb, var(--tint, var(--color-stage-edge)) 22%, var(--color-stage-edge)) 100%
   );
 }
 .pedestal {
@@ -123,11 +158,26 @@
   gap: 14px;
   min-width: 0;
 }
-.category {
-  align-self: flex-start;
-  font-size: 13px;
+.chipsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.brandChip {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  background: var(--color-blush);
+  font-size: 12.5px;
   font-weight: 700;
-  color: var(--color-accent-text);
+  color: var(--color-primary);
+}
+.categoryLink {
+  font-size: 13px;
+  color: var(--color-muted);
 }
 .name {
   font-size: 22px;
@@ -138,23 +188,128 @@
 }
 @media (min-width: 1024px) {
   .name {
-    font-size: 28px;
+    font-size: 26px;
     line-height: 1.55;
   }
+}
+.ratingLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 0;
+  font-size: 13px;
+  color: var(--color-ink-2);
+}
+.ratingLine a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: inherit;
+}
+.ratingLine a + a::before {
+  content: '·';
+  margin-inline: 10px;
+  color: var(--color-muted);
+}
+.ratingLine .ratingStrong {
+  font-weight: 700;
+  color: var(--color-success);
 }
 .badges {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* cards in the information column («ویژگی‌های کلیدی», «مشخصات سریع») */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 16px 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-line);
+  background: var(--color-surface-2);
+}
+.cardTitle {
+  font-size: 14.5px;
+  font-weight: 800;
+}
+.checks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13.5px;
+  line-height: 1.9;
+  color: var(--color-ink-2);
+}
+.checks li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.checkIcon {
+  margin-top: 4px;
+  color: var(--color-success);
+}
+.concerns {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-line-row);
+  font-size: 12.5px;
+  color: var(--color-muted);
+}
+.concern {
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-white);
+  border: 1px solid var(--color-line);
+  color: var(--color-ink);
+  font-weight: 600;
+}
+.quickSpecs {
+  gap: 0;
+  padding-block: 6px;
+}
+.quickSpecs > div {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--color-line-row);
+  font-size: 13.5px;
+}
+.quickSpecs > div:last-child {
+  border-bottom: 0;
+}
+.quickSpecs dt {
+  color: var(--color-muted);
+}
+.quickSpecs dd {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.muted {
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+/* buy box (Product Page.dc.html): a white card, sticky beside the information on wide screens */
 .buyBox {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-width: 0;
   padding: 18px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-line);
   background: var(--color-white);
+  box-shadow: 0 24px 40px -32px rgba(30, 27, 36, 0.35);
 }
 .outText {
   font-size: 14px;
@@ -183,36 +338,36 @@
 .factIcon {
   color: var(--color-accent-text);
 }
-.specs > div {
-  display: grid;
-  grid-template-columns: 110px minmax(0, 1fr);
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--color-line-row);
-  font-size: 14px;
-}
-.specs dt {
+.code {
+  font-size: 12px;
   color: var(--color-muted);
 }
-.specs dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-.specs {
-  margin: 0;
-}
-.recommendLink {
-  align-self: flex-start;
-  display: inline-flex;
+
+/* phones: price + button fixed above the tab bar */
+.stickyBuy {
+  position: fixed;
+  inset-inline: 0;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  z-index: 25;
+  display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-success);
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: color-mix(in srgb, var(--color-white) 96%, transparent);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--color-line);
+  box-shadow: 0 -12px 24px -20px rgba(30, 27, 36, 0.35);
+}
+@media (min-width: 1024px) {
+  .stickyBuy {
+    display: none;
+  }
 }
 
-/* ── in-page tabs (Product Page.dc.html): sticky anchor bar; scrolls sideways inside itself on a narrow phone ── */
+/* ── in-page tabs (Product Page.dc.html): always the same five; desktop only (phones use the accordion) ── */
 .tabs {
+  display: none;
   position: sticky;
   top: 0;
   z-index: 20;
@@ -259,37 +414,92 @@
   opacity: 1;
 }
 
+@media (min-width: 1024px) {
+  .tabs {
+    display: block;
+  }
+}
+
 .sections {
   display: flex;
   flex-direction: column;
-  gap: 36px;
-  padding-top: 8px;
-}
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-width: 0;
-  scroll-margin-top: 68px; /* below the sticky tabs */
-}
-.sectionTitle {
-  align-self: flex-start;
-  padding-bottom: 8px;
-  border-bottom: 2px solid var(--color-accent);
-  font-size: 20px;
-  font-weight: 800;
-  line-height: 1.5;
+  padding-top: 4px;
 }
 @media (min-width: 1024px) {
   .sections {
     gap: 48px;
-  }
-  .sectionTitle {
-    font-size: 22px;
+    padding-top: 8px;
   }
 }
 
-/* «معرفی»: the text takes the whole content width (no empty strip on the left); with a video: text | video */
+/* a section: an accordion on phones (native <details>), always open from 1024 px */
+.section {
+  min-width: 0;
+  scroll-margin-top: 68px; /* below the sticky tabs */
+  border-bottom: 1px solid var(--color-line);
+}
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  cursor: pointer;
+  list-style: none;
+}
+.sectionHead::-webkit-details-marker {
+  display: none;
+}
+.sectionIcon {
+  flex: none;
+  color: var(--color-primary);
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+.section[open] > .sectionHead .sectionIcon {
+  transform: rotate(180deg);
+}
+.sectionTitle {
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+.sectionBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 20px;
+}
+@media (min-width: 1024px) {
+  .section {
+    border-bottom: 0;
+  }
+  /* always open: the folded content stays visible, the heading is just a heading */
+  .section::details-content {
+    content-visibility: visible;
+    display: block;
+    height: auto;
+  }
+  .sectionHead {
+    align-self: flex-start;
+    min-height: 0;
+    margin-bottom: 14px;
+    cursor: default;
+    pointer-events: none;
+  }
+  .sectionIcon {
+    display: none;
+  }
+  .sectionTitle {
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--color-accent);
+    font-size: 22px;
+  }
+  .sectionBody {
+    padding-bottom: 0;
+  }
+}
+
+/* «معرفی»: text (~72 characters a line) | video or a photo — the same shape for every product */
 .introGrid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -298,23 +508,18 @@
 }
 @media (min-width: 1024px) {
   .introGrid {
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 440px);
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
     gap: 48px;
   }
 }
 .prose {
   min-width: 0;
+  max-width: 72ch; /* ~72 characters a line */
   font-size: 15px;
   line-height: 2.1;
   color: var(--color-ink-2);
   overflow-wrap: anywhere;
   text-wrap: pretty;
-}
-@media (min-width: 1024px) {
-  /* full content width; justified so the long lines read as one clean block */
-  .prose p {
-    text-align: justify;
-  }
 }
 .prose > * + * {
   margin-top: 12px;
@@ -348,22 +553,20 @@
   border-radius: 50%;
   background: var(--color-accent);
 }
-.prose .summary {
-  padding: 14px 16px;
+.lead {
+  padding: 12px 16px;
   border-radius: var(--radius-lg);
   background: var(--color-blush);
   color: var(--color-ink);
   font-weight: 600;
+  line-height: 2;
 }
-.prose .summary li::before {
-  inset-inline-start: 4px;
-}
-.prose .chips {
-  flex-direction: row;
+.chips {
+  display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
-.prose .chips li {
+.chips li {
   padding: 4px 12px;
   border-radius: 999px;
   background: var(--color-surface);
@@ -371,37 +574,104 @@
   font-weight: 600;
   line-height: 1.9;
 }
+.prose .chips li {
+  padding-inline-start: 12px;
+}
 .prose .chips li::before {
   display: none;
 }
-.video {
+
+/* folded long text: ~8 lines with a fade, «ادامه‌ی مطلب» opens the rest (CSS :has, no JavaScript) */
+.fold > .foldBody {
+  max-height: calc(8 * 2.1em);
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 65%, transparent);
+}
+.fold:has(> .foldToggle[open]) > .foldBody {
+  max-height: none;
+  mask-image: none;
+}
+.foldBody > * + * {
+  margin-top: 12px;
+}
+.foldToggle summary,
+.more > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--color-primary);
+  cursor: pointer;
+  list-style: none;
+}
+.foldToggle summary::-webkit-details-marker,
+.more > summary::-webkit-details-marker {
+  display: none;
+}
+.foldLess,
+.foldToggle[open] .foldMore {
+  display: none;
+}
+.foldToggle[open] .foldLess {
+  display: inline;
+}
+.moreIcon {
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+.foldToggle[open] .moreIcon,
+.more[open] > summary .moreIcon {
+  transform: rotate(180deg);
+}
+.more[open] > summary {
+  margin-bottom: 10px;
+}
+
+.media {
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin: 0;
   min-width: 0;
 }
-.video iframe {
+.media iframe {
   width: 100%;
   aspect-ratio: 16 / 9;
   border: 0;
   border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
-.video figcaption {
+.media figcaption {
   font-size: 12.5px;
   color: var(--color-muted);
 }
+.mediaPhoto {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: radial-gradient(
+    90% 80% at 50% 40%,
+    #fff 0%,
+    color-mix(in srgb, var(--tint, var(--color-stage-mid)) 14%, var(--color-stage-mid)) 100%
+  );
+}
+.mediaPhoto img {
+  object-fit: contain;
+  padding: 6%;
+  mix-blend-mode: multiply;
+}
 
-/* «مشخصات» + «نحوه مصرف» side by side on desktop */
+/* «مشخصات» + «نحوه مصرف» side by side on desktop (always both: one may hold its empty note) */
 .pair {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 36px;
 }
 @media (min-width: 1024px) {
   .pair {
-    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 40px;
     align-items: start;
   }
@@ -463,6 +733,32 @@
   justify-content: center;
   font-weight: 800;
   color: var(--color-accent-text);
+}
+
+.careNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  background: #fbf3e6;
+  color: var(--color-ink-2);
+  font-size: 13px;
+  line-height: 1.9;
+}
+.careNote svg {
+  flex: none;
+  margin-top: 3px;
+  color: #a1661a;
+}
+.emptyNote {
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--color-line-strong);
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.9;
+  text-align: center;
 }
 
 /* «پرسش‌های متداول»: native disclosure, works without JavaScript */
@@ -641,10 +937,14 @@
   color: var(--color-ink-2);
   overflow-wrap: anywhere;
 }
-.reply b {
-  display: block;
+.reply summary {
   font-size: 12.5px;
+  font-weight: 700;
   color: var(--color-primary);
+  cursor: pointer;
+}
+.reply p {
+  margin-top: 4px;
 }
 
 /* review form */
