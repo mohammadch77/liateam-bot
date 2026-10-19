@@ -10,6 +10,7 @@ import { StructureError } from './rsc.mjs';
 import { checkProduct, checkUnitDrift, UnitError } from './sanity.mjs';
 import { openDb, loadPrevious, upsertProducts, syncCategories, recordRun, diffCatalog, recordEvents, applySettings, setStatus, detailsDue, saveDetails, saveRich, syncBrands, assignSlugs, saveHeroSlides } from './db.mjs';
 import { parseHeroSlides, heroHash, SKIP_REASON_FA } from './hero.mjs';
+import { checkImages, applyImageChecks } from './images.mjs';
 import { sectionHashes } from './product-details.mjs';
 import { KNOWN_BRAND_LATIN, englishSlug, persianSlug, transliterate } from './slug.mjs';
 
@@ -253,6 +254,16 @@ async function main() {
       } else if (details.notFound.length) {
         log.warn(`details: product object not found on ${details.notFound.length} page(s)`, { ids: details.notFound });
       }
+    }
+
+    // Photos: a few addresses checked per run on Liateam's image host; a broken main photo is replaced by the first
+    // working gallery photo (or none). Never fails the run.
+    try {
+      const ic = config.imageChecksPerRun > 0 ? await checkImages(db, { limit: config.imageChecksPerRun }) : { checked: 0, broken: 0 };
+      const ap = await applyImageChecks(db);
+      log.info(`images: ${ic.checked} checked (${ic.broken} broken); ${ap.replaced} products show a gallery photo instead, ${ap.none} without a working photo`);
+    } catch (e) {
+      log.warn('images: check failed — photos left as they were', { error: e.message });
     }
 
     // Hero slides of Liateam's home page: one extra page at most every heroEveryHours. A failure never fails the

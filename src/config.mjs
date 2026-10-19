@@ -24,6 +24,8 @@ export const config = {
   // 30 per 4-hour run covers all ~230 products in about a day, then each is re-read once a week.
   detailsPerRun: Number(env.DETAILS_PER_RUN ?? 30),
   detailsMaxAgeDays: Number(env.DETAILS_MAX_AGE_DAYS || 7),
+  // Photo checks on Liateam's image host (images.mjs): at most this many HEAD requests per run (0.8–2 s apart).
+  imageChecksPerRun: Number(env.IMAGE_CHECKS_PER_RUN ?? 60),
   // Home-page hero slides: read during a run at most this often (one extra page; 0 = never).
   heroEveryHours: Number(env.HERO_EVERY_HOURS ?? 4),
   headful: env.LOGIN_HEADFUL === '1',

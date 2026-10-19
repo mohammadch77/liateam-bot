@@ -79,6 +79,16 @@ ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS color TEXT;              
 ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS expire_months SMALLINT;  -- shelf life after production
 ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS meta_title TEXT;
 ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS meta_description TEXT;
+-- Photo actually shown (images.mjs): the main photo unless it answers 404 on Liateam's host, else the first gallery
+-- photo that does not, else NULL (the shop draws its placeholder). image_checked = false until the first check.
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS display_image_url TEXT;
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS image_checked BOOLEAN NOT NULL DEFAULT false;
+CREATE TABLE IF NOT EXISTS image_checks (       -- does a photo address still exist on Liateam's image host?
+  url        TEXT PRIMARY KEY,
+  ok         BOOLEAN NOT NULL,
+  status     SMALLINT,
+  checked_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 -- English slug (slug.mjs): assigned once, never rewritten; slug_fa = the Persian slug of that moment (redirects).
 ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS slug_en TEXT;
 ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS slug_fa TEXT;
@@ -125,6 +135,7 @@ CREATE TABLE IF NOT EXISTS product_images (     -- extra photos in Liateam's ord
   alt        TEXT,
   PRIMARY KEY (product_id, position)
 );
+ALTER TABLE product_images ADD COLUMN IF NOT EXISTS ok BOOLEAN;  -- false = gone on Liateam's host (image_checks); NULL = not checked
 CREATE TABLE IF NOT EXISTS hero_slides (        -- Liateam home-page hero slides we can link on our site, in order
   position     INTEGER PRIMARY KEY,
   source_code  INTEGER,                          -- Liateam's slide code
@@ -173,7 +184,7 @@ SELECT p.id, p.uuid, p.name, p.price, p.cost_price, p.stock, p.category, p.is_av
        COALESCE((SELECT array_agg(COALESCE(c.name, '#' || x.code) ORDER BY x.ord)
                    FROM unnest(p.category) WITH ORDINALITY AS x(code, ord)
                    LEFT JOIN categories c ON c.code = x.code), '{}') AS category_names,
-       p.image_url, p.missing_since,
+       CASE WHEN p.image_checked THEN p.display_image_url ELSE p.image_url END AS image_url, p.missing_since,
        p.description, p.brand,
        p.brand_code, p.slug_en, p.slug_fa, p.summary, p.features, p.how_to_use, p.video_url, p.video_embed_url,
        p.rating_value, p.reviews_total, p.origin_country, p.gallery_count,

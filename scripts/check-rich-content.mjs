@@ -110,6 +110,16 @@ try {
        FROM supplier_products WHERE missing_since IS NULL`);
   ok('English slugs are ASCII and end with the code', cov.bad_slug === 0,
     `${cov.read}/${cov.total} pages read, ${cov.slugged}/${cov.total} slugged`);
+  // photos (images.mjs): products whose main photo is gone show a gallery photo; none at all = the shop's placeholder
+  const { rows: [img] } = await db.query(
+    `SELECT count(*) FILTER (WHERE image_checked)::int AS checked, count(*)::int AS total,
+            count(*) FILTER (WHERE image_checked AND display_image_url IS DISTINCT FROM image_url AND display_image_url IS NOT NULL)::int AS replaced,
+            array_remove(array_agg(CASE WHEN image_checked AND display_image_url IS NULL THEN id END ORDER BY id), NULL) AS none
+       FROM supplier_products WHERE missing_since IS NULL`);
+  console.log(`– photos: ${img.checked}/${img.total} products checked, ${img.replaced} show a gallery photo instead of a broken main photo`);
+  console.log(img.none.length
+    ? `– محصول بدون عکس سالم: ${img.none.length} (${img.none.slice(0, 20).join(', ')}) — the shop shows its placeholder`
+    : '– محصول بدون عکس سالم: none');
   const { rows: [dup] } = await db.query(
     `SELECT count(*)::int AS n FROM supplier_products WHERE slug_en IS NOT NULL AND slug_en !~ ('-' || id || '$')`);
   ok('every English slug ends with its own product code', dup.n === 0);

@@ -19,7 +19,8 @@
     "orders": "node src/orders.mjs",
     "details:refresh": "node scripts/refresh-details.mjs",
     "check:rich": "node scripts/check-rich-content.mjs",
-    "hero:refresh": "node scripts/refresh-hero.mjs"
+    "hero:refresh": "node scripts/refresh-hero.mjs",
+    "images:check": "node scripts/check-images.mjs"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

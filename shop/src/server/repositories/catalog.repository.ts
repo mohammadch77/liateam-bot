@@ -261,7 +261,8 @@ export const catalogRepository = {
       ),
       query<ProductContentRows['images'][number]>(
         'catalog.product_images',
-        'SELECT url, alt FROM public.product_images WHERE product_id = $1 ORDER BY position',
+        // photos gone from Liateam's host (ok = false, found by the bot's checks) are left out
+        'SELECT url, alt FROM public.product_images WHERE product_id = $1 AND ok IS NOT FALSE ORDER BY position',
         [id],
       ),
       query<{ title: string }>(
