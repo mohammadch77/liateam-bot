@@ -71,6 +71,14 @@ ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS reviews_total INTEGER;   
 ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS origin_country TEXT;
 ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS content_hashes JSONB;    -- {section: hash}; NULL = never read
 ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS gallery_count INTEGER NOT NULL DEFAULT 0;  -- rows in product_images
+-- Product facts from its page («facts» section): size, Liateam's product colour (gallery backdrop), shelf life, and
+-- Liateam's own meta texts (kept for reference only: the shop builds its own meta from name + brand + size).
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS measurement_value NUMERIC(10,2);
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS measurement_unit TEXT;   -- 'ml' | 'g'
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS color TEXT;              -- #rrggbb
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS expire_months SMALLINT;  -- shelf life after production
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS meta_title TEXT;
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS meta_description TEXT;
 -- English slug (slug.mjs): assigned once, never rewritten; slug_fa = the Persian slug of that moment (redirects).
 ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS slug_en TEXT;
 ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS slug_fa TEXT;
@@ -128,6 +136,24 @@ CREATE TABLE IF NOT EXISTS hero_slides (        -- Liateam home-page hero slides
   target_code  INTEGER NOT NULL,                 -- supplier_products.id or categories.code
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS product_concerns (   -- «مناسب برای»: skin/hair concerns in Liateam's order
+  product_id INTEGER NOT NULL REFERENCES supplier_products(id) ON DELETE CASCADE,
+  position   INTEGER NOT NULL,
+  code       INTEGER,
+  title      TEXT NOT NULL,
+  image_url  TEXT,                              -- https://s3.liateam.ir/… only
+  PRIMARY KEY (product_id, position)
+);
+CREATE TABLE IF NOT EXISTS product_tags (       -- Liateam's search tags (best-selling, newest, …)
+  product_id INTEGER NOT NULL REFERENCES supplier_products(id) ON DELETE CASCADE,
+  position   INTEGER NOT NULL,
+  code       INTEGER,
+  key        TEXT,
+  title      TEXT,
+  PRIMARY KEY (product_id, position)
+);
+ALTER TABLE brands ADD COLUMN IF NOT EXISTS banner_url TEXT;           -- brand page banner, wide (Liateam host only)
+ALTER TABLE brands ADD COLUMN IF NOT EXISTS banner_portrait_url TEXT;  -- same, tall (phones)
 -- What changed in the catalog, run by run (shown in the dashboard; not only failures).
 CREATE TABLE IF NOT EXISTS product_events (
   id         SERIAL PRIMARY KEY,
@@ -150,7 +176,8 @@ SELECT p.id, p.uuid, p.name, p.price, p.cost_price, p.stock, p.category, p.is_av
        p.image_url, p.missing_since,
        p.description, p.brand,
        p.brand_code, p.slug_en, p.slug_fa, p.summary, p.features, p.how_to_use, p.video_url, p.video_embed_url,
-       p.rating_value, p.reviews_total, p.origin_country, p.gallery_count
+       p.rating_value, p.reviews_total, p.origin_country, p.gallery_count,
+       p.measurement_value, p.measurement_unit, p.color, p.expire_months
   FROM supplier_products p;
 
 -- Alert lines of each run (also in logs/alerts.log); read by the dashboard.
@@ -340,9 +367,9 @@ export async function detailsDue(db, limit, maxAgeDays) {
   const { rows } = await db.query(
     `SELECT id FROM supplier_products
       WHERE missing_since IS NULL
-        AND (details_checked_at IS NULL OR content_hashes IS NULL OR NOT content_hashes ? 'gallery'
+        AND (details_checked_at IS NULL OR content_hashes IS NULL OR NOT content_hashes ? 'facts'
              OR details_checked_at < now() - make_interval(days => $2))
-      ORDER BY COALESCE(content_hashes ? 'gallery', false), details_checked_at NULLS FIRST, id
+      ORDER BY COALESCE(content_hashes ? 'facts', false), details_checked_at NULLS FIRST, id
       LIMIT $1`,
     [limit, maxAgeDays],
   );
@@ -371,6 +398,13 @@ export async function saveDetails(db, id, { brand, description }) {
  * @returns the names of the sections that changed ([] = nothing written)
  */
 export async function saveRich(db, id, rich, hashes) {
+  // brand banners: per brand, not per product (no hash); written only when they differ
+  if (rich.brandCode && (rich.brandBanner || rich.brandBannerPortrait)) {
+    await db.query(
+      `UPDATE brands SET banner_url = COALESCE($2, banner_url), banner_portrait_url = COALESCE($3, banner_portrait_url), updated_at = now()
+        WHERE code = $1 AND (banner_url, banner_portrait_url) IS DISTINCT FROM (COALESCE($2, banner_url), COALESCE($3, banner_portrait_url))`,
+      [rich.brandCode, rich.brandBanner, rich.brandBannerPortrait]);
+  }
   const { rows: [row] } = await db.query('SELECT content_hashes FROM supplier_products WHERE id = $1', [id]);
   if (!row) return [];
   const old = row.content_hashes ?? {};
@@ -396,6 +430,12 @@ export async function saveRich(db, id, rich, hashes) {
       else if (s === 'meta') await set({ rating_value: rich.rating, brand_code: rich.brandCode, origin_country: rich.country });
       else if (s === 'attributes') await replace('product_attributes', ['key', 'value'], rich.attributes);
       else if (s === 'faqs') await replace('product_faqs', ['question', 'answer'], rich.faqs);
+      else if (s === 'facts') {
+        await set({ measurement_value: rich.measurement?.value ?? null, measurement_unit: rich.measurement?.unit ?? null,
+          color: rich.color, expire_months: rich.expireMonths, meta_title: rich.metaTitle, meta_description: rich.metaDescription });
+      }
+      else if (s === 'concerns') await replace('product_concerns', ['code', 'title', 'image_url'], rich.concerns);
+      else if (s === 'tags') await replace('product_tags', ['code', 'key', 'title'], rich.tags);
       else if (s === 'gallery') {
         await replace('product_images', ['url', 'alt'], rich.gallery);
         await set({ gallery_count: rich.gallery.length });
@@ -430,11 +470,15 @@ export async function syncBrands(db, brands, slugOf, knownLatin = {}) {
     if (taken.has(slug) && taken.get(slug) !== b.code) slug = `${slug}-${b.code}`;
     taken.set(slug, b.code);
     await db.query(
-      `INSERT INTO brands (code, name, latin_name, slug, image_url, position, in_source) VALUES ($1, $2, $3, $4, $5, $6, true)
+      `INSERT INTO brands (code, name, latin_name, slug, image_url, position, in_source, banner_url, banner_portrait_url)
+       VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8)
        ON CONFLICT (code) DO UPDATE SET name = $2, latin_name = $3, slug = brands.slug, image_url = $5, position = $6,
-         in_source = true, updated_at = CASE WHEN (brands.name, brands.latin_name, brands.image_url, brands.position, brands.in_source)
-           IS DISTINCT FROM ($2, $3, $5, $6, true) THEN now() ELSE brands.updated_at END`,
-      [b.code, b.name, b.latin, slug, b.image, b.position]);
+         in_source = true, banner_url = COALESCE($7, brands.banner_url), banner_portrait_url = COALESCE($8, brands.banner_portrait_url),
+         updated_at = CASE WHEN (brands.name, brands.latin_name, brands.image_url, brands.position, brands.in_source,
+                                 brands.banner_url, brands.banner_portrait_url)
+           IS DISTINCT FROM ($2, $3, $5, $6, true, COALESCE($7, brands.banner_url), COALESCE($8, brands.banner_portrait_url))
+           THEN now() ELSE brands.updated_at END`,
+      [b.code, b.name, b.latin, slug, b.image, b.position, b.banner ?? null, b.bannerPortrait ?? null]);
   }
   await db.query('UPDATE brands SET in_source = false WHERE NOT (code = ANY ($1)) AND in_source', [brands.map((b) => b.code)]);
   return brands.length;

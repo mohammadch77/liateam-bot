@@ -1,7 +1,7 @@
 // Re-reads a product's page now (instead of waiting for the weekly re-read): brand, description and the rich
 // sections (specs, how-to-use, video, FAQ, reviews), the brand list, and the English slug.
 //   npm run details:refresh -- 541 532
-//   npm run details:refresh -- --missing      every listed product whose rich sections (or gallery) were never read
+//   npm run details:refresh -- --missing      every listed product whose rich sections (or facts / concerns / tags) were never read
 // Same rules as the sync: one product page each (with the usual 6-18 s pause), written only if content changed.
 import { openDb, saveDetails, saveRich, syncBrands, assignSlugs } from '../src/db.mjs';
 import { sectionHashes } from '../src/product-details.mjs';
@@ -11,7 +11,7 @@ import { fetchProductPages } from '../src/source.mjs';
 const db = await openDb();
 let ids = process.argv.slice(2).map(Number).filter((n) => Number.isInteger(n) && n > 0);
 if (process.argv.includes('--missing')) {
-  const { rows } = await db.query("SELECT id FROM supplier_products WHERE missing_since IS NULL AND (content_hashes IS NULL OR NOT content_hashes ? 'gallery') ORDER BY id");
+  const { rows } = await db.query("SELECT id FROM supplier_products WHERE missing_since IS NULL AND (content_hashes IS NULL OR NOT content_hashes ? 'facts') ORDER BY id");
   ids = rows.map((r) => r.id);
   console.log(`${ids.length} products without rich sections (~${Math.round((ids.length * 12) / 60)} min)`);
 }

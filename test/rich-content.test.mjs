@@ -73,7 +73,8 @@ test('no price of any kind leaks into the rich sections', () => {
 test('brand list mirrored in Liateam order', () => {
   const brands = parseBrands(page(301));
   assert.equal(brands.length, 7);
-  assert.deepEqual(brands[0], { code: 18, name: 'سرژه', latin: null, image: brands[0].image, position: 0 });
+  assert.deepEqual(brands[0], { code: 18, name: 'سرژه', latin: null, image: brands[0].image, position: 0,
+    banner: brands[0].banner, bannerPortrait: brands[0].bannerPortrait });
   assert.match(brands[0].image, /^https:\/\/s3\.liateam\.ir\//);
   assert.ok(brands.every((b) => b.name in KNOWN_BRAND_LATIN));
 });
@@ -149,4 +150,64 @@ test('gallery hash: changes only when the photos change', () => {
   const b = { ...a, gallery: [...a.gallery].reverse() };
   const changed = Object.keys(sectionHashes(a)).filter((k) => sectionHashes(a)[k] !== sectionHashes(b)[k]);
   assert.deepEqual(changed, ['gallery']);
+});
+
+test('facts: size, colour (alpha byte dropped), shelf life and meta texts from the product object', () => {
+  const x = parse(301).rich;
+  assert.deepEqual(x.measurement, { value: 10, unit: 'ml' });
+  assert.equal(x.color, '#f0eaf1');
+  assert.equal(x.expireMonths, 30);
+  assert.equal(x.metaTitle, 'سرم تقویت مژه تراست');
+  assert.deepEqual(x.tags, [{ code: 2, key: 'best-selling', title: 'best-selling' }]);
+  assert.deepEqual(parse(372).rich.measurement, { value: 50, unit: 'g' }); // "gr" → g
+  assert.equal(parse(526).rich.expireMonths, 24);
+});
+
+test('facts: junk values are dropped, never guessed', async () => {
+  const { parseMeasurement, parseColor } = await import('../src/product-details.mjs');
+  assert.deepEqual(parseMeasurement('15', 'ml'), { value: 15, unit: 'ml' });
+  assert.equal(parseMeasurement(0, 'ml'), null);
+  assert.equal(parseMeasurement('abc', 'ml'), null);
+  assert.equal(parseMeasurement(10, 'liter'), null);
+  assert.equal(parseColor('#EBEBEB'), '#ebebeb');
+  assert.equal(parseColor('red'), null);
+  assert.equal(parseColor('#12345'), null);
+  assert.equal(parseColor('url(javascript:x)'), null);
+});
+
+test('concerns: order kept, markup removed, duplicates dropped, pictures only from Liateam', async () => {
+  const { parseConcerns, parseTags } = await import('../src/product-details.mjs');
+  const c = parseConcerns([
+    { code: 79, title: 'ریزش مو', image: null },
+    { code: 85, title: '<b>نازکی</b> مو', image: 'https://s3.liateam.ir/lamia/public/concern/image/1.png' },
+    { code: 86, title: 'ریزش مو' },
+    { code: 87, title: 'x', image: 'https://evil.example/a.png' },
+    null,
+  ]);
+  assert.deepEqual(c, [
+    { code: 79, title: 'ریزش مو', image_url: null },
+    { code: 85, title: 'نازکی مو', image_url: 'https://s3.liateam.ir/lamia/public/concern/image/1.png' },
+    { code: 87, title: 'x', image_url: null },
+  ]);
+  assert.deepEqual(parseTags([{ code: 1, key: 'newest', title: 'newest' }, {}]), [{ code: 1, key: 'newest', title: 'newest' }]);
+});
+
+test('facts / concerns / tags have their own hashes', () => {
+  const a = parse(301).rich;
+  const b = { ...a, color: '#000000', concerns: [{ code: 1, title: 'x', image_url: null }] };
+  const changed = Object.keys(sectionHashes(a)).filter((k) => sectionHashes(a)[k] !== sectionHashes(b)[k]);
+  assert.deepEqual(changed, ['facts', 'concerns']);
+});
+
+test('brands carry their banners (Liateam host only)', () => {
+  const b = parseBrands(page(301));
+  assert.ok(b.length >= 7);
+  assert.ok(b.every((x) => x.banner === null || x.banner.startsWith('https://s3.liateam.ir/')));
+  assert.ok(b.some((x) => x.banner && x.bannerPortrait));
+});
+
+test('the product page names its brand banners (when the brand list is absent)', () => {
+  const x = parse(301).rich;
+  assert.match(x.brandBanner, /^https:\/\/s3\.liateam\.ir\/.+banner_image/);
+  assert.match(x.brandBannerPortrait, /^https:\/\/s3\.liateam\.ir\/.+banner_portrait_image/);
 });

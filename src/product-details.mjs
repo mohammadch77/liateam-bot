@@ -197,6 +197,48 @@ export function parseGallery(product) {
   return out;
 }
 
+// Size: Liateam's measurement_value + measurement_type ("ml" / "gr"); stored as a number and 'ml' | 'g'.
+const UNITS = { ml: 'ml', gr: 'g', g: 'g' };
+export function parseMeasurement(value, type) {
+  const n = Number(typeof value === 'string' ? value.trim() : value);
+  const unit = UNITS[String(type ?? '').trim().toLowerCase()];
+  return Number.isFinite(n) && n > 0 && n < 100000 && unit ? { value: Math.round(n * 100) / 100, unit } : null;
+}
+
+/** "#f0eaf150" / "#EBEBEB" → "#f0eaf1" (Liateam adds an alpha byte to some); anything else → null. */
+export function parseColor(v) {
+  const m = typeof v === 'string' ? /^#([0-9a-f]{6})(?:[0-9a-f]{2})?$/i.exec(v.trim()) : null;
+  return m ? `#${m[1].toLowerCase()}` : null;
+}
+
+/** Skin/hair concerns («ریزش مو», «خشکی پوست») in Liateam's order; picture only from its image host. */
+export function parseConcerns(list) {
+  const seen = new Set();
+  const out = [];
+  for (const c of Array.isArray(list) ? list : []) {
+    const title = cleanText(c?.title, 80);
+    if (!title || seen.has(title)) continue;
+    seen.add(title);
+    const image = typeof c?.image === 'string' && IMAGE_HOST.test(c.image.trim()) ? c.image.trim() : null;
+    out.push({ code: Number.isInteger(c?.code) ? c.code : null, title, image_url: image });
+    if (out.length >= 20) break;
+  }
+  return out;
+}
+
+/** Liateam's search tags («best-selling», «newest»): code, key, title. */
+export function parseTags(list) {
+  const out = [];
+  for (const t of Array.isArray(list) ? list : []) {
+    const key = cleanText(t?.key, 60);
+    const title = cleanText(t?.title, 80);
+    if (!key && !title) continue;
+    out.push({ code: Number.isInteger(t?.code) ? t.code : null, key, title });
+    if (out.length >= 20) break;
+  }
+  return out;
+}
+
 /** The product's tabs: summary, features, specs, how-to-use, video, FAQ, reviews, rating, brand code. */
 export function parseRich(text, product) {
   const lines = (v) => (cleanText(resolveRef(text, v)) ?? '').split('\n').filter(Boolean);
@@ -221,6 +263,19 @@ export function parseRich(text, product) {
     brandCode: Number.isInteger(brandCode) && brandCode > 0 ? brandCode : null,
     country: cleanText(product.country, 60),
     gallery: parseGallery(product),
+    // facts: kept for the shop (size, colour, shelf life) and for reference (meta texts: not used for our SEO)
+    measurement: parseMeasurement(product.measurement_value, product.measurement_type),
+    color: parseColor(product.color),
+    expireMonths: Number.isInteger(Number(product.expire_month)) && product.expire_month >= 1 && product.expire_month <= 120
+      ? Number(product.expire_month) : null,
+    metaTitle: cleanText(product.meta_title, 200),
+    metaDescription: cleanText(product.meta_description, 500),
+    // the product's own brand object carries the brand banners too (the brand list is not on every page)
+    brandBanner: IMAGE_HOST.test(String(product.brand?.banner_image ?? '').trim()) ? product.brand.banner_image.trim() : null,
+    brandBannerPortrait: IMAGE_HOST.test(String(product.brand?.banner_portrait_image ?? '').trim())
+      ? product.brand.banner_portrait_image.trim() : null,
+    concerns: parseConcerns(product.concerns),
+    tags: parseTags(product.tags),
   };
 }
 
@@ -239,6 +294,8 @@ export function parseBrands(text) {
         name: cleanText(b.title, 80),
         latin: cleanText(b.title_en ?? b.english_title ?? b.slug, 80)?.match(/^[\w .&'-]+$/)?.[0] ?? null,
         image: typeof b.image === 'string' && /^https:\/\/s3\.liateam\.ir\//.test(b.image) ? b.image : null,
+        banner: IMAGE_HOST.test(String(b.banner_image ?? '').trim()) ? b.banner_image.trim() : null,
+        bannerPortrait: IMAGE_HOST.test(String(b.banner_portrait_image ?? '').trim()) ? b.banner_portrait_image.trim() : null,
         position: i,
       }));
   } catch {
@@ -258,5 +315,8 @@ export function sectionHashes(rich) {
     reviews: h([rich.reviews, rich.total]),
     meta: h([rich.rating, rich.brandCode, rich.country]),
     gallery: h(rich.gallery),
+    facts: h([rich.measurement, rich.color, rich.expireMonths, rich.metaTitle, rich.metaDescription]),
+    concerns: h(rich.concerns),
+    tags: h(rich.tags),
   };
 }
