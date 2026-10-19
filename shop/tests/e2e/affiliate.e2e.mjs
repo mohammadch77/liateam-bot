@@ -54,6 +54,17 @@ async function fill(page, extra = {}) {
     await form.locator('[name=terms]').check({ force: true });
   return form;
 }
+/**
+ * The form's own error message, waited for until it contains `text` (or 8 s). Scoped to the form on purpose: every
+ * Next.js page also has an (empty) <p role="alert"> route announcer, which a page-wide `[role=alert]` can match
+ * before React has rendered the form's message — that race made these checks flaky.
+ */
+const formError = (page, text) =>
+  page
+    .locator('form[aria-labelledby="affiliate-form-title"] [role=alert]', { hasText: text })
+    .waitFor({ timeout: 8000 })
+    .then(() => true)
+    .catch(() => false);
 const submit = (page, form) =>
   Promise.all([
     page.waitForResponse((r) => r.request().method() === 'POST', { timeout: 30000 }).catch(() => {}),
@@ -105,27 +116,12 @@ try {
   await submit(a, form);
   check(
     '3b bad channel address (javascript:) → message, nothing stored',
-    (
-      await a
-        .locator('[role=alert]')
-        .first()
-        .textContent({ timeout: 8000 })
-        .catch(() => '')
-    ).includes('نشانی کانال') &&
+    (await formError(a, 'نشانی کانال')) &&
       one(`select count(*) from ${SCHEMA}.affiliate_applications where user_id = ${userA}`) === '0',
   );
   form = await fill(a, { description: 'کوتاه' });
   await submit(a, form);
-  check(
-    '3c too short description → message',
-    (
-      await a
-        .locator('[role=alert]')
-        .first()
-        .textContent({ timeout: 8000 })
-        .catch(() => '')
-    ).includes('حداقل'),
-  );
+  check('3c too short description → message', await formError(a, 'حداقل'));
   form = await fill(a);
   await submit(a, form);
   await a.waitForSelector('[role=status]', { timeout: 15000 }).catch(() => {});
@@ -164,13 +160,7 @@ try {
   await submit(a2, form);
   check(
     '3i a second application while one is pending → refused',
-    (
-      await a2
-        .locator('[role=alert]')
-        .first()
-        .textContent({ timeout: 8000 })
-        .catch(() => '')
-    ).includes('در حال بررسی') &&
+    (await formError(a2, 'در حال بررسی')) &&
       one(`select count(*) from ${SCHEMA}.affiliate_applications where user_id = ${userA}`) === '1',
   );
   let res = await a.goto(`${BASE}/admin/affiliates`);
