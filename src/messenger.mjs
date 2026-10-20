@@ -5,13 +5,12 @@
 import crypto from 'node:crypto';
 import { config } from './config.mjs';
 import { log } from './logger.mjs';
-import { openPool, applySettings, setStatus } from './db.mjs';
+import { openPool, applySettings, setStatus, loadSchedule } from './db.mjs';
 import { createClient, PLATFORMS } from './messenger-api.mjs';
-import { inQuietHours } from './schedule.mjs';
+import { clock, resolveSchedule, windowAt } from './scheduler.mjs';
 import * as T from './messenger-text.mjs';
 
 const LOW_STOCK = Number(process.env.LOW_STOCK || 5);
-const INTERVAL_PRESETS = [3, 5, 8, 12, 24]; // hours; the bots cannot go below 3 h (dashboard owner can)
 const NOTIFY_EVERY_MS = 30_000;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -30,7 +29,7 @@ const nameOf = (from) => [from?.first_name, from?.last_name].filter(Boolean).joi
 const BTN = {
   status: '📊 وضعیت', changes: '🔔 تغییرات ۲۴ ساعت', search: '🔎 جست‌وجوی محصول',
   low: '📉 رو به اتمام', prefs: '⚙️ اعلان‌های من', run: '🔄 اجرای دستی', help: 'ℹ️ راهنما',
-  interval: '⏱ فاصله‌ی اجرا',
+  interval: '⏱ زمان‌بندی',
 };
 const mainKeyboard = (chat) => ({
   keyboard: [
@@ -110,7 +109,7 @@ async function statusScreen(client, chat, messageId) {
   const [st, [last], [good], [cat], [ch], [pending]] = await Promise.all([
     statusMap(),
     q('SELECT * FROM sync_runs ORDER BY started_at DESC LIMIT 1'),
-    q(`SELECT started_at FROM sync_runs WHERE status IN ('ok','warning') ORDER BY started_at DESC LIMIT 1`),
+    q(GOOD_CATALOG_RUN),
     q(`SELECT count(*) FILTER (WHERE is_sellable AND missing_since IS NULL)::int AS sellable, count(*)::int AS total,
               count(*) FILTER (WHERE is_sellable AND stock <= 0)::int AS out,
               count(*) FILTER (WHERE is_sellable AND stock > 0 AND stock < $1)::int AS low FROM supplier_products`, [LOW_STOCK]),
@@ -121,15 +120,17 @@ async function statusScreen(client, chat, messageId) {
   const label = { ok: 'موفق', warning: 'با هشدار', failed: 'ناموفق' };
   const worker = st.worker;
   const workerAlive = worker?.heartbeat && Date.now() - new Date(worker.heartbeat).getTime() < 120_000;
-  const interval = worker?.interval_hours ?? config.intervalHours;
-  const fresh = good && Date.now() - new Date(good.started_at).getTime() < interval * 3600_000 * 1.5;
+  const nextCatalog = worker?.next_run_at?.catalog;
+  // fresh = the last good price run is not older than its scheduled next run + 90 min (asleep at night: still fresh)
+  const fresh = good && (!nextCatalog || Date.now() < new Date(nextCatalog).getTime() + 90 * 60_000);
   const session = st.session;
   const lines = [
     '📊 وضعیت سامانه‌ی لیاتیم', T.LINE,
     last ? `${icon[last.status]} آخرین اجرا: ${label[last.status]} · ${T.ago(last.started_at)}` : '⏳ هنوز اجرایی انجام نشده',
     !workerAlive ? '⏸ زمان‌بندی: متوقف (سرویس worker روشن نیست)'
       : pending ? '⏳ یک اجرای دستی در صف است'
-      : `⏭ اجرای بعدی: ${T.ago(worker.next_run_at)} · هر ${T.num(interval)} ساعت`,
+      : worker.paused ? '⏸ زمان‌بندی: موقتاً متوقف (از «⏱ زمان‌بندی» ادامه دهید)'
+      : `⏭ به‌روزرسانی بعدی قیمت‌ها: ${nextCatalog ? T.ago(nextCatalog) : '—'}${worker.window === 'night' ? ' (شب: خواب)' : ''}`,
     `🔐 ورود به لیاتیم: ${session?.ok === false ? '❌ نیاز به بررسی' : 'خودکار و برقرار'}`,
     `🗂 داده‌ها: ${fresh ? 'به‌روز' : '⚠️ قدیمی'}${good ? ` (${T.ago(good.started_at)})` : ''}`,
     T.LINE,
@@ -262,9 +263,17 @@ async function runConfirm(client, chat) {
 }
 
 async function intervalMenu(client, chat, messageId) {
+  const { cfg } = await loadSchedule(pool, resolveSchedule);
+  const fmt = (w) => (w.sleep ? `${w.from} تا ${w.to}: خواب (هیچ درخواستی به لیاتیم نمی‌رود)`
+    : `${w.from} تا ${w.to}: قیمت و موجودی هر ~${T.num(w.minutes.catalog)} دقیقه، بنرها هر ~${T.num(w.minutes.hero)} دقیقه`);
+  const now = new Date();
   return show(client, chat.chat_id, messageId,
-    `⏱ ربات هر چند ساعت قیمت‌ها را به‌روز کند؟\n\nفعلاً: هر ${T.num(config.intervalHours)} ساعت\nفاصله‌ی بیشتر یعنی رفتار طبیعی‌تر در سایت لیاتیم. بین ساعت ${T.num(Number(config.quietHours.split('-')[0]))} تا ${T.num(Number(config.quietHours.split('-')[1]))} بامداد اجرای خودکار انجام نمی‌شود.`,
-    inline([INTERVAL_PRESETS.map((h) => ({ text: `${h === config.intervalHours ? '● ' : ''}${T.num(h)} ساعت`, callback_data: `iv:${h}` })), [{ text: '→ بازگشت', callback_data: 'st' }]]));
+    [`⏱ زمان‌بندی ربات (به وقت تهران، هر فاصله ±${T.num(Math.round(cfg.jitter * 100))}٪ تصادفی)`, T.LINE,
+      ...cfg.windows.map(fmt), T.LINE,
+      `الان: ${clock(now, cfg)} · ${windowAt(now, cfg).sleep ? 'خواب' : 'فعال'}${cfg.paused ? ' · ⏸ موقتاً متوقف' : ''}`,
+      'تغییر پنجره‌ها و فاصله‌ها از جدول sync_settings (راهنما در README ربات).'].join('\n'),
+    inline([[cfg.paused ? { text: '▶️ ادامه‌ی زمان‌بندی', callback_data: 'ps:0' } : { text: '⏸ توقف موقت', callback_data: 'ps:1' }],
+      [{ text: '→ بازگشت', callback_data: 'st' }]]));
 }
 
 const HELP = [
@@ -358,14 +367,12 @@ async function onCallback(client, cb) {
       : '⚠️ در صف قرار گرفت، ولی سرویس زمان‌بندی (worker) روشن نیست؛ تا روشن نشود اجرا انجام نمی‌شود.');
   }
   if (cmd === 'ivm') return intervalMenu(client, chat, mid);
-  if (cmd === 'iv') {
-    const h = Number(arg);
-    if (!INTERVAL_PRESETS.includes(h)) return;
-    const old = config.intervalHours;
-    await q(`INSERT INTO settings (key, value) VALUES ('intervalHours', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [JSON.stringify(h)]);
-    await audit(chat, 'intervalHours', old, h);
-    config.intervalHours = h;
-    return done(`✅ از این به بعد ربات هر ${T.num(h)} ساعت یک‌بار قیمت‌ها را به‌روز می‌کند.`, [[{ text: '📊 وضعیت', callback_data: 'st' }]]);
+  if (cmd === 'ps') {
+    const paused = arg === '1';
+    await q(`INSERT INTO sync_settings (key, value) VALUES ('paused', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [JSON.stringify(paused)]);
+    await audit(chat, 'schedulePaused', !paused, paused);
+    return done(paused ? '⏸ زمان‌بندی موقتاً متوقف شد؛ تا «ادامه» هیچ اجرای خودکاری انجام نمی‌شود (اجرای دستی همچنان کار می‌کند).'
+      : '▶️ زمان‌بندی دوباره فعال شد.', [[{ text: '📊 وضعیت', callback_data: 'st' }]]);
   }
 }
 
@@ -509,11 +516,17 @@ async function notifyManualResults() {
   }
 }
 
+/** The last successful run that read prices (catalog task; runs before the window schedule have no tasks). */
+const GOOD_CATALOG_RUN = `SELECT started_at FROM sync_runs WHERE status IN ('ok','warning') AND (tasks IS NULL OR 'catalog' = ANY (tasks))
+  ORDER BY started_at DESC LIMIT 1`;
+
 async function notifyStale(cursor) {
-  const [good] = await q(`SELECT started_at FROM sync_runs WHERE status IN ('ok','warning') ORDER BY started_at DESC LIMIT 1`);
+  const [good] = await q(GOOD_CATALOG_RUN);
   if (!good) return;
-  const limit = config.intervalHours * 3600_000 * 2.5 + 6 * 3600_000 * (inQuietHours(config.quietHours) ? 1 : 0);
-  const stale = Date.now() - new Date(good.started_at).getTime() > limit;
+  // stale = the price run is more than 3 h overdue on its schedule (night sleep and pauses are not «stale»)
+  const st = await statusMap();
+  const next = st.worker?.next_run_at?.catalog;
+  const stale = !st.worker?.paused && !!next && Date.now() > new Date(next).getTime() + 3 * 3600_000;
   if (stale && !cursor.stale_alerted) {
     cursor.stale_alerted = true;
     await broadcast('errors', () => ({ text: `⏰ اطلاعات قیمت‌ها قدیمی شده است\nآخرین به‌روزرسانی موفق: ${T.ago(good.started_at)}.\nاحتمالاً سرویس زمان‌بندی روی سرور متوقف شده است.` }));
@@ -587,6 +600,7 @@ const listText = (v) => (Array.isArray(v) ? (v.length ? v.map((x) => T.num(x)).j
 function actionText(a) {
   const o = a.old_value, n = a.new_value;
   switch (a.action) {
+    case 'schedulePaused': return n ? 'زمان‌بندی خودکار را موقتاً متوقف کرد' : 'زمان‌بندی خودکار را دوباره فعال کرد';
     case 'intervalHours': return `فاصله‌ی اجرای خودکار را ${o != null ? `از هر ${T.num(o)} ساعت ` : ''}به هر ${T.num(n)} ساعت تغییر داد`;
     case 'manual_run': return 'یک اجرای دستی شروع کرد';
     case 'priceJumpLimit': return `آستانه‌ی جهش قیمت را ${o != null ? `از ${T.num(Math.round(o * 100))}٪ ` : ''}به ${T.num(Math.round(n * 100))}٪ تغییر داد`;

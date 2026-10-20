@@ -37,6 +37,21 @@ ALTER TABLE sync_runs ADD COLUMN IF NOT EXISTS duration_ms INTEGER;
 ALTER TABLE sync_runs ADD COLUMN IF NOT EXISTS sellable INTEGER;
 ALTER TABLE sync_runs ADD COLUMN IF NOT EXISTS failure_kind TEXT;   -- auth | structure | coverage | database | error
 UPDATE sync_runs SET status = 'warning' WHERE status = 'partial';
+ALTER TABLE sync_runs ADD COLUMN IF NOT EXISTS tasks TEXT[];       -- catalog | hero | details (NULL = before the window schedule)
+-- Window schedule (scheduler.mjs): when each task runs next, kept across restarts so the pattern never resets.
+CREATE TABLE IF NOT EXISTS sync_schedule (
+  task        TEXT PRIMARY KEY,                  -- catalog | hero | details
+  next_run_at TIMESTAMPTZ,
+  last_run_at TIMESTAMPTZ,
+  last_status TEXT,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- Schedule settings overriding env / scheduler.mjs defaults (key → JSON value), e.g. paused, day_catalog_minutes.
+CREATE TABLE IF NOT EXISTS sync_settings (
+  key        TEXT PRIMARY KEY,
+  value      JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 -- Supplier category tree. name is NULL for codes seen on products but never named by the supplier.
 CREATE TABLE IF NOT EXISTS categories (
@@ -545,9 +560,10 @@ export async function upsertProducts(db, products) {
 
 export async function recordRun(db, run, alerts = []) {
   const { rows } = await db.query(
-    `INSERT INTO sync_runs (started_at, status, fetched, written, sellable, rejected, duration_ms, failure_kind, message)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
-    [run.startedAt, run.status, run.fetched, run.written, run.sellable, run.rejected, run.durationMs, run.failureKind, run.message],
+    `INSERT INTO sync_runs (started_at, status, fetched, written, sellable, rejected, duration_ms, failure_kind, message, tasks)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+    [run.startedAt, run.status, run.fetched, run.written, run.sellable, run.rejected, run.durationMs, run.failureKind, run.message,
+      run.tasks ?? null],
   );
   for (const line of alerts) {
     await db.query('INSERT INTO sync_alerts (run_id, level, message) VALUES ($1,$2,$3)', [rows[0].id, run.status, line]);
@@ -731,4 +747,33 @@ export async function recordEvents(db, events, removedIds) {
       [e.product_id, e.name, e.kind, e.old_value, e.new_value]);
   }
   if (removedIds.length) await db.query('UPDATE supplier_products SET missing_since = now() WHERE id = ANY($1) AND missing_since IS NULL', [removedIds]);
+}
+
+/** Schedule settings in effect: scheduler.mjs defaults ← env ← sync_settings. */
+export async function loadSchedule(db, resolve, env = process.env) {
+  const { rows } = await db.query('SELECT key, value FROM sync_settings');
+  return resolve(env, Object.fromEntries(rows.map((r) => [r.key, r.value])));
+}
+
+/** {task: {next_run_at, last_run_at, last_status}} */
+export async function scheduleRows(db) {
+  const { rows } = await db.query('SELECT task, next_run_at, last_run_at, last_status FROM sync_schedule');
+  return Object.fromEntries(rows.map((r) => [r.task, r]));
+}
+
+/** After a run: when each of its tasks ran, how it ended, and when it runs next (decided by the caller). */
+export async function markTasksRun(db, results) {
+  for (const { task, at, status, next } of results) {
+    await db.query(
+      `INSERT INTO sync_schedule (task, next_run_at, last_run_at, last_status, updated_at) VALUES ($1, $2, $3, $4, now())
+       ON CONFLICT (task) DO UPDATE SET next_run_at = $2, last_run_at = $3, last_status = $4, updated_at = now()`,
+      [task, next, at, status]);
+  }
+}
+
+/** Sets a task's next run without a run (first start, or the worker deferring it). */
+export async function setNextRun(db, task, next) {
+  await db.query(
+    `INSERT INTO sync_schedule (task, next_run_at) VALUES ($1, $2)
+     ON CONFLICT (task) DO UPDATE SET next_run_at = $2, updated_at = now()`, [task, next]);
 }

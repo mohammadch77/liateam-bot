@@ -9,10 +9,22 @@ import { AuthError } from './auth.mjs';
 import { parseProductDetails } from './product-details.mjs';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-// Reading time like a person: 4–12 s per page, and now and then (~1 in 7) a long look of 15–35 s.
-// A whole visit (12 listing pages + a few product pages) takes roughly 3–6 minutes, never the same twice.
-const jitter = () =>
-  config.delayMinMs + Math.random() * (config.delayMaxMs - config.delayMinMs) + (Math.random() < 0.15 ? 15000 + Math.random() * 20000 : 0);
+// Pause before every request: random between pauseMinMs and pauseMaxMs (default 1–3 s).
+export const pause = () => sleep(config.pauseMinMs + Math.random() * (config.pauseMaxMs - config.pauseMinMs));
+
+/**
+ * Requests to Liateam in this process (one sync run). The listing pages always run and are counted first; product
+ * pages and the home page are skipped once `maxRequestsPerRun` is used up (they continue next run).
+ */
+export const budget = {
+  used: 0,
+  count() { this.used++; },
+  take() {
+    if (this.used >= config.maxRequestsPerRun) return false;
+    this.used++;
+    return true;
+  },
+};
 
 /** Top-level field names plus those inside pricing / inventory (values are never kept). */
 export function shapeKeys(raw) {
@@ -44,7 +56,8 @@ export async function fetchAllProducts() {
     let seen = 0;
     let total = null;
     for (let page = 1; page <= config.maxPages; page++) {
-      if (page > 1) await sleep(jitter());
+      if (page > 1) await pause();
+      budget.count();
       // Next.js validates `_rsc` as a hash of the router headers we send; with none it must be empty,
       // otherwise it answers 307 -> same URL + `&_rsc`.
       const res = await ctx.get(`/categories?page=${page}&_rsc`);
@@ -100,7 +113,7 @@ export async function fetchAllProducts() {
  *               variantCodes: codes listed under variant_products)
  *   details  - { found, brand, description, paths } (see product-details.mjs)
  * The whole entry is null when the page could not be loaded. Errors never fail the run.
- * 6–18 s pause before each page, like a person. `onPage(code, entry)` runs right after each page, so a long
+ * The usual pause (1–3 s) before each page; stops at the run's request cap. `onPage(code, entry)` runs right after each page, so a long
  * batch saves its progress page by page instead of losing it if the run stops halfway.
  * @returns {Map<code, {pricing: object|null, details: object} | null>}
  */
@@ -118,7 +131,8 @@ export async function fetchProductPages(codes, onPage) {
   const out = new Map();
   try {
     for (const code of codes) {
-      await sleep(6000 + Math.random() * 12000); // opening a product and looking at it
+      if (!budget.take()) break; // request cap reached: the rest waits for the next run
+      await pause();
       try {
         const res = await ctx.get(`/products/${code}?_rsc`);
         if (res.status() !== 200) throw new Error(`HTTP ${res.status()}`);
@@ -162,7 +176,8 @@ export async function fetchHomePage() {
     maxRedirects: 0,
   });
   try {
-    await sleep(4000 + Math.random() * 8000);
+    if (!budget.take()) throw new Error('request cap of this run reached');
+    await pause();
     const res = await ctx.get('/?_rsc');
     if (res.status() !== 200) throw new Error(`HTTP ${res.status()} در صفحه‌ی اصلی`);
     return await res.text();
