@@ -140,7 +140,7 @@ async function statusScreen(client, chat, messageId) {
     `🔔 تغییرات ۲۴ ساعت اخیر: ${T.num(ch.n)}`,
   ];
   const buttons = [[{ text: '🔄 به‌روزرسانی', callback_data: 'st' }, { text: '🔔 تغییرات', callback_data: 'ch:0' }]];
-  if (isAdmin(chat)) buttons.push([{ text: `⏱ فاصله‌ی اجرا (هر ${T.num(interval)} ساعت)`, callback_data: 'ivm' }]);
+  if (isAdmin(chat)) buttons.push([{ text: '⏱ زمان‌بندی', callback_data: 'ivm' }]);
   // On Bale a fresh message with the menu (an edit cannot carry it); «📊 وضعیت» in the menu refreshes it.
   if (isBale(client)) return send(client, chat.chat_id, lines.join('\n'), { reply_markup: mainKeyboard(chat) });
   return show(client, chat.chat_id, messageId, lines.join('\n'), inline(buttons));
