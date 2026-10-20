@@ -431,7 +431,7 @@ export async function detailsDue(db, limit, maxAgeDays) {
  * rewrites nothing; details_checked_at alone records the visit. Price, stock, updated_at are never touched.
  * @returns 'changed' | 'unchanged'
  */
-export async function saveDetails(db, id, { brand, description }) {
+export async function saveDetails(db, id, { brand, description }, { quiet = false } = {}) {
   await db.query('BEGIN');
   let rows;
   try {
@@ -442,7 +442,7 @@ export async function saveDetails(db, id, { brand, description }) {
        RETURNING p.name, old.description IS NOT NULL AND old.description IS DISTINCT FROM $3 AS description_changed`,
       [id, brand, description],
     ));
-    if (rows[0]?.description_changed) await insertEvents(db, [productEvent(id, rows[0].name, 'description_changed')]);
+    if (rows[0]?.description_changed && !quiet) await insertEvents(db, [productEvent(id, rows[0].name, 'description_changed')]);
     await db.query('COMMIT');
   } catch (e) {
     await db.query('ROLLBACK');
@@ -457,8 +457,9 @@ export async function saveDetails(db, id, { brand, description }) {
  * Rich sections of one product page: only the sections whose hash differs from content_hashes are written
  * (child rows replaced in one transaction). An unchanged page writes nothing but content_hashes stays as is.
  * @returns the names of the sections that changed ([] = nothing written)
+ * quiet: a repair (better parsing of the same page) — written without change_events, nobody is told «changed».
  */
-export async function saveRich(db, id, rich, hashes) {
+export async function saveRich(db, id, rich, hashes, { quiet = false } = {}) {
   // brand banners: per brand, not per product (no hash); written only when they differ
   if (rich.brandCode && (rich.brandBanner || rich.brandBannerPortrait)) {
     await db.query(
@@ -507,7 +508,7 @@ export async function saveRich(db, id, rich, hashes) {
       }
     }
     await set({ content_hashes: JSON.stringify(hashes), details_updated_at: new Date() });
-    await insertEvents(db, fromSections(id, row.name, changed.filter((k) => old[k] !== undefined)));
+    if (!quiet) await insertEvents(db, fromSections(id, row.name, changed.filter((k) => old[k] !== undefined)));
     await db.query('COMMIT');
   } catch (e) {
     await db.query('ROLLBACK');

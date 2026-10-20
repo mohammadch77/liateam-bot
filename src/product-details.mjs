@@ -48,16 +48,35 @@ function resolveRef(text, value) {
   return buf.subarray(start, start + parseInt(head[1], 16)).toString('utf8');
 }
 
-// &shy; is a soft hyphen the supplier's editor puts where a ZWNJ belongs (سلول&shy;ها): keep it as a ZWNJ.
-const ENTITIES = { nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", zwnj: '‌', zwj: '‍', shy: '‌', laquo: '«', raquo: '»' };
-const decode = (s) =>
-  s.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (all, e) => {
+// &shy; and &not; are what the supplier's editor puts where a ZWNJ belongs (سلول&shy;ها, می&not;سازد): kept as a
+// ZWNJ. Direction marks (&lrm; &rlm;) are dropped. An entity not in this table is removed (never shown raw).
+const ZWNJ = '\u200c';
+const ENTITIES = {
+  nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", zwnj: ZWNJ, zwj: '\u200d', shy: ZWNJ, not: ZWNJ,
+  lrm: '', rlm: '', laquo: '«', raquo: '»', bull: '•', middot: '·', hellip: '…', ndash: '–', mdash: '—',
+  lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”', times: '×', deg: '°', copy: '©', reg: '®', trade: '™',
+  uuml: 'ü', ouml: 'ö', auml: 'ä', eacute: 'é', egrave: 'è', agrave: 'à', aacute: 'á', ccedil: 'ç', iacute: 'í',
+};
+const decodeOnce = (s) =>
+  s.replace(/&(#x?[0-9a-f]+|[a-z][a-z0-9]*);/gi, (_, e) => {
     if (e[0] === '#') {
       const n = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
-      return Number.isFinite(n) && n > 0 && n < 0x110000 ? String.fromCodePoint(n) : '';
+      return Number.isFinite(n) && n > 0 && n < 0x110000 && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : '';
     }
-    return ENTITIES[e.toLowerCase()] ?? all;
+    return ENTITIES[e.toLowerCase()] ?? '';
   });
+/**
+ * HTML entities → text, also when encoded twice (&amp;zwnj;). Markup that only appears after decoding
+ * (&lt;script&gt;) is removed like any other tag; what is left is plain text (and the shop renders it escaped).
+ */
+export function decode(s) {
+  for (let i = 0; i < 3; i++) {
+    const next = decodeOnce(s);
+    if (next === s) break;
+    s = next;
+  }
+  return s.replace(/<\/?[a-z!][^<>]*>/gi, '');
+}
 const stripTags = (s) => s.replace(/<[^>]*>/g, '');
 const tidy = (s) => decode(stripTags(s)).replace(/[ \t ]+/g, ' ').trim();
 
@@ -197,12 +216,40 @@ export function parseGallery(product) {
   return out;
 }
 
-// Size: Liateam's measurement_value + measurement_type ("ml" / "gr"); stored as a number and 'ml' | 'g'.
+// Size: Liateam's measurement_value + measurement_type ("ml" / "gr"); stored as a number and 'ml' | 'g'. When
+// Liateam leaves them empty: sizeFromText below (a size row in the specs, then the name).
 const UNITS = { ml: 'ml', gr: 'g', g: 'g' };
 export function parseMeasurement(value, type) {
   const n = Number(typeof value === 'string' ? value.trim() : value);
   const unit = UNITS[String(type ?? '').trim().toLowerCase()];
   return Number.isFinite(n) && n > 0 && n < 100000 && unit ? { value: Math.round(n * 100) / 100, unit } : null;
+}
+
+const SIZE_KEYS = /^(حجم|حجم محصول|سایز|وزن|وزن خالص|مقدار)$/;
+// a number, then a unit word: millilitre, litre, gram, kilogram (Persian or Latin). Not «۵۰ درصد», «20% AHA»,
+// «شماره 1», «کد 101», «SPF 50»: those have no unit. A set («ست …») has no single size.
+const SIZE_TEXT =
+  /(?<![\p{L}\p{N}.٫])([0-9۰-۹]+(?:[.٫][0-9۰-۹]+)?)\s*(میلی[\s\u200c]?لیتر|میلی(?![\p{L}])|میل(?![\p{L}])|ml(?![\p{L}])|cc(?![\p{L}])|سی[\s\u200c]?سی|لیتر|lit(?:er|re)?(?![\p{L}])|l(?![\p{L}])|کیلو(?:گرم)?|kg(?![\p{L}])|گرم|گرمی|gr?(?![\p{L}]))/iu;
+const UNIT_OF = (u) => {
+  const w = u.toLowerCase().replace(/[\s\u200c]/g, '');
+  if (/^(کیلو|کیلوگرم|kg)$/.test(w)) return ['g', 1000];
+  if (/^(گرم|گرمی|g|gr)$/.test(w)) return ['g', 1];
+  if (/^(لیتر|l|lit|liter|litre)$/.test(w)) return ['ml', 1000];
+  return ['ml', 1];
+};
+const latin = (s) => s.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace('٫', '.');
+/** «حجم محصول: 10 میلی لیتر» / «… با حجم 100 گرم» → { value, unit }; null for a set or no explicit size. */
+export function sizeFromText(name, attributes = []) {
+  const texts = [...attributes.filter((a) => SIZE_KEYS.test(String(a?.key ?? '').trim())).map((a) => a.value), name];
+  for (const t of texts) {
+    if (typeof t !== 'string' || /(^|\s)ست(\s|$)/.test(t)) continue;
+    const m = SIZE_TEXT.exec(t);
+    if (!m) continue;
+    const [unit, factor] = UNIT_OF(m[2]);
+    const r = parseMeasurement(Number(latin(m[1])) * factor, unit === 'g' ? 'g' : 'ml');
+    if (r) return r;
+  }
+  return null;
 }
 
 /** "#f0eaf150" / "#EBEBEB" → "#f0eaf1" (Liateam adds an alpha byte to some); anything else → null. */
@@ -264,7 +311,7 @@ export function parseRich(text, product) {
     country: cleanText(product.country, 60),
     gallery: parseGallery(product),
     // facts: kept for the shop (size, colour, shelf life) and for reference (meta texts: not used for our SEO)
-    measurement: parseMeasurement(product.measurement_value, product.measurement_type),
+    measurement: parseMeasurement(product.measurement_value, product.measurement_type) ?? sizeFromText(cleanText(product.title, 300), attributes),
     color: parseColor(product.color),
     expireMonths: Number.isInteger(Number(product.expire_month)) && product.expire_month >= 1 && product.expire_month <= 120
       ? Number(product.expire_month) : null,
