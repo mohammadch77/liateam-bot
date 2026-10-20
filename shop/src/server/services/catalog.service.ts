@@ -62,6 +62,33 @@ export type ProductView = ProductCardData & {
   updatedAt: Date;
 };
 
+/**
+ * Render guard: the bot decodes HTML entities before storing, but a raw one that slips through (older rows, a new
+ * entity) is never shown as «&zwnj;»: the ZWNJ-like ones become a ZWNJ, a few common ones their character, the rest
+ * is dropped. Plain text in, plain text out (rendered escaped by React; nothing here can produce markup that runs).
+ */
+const ENTITY_TEXT: Record<string, string> = {
+  zwnj: '\u200c',
+  shy: '\u200c',
+  not: '\u200c',
+  nbsp: ' ',
+  amp: '&',
+  quot: '"',
+  bull: '•',
+  middot: '·',
+  hellip: '…',
+  ndash: '–',
+  rsquo: '’',
+  laquo: '«',
+  raquo: '»',
+};
+export function withoutEntities(text: string): string {
+  return text.replace(
+    /&(#x?[0-9a-f]+|[a-z][a-z0-9]*);/gi,
+    (_, e: string) => ENTITY_TEXT[e.toLowerCase()] ?? '',
+  );
+}
+
 /** The stored description (plain text from the sync bot) as typed blocks: never rendered as HTML. */
 export type DescriptionBlock =
   | { kind: 'heading'; text: string }
@@ -72,7 +99,7 @@ export type DescriptionBlock =
 export function descriptionBlocks(text: string | null): DescriptionBlock[] {
   if (!text) return [];
   const blocks: DescriptionBlock[] = [];
-  for (const chunk of text.split(/\n{2,}/)) {
+  for (const chunk of withoutEntities(text).split(/\n{2,}/)) {
     const lines = chunk
       .split('\n')
       .map((l) => l.trim())
@@ -138,29 +165,11 @@ export function sizeLabel(value: string | number | null, unit: 'ml' | 'g' | null
   return `${new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }).format(n)} ${UNIT_FA[unit]}`;
 }
 
-const SIZE_KEYS = /^(حجم|حجم محصول|سایز|وزن|وزن خالص|مقدار)$/;
-const SIZE_TEXT =
-  /([0-9۰-۹]+(?:[.٫][0-9۰-۹]+)?)\s*(میلی[\s\p{Cf}]?لیتر|میل|ml|cc|سی[\s\p{Cf}]?سی|گرم|gr?)(?![\p{L}])/iu;
-/**
- * The size when Liateam left measurement empty: from a size row in «مشخصات» («حجم محصول: 10 میلی لیتر»), else from
- * the name («… با حجم 100 میل»). Only an explicit number + ml/g; anything else stays null (the row is then hidden).
- */
-export function sizeFromText(name: string, attributes: Array<{ key: string; value: string }>): string | null {
-  const texts = [...attributes.filter((a) => SIZE_KEYS.test(a.key.trim())).map((a) => a.value), name];
-  for (const t of texts) {
-    const m = SIZE_TEXT.exec(t);
-    if (!m?.[1] || !m[2]) continue;
-    const n = Number(m[1].replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace('٫', '.'));
-    return sizeLabel(n, /گرم|^g/i.test(m[2]) ? 'g' : 'ml');
-  }
-  return null;
-}
-
 const VIDEO_PLAYER =
   /^https:\/\/player\.arvancloud\.ir\/index\.html\?config=https:\/\/[a-z0-9-]+\.arvanvod\.ir\/[\w/.-]+\.json$/i;
 const IMAGE_HOST = /^https:\/\/s3\.liateam\.ir\//;
 const textLines = (s: string | null) =>
-  (s ?? '')
+  withoutEntities(s ?? '')
     .split('\n')
     .map((l) => l.trim())
     .filter((l) => /[\p{L}\p{N}]/u.test(l)); // "." placeholders are not content
@@ -179,8 +188,8 @@ function toContent(row: ProductDetailRow, c: ProductContentRows, site: SiteRevie
       source: 'liateam' as const,
       author: r.author ?? 'خریدار',
       stars: r.rating ? Math.max(1, Math.round(r.rating / 2)) : null,
-      body: r.body,
-      reply: r.reply,
+      body: withoutEntities(r.body),
+      reply: r.reply && withoutEntities(r.reply),
       createdAt: r.created_at,
     })),
   ].sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
@@ -199,16 +208,15 @@ function toContent(row: ProductDetailRow, c: ProductContentRows, site: SiteRevie
     images,
     summary,
     // Liateam's features usually repeat the summary lines; show them once
-    features: row.features.filter((f) => !summary.includes(f.trim())),
+    features: row.features.map(withoutEntities).filter((f) => !summary.includes(f.trim())),
     videoEmbedUrl: row.video_embed_url && VIDEO_PLAYER.test(row.video_embed_url) ? row.video_embed_url : null,
     recommendPercent: row.rating_value,
-    attributes: c.attributes,
+    attributes: c.attributes.map((a) => ({ key: withoutEntities(a.key), value: withoutEntities(a.value) })),
     howToUse: textLines(row.how_to_use),
-    faqs: c.faqs,
+    faqs: c.faqs.map((f) => ({ question: withoutEntities(f.question), answer: withoutEntities(f.answer) })),
     reviews: reviews.slice(0, PRODUCT_REVIEWS_SHOWN),
     reviewsTotal: (row.reviews_total ?? c.reviews.length) + site.length,
-    size:
-      sizeLabel(row.measurement_value, row.measurement_unit) ?? sizeFromText(clean(row.name), c.attributes),
+    size: sizeLabel(row.measurement_value, row.measurement_unit),
     country: row.origin_country ? clean(row.origin_country) : null,
     expireMonths: row.expire_months,
     color: row.color && /^#[0-9a-f]{6}$/i.test(row.color) ? row.color : null,

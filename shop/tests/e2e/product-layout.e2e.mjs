@@ -70,6 +70,8 @@ try {
       ['برند', 'حجم', 'کشور سازنده'].every((k) => quick.includes(k)),
       quick.join(' | '),
     );
+    const raw = (await d.locator('main').innerText()).match(/&(#x?[0-9a-f]+|[a-z][a-z0-9]*);/gi);
+    check(`1 ${kind}: no raw HTML entity on the page`, !raw, raw?.slice(0, 5).join(' '));
     const buy = await d.locator('aside[aria-label="خرید"]').innerText();
     check(
       `1 ${kind}: buy box without «به‌روزرسانی», with the trust lines`,
