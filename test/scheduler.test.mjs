@@ -87,3 +87,27 @@ test('settings: env and sync_settings override the defaults; bad keys are report
   assert.equal(c.jitter, 0.1);
   assert.deepEqual(ignored.sort(), ['typo_key', 'windows']);
 });
+
+test('panel / bot keys: window starts move both neighbouring windows, «both windows» intervals, order-independent', async () => {
+  const { validScheduleValue, scheduleSummary } = await import('../src/scheduler.mjs');
+  const rows = { day_catalog_minutes: 90, hero_minutes: 20, night_start: '22:30', day_start: '08:00', catalog_minutes: 45 };
+  const a = resolveSchedule({}, rows).cfg;
+  const b = resolveSchedule({}, Object.fromEntries(Object.entries(rows).reverse())).cfg;
+  assert.deepEqual(scheduleSummary(a), scheduleSummary(b));
+  const w = Object.fromEntries(a.windows.map((x) => [x.name, x]));
+  assert.deepEqual([w.day.from, w.day.to, w.evening.from, w.evening.to, w.night.from, w.night.to],
+    ['08:00', '19:00', '19:00', '22:30', '22:30', '08:00']);
+  assert.equal(w.day.minutes.catalog, 90); // one window beats «both windows»
+  assert.equal(w.evening.minutes.catalog, 45);
+  assert.equal(w.day.minutes.hero, 20);
+  assert.equal(w.evening.minutes.hero, 20);
+  assert.equal(windowAt(at('07:30'), a).name, 'night'); // asleep until 08:00 now
+  assert.equal(windowAt(at('22:45'), a).name, 'night');
+  // the same limits the panel and the bots check before saving
+  assert.equal(validScheduleValue('day_start', '08:00'), true);
+  assert.equal(validScheduleValue('day_start', '8:00'), false);
+  assert.equal(validScheduleValue('hero_minutes', 5), false);
+  assert.equal(validScheduleValue('hero_minutes', 30), true);
+  assert.equal(validScheduleValue('paused', 'yes'), false);
+  assert.equal(validScheduleValue('anything', 1), false);
+});

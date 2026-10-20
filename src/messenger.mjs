@@ -7,7 +7,7 @@ import { config } from './config.mjs';
 import { log } from './logger.mjs';
 import { openPool, applySettings, setStatus, loadSchedule } from './db.mjs';
 import { createClient, PLATFORMS } from './messenger-api.mjs';
-import { clock, resolveSchedule, windowAt } from './scheduler.mjs';
+import { clock, resolveSchedule, validScheduleValue, windowAt } from './scheduler.mjs';
 import * as T from './messenger-text.mjs';
 import { groupOf, summarize } from './change-events.mjs';
 
@@ -263,18 +263,53 @@ async function runConfirm(client, chat) {
   });
 }
 
+// Schedule settings the bots can change (the dashboard edits the same sync_settings rows: always in sync).
+const SCHEDULE_EDITS = {
+  day_catalog_minutes: { label: 'قیمت و موجودی در روز', presets: [30, 45, 60, 90, 120, 180] },
+  evening_catalog_minutes: { label: 'قیمت و موجودی در عصر', presets: [60, 120, 180, 240, 360] },
+  hero_minutes: { label: 'بنرهای صفحه‌ی اصلی', presets: [15, 30, 60, 120, 240] },
+  details_minutes: { label: 'محتوای سنگین (توضیحات، عکس، نظرات)', presets: [60, 120, 180, 360, 720] },
+};
+const minutesText = (m) => (m % 60 === 0 ? `${T.num(m / 60)} ساعت` : `${T.num(m)} دقیقه`);
+const effectiveMinutes = (cfg, key) => {
+  const day = cfg.windows.find((w) => w.name === 'day')?.minutes ?? {};
+  const evening = cfg.windows.find((w) => w.name === 'evening')?.minutes ?? {};
+  return { day_catalog_minutes: day.catalog, evening_catalog_minutes: evening.catalog, hero_minutes: day.hero, details_minutes: day.details }[key];
+};
+
 async function intervalMenu(client, chat, messageId) {
   const { cfg } = await loadSchedule(pool, resolveSchedule);
-  const fmt = (w) => (w.sleep ? `${w.from} تا ${w.to}: خواب (هیچ درخواستی به لیاتیم نمی‌رود)`
-    : `${w.from} تا ${w.to}: قیمت و موجودی هر ~${T.num(w.minutes.catalog)} دقیقه، بنرها هر ~${T.num(w.minutes.hero)} دقیقه`);
+  const fmt = (w) => (w.sleep ? `🌙 ${w.from} تا ${w.to}: خواب (هیچ درخواستی به لیاتیم نمی‌رود)`
+    : `${w.name === 'day' ? '☀️' : '🌆'} ${w.from} تا ${w.to}: قیمت هر ~${minutesText(w.minutes.catalog)}، بنرها هر ~${minutesText(w.minutes.hero)}`);
   const now = new Date();
+  const edit = (key) => ({ text: `✏️ ${SCHEDULE_EDITS[key].label}: ${minutesText(effectiveMinutes(cfg, key))}`, callback_data: `se:${key}` });
   return show(client, chat.chat_id, messageId,
     [`⏱ زمان‌بندی ربات (به وقت تهران، هر فاصله ±${T.num(Math.round(cfg.jitter * 100))}٪ تصادفی)`, T.LINE,
       ...cfg.windows.map(fmt), T.LINE,
       `الان: ${clock(now, cfg)} · ${windowAt(now, cfg).sleep ? 'خواب' : 'فعال'}${cfg.paused ? ' · ⏸ موقتاً متوقف' : ''}`,
-      'تغییر پنجره‌ها و فاصله‌ها از جدول sync_settings (راهنما در README ربات).'].join('\n'),
-    inline([[cfg.paused ? { text: '▶️ ادامه‌ی زمان‌بندی', callback_data: 'ps:0' } : { text: '⏸ توقف موقت', callback_data: 'ps:1' }],
+      isAdmin(chat) ? 'برای تغییر یک فاصله روی آن بزنید. ساعت شروع روز/عصر/خواب از پنل مدیریت تنظیم می‌شود؛ هر دو یکی‌اند.' : ''].join('\n'),
+    inline([
+      ...(isAdmin(chat) ? Object.keys(SCHEDULE_EDITS).map((k) => [edit(k)]) : []),
+      ...(isAdmin(chat) ? [[cfg.paused ? { text: '▶️ ادامه‌ی زمان‌بندی', callback_data: 'ps:0' } : { text: '⏸ توقف موقت', callback_data: 'ps:1' }]] : []),
       [{ text: '→ بازگشت', callback_data: 'st' }]]));
+}
+
+async function scheduleEditMenu(client, chat, messageId, key) {
+  const { cfg } = await loadSchedule(pool, resolveSchedule);
+  const current = effectiveMinutes(cfg, key);
+  const { label, presets } = SCHEDULE_EDITS[key];
+  return show(client, chat.chat_id, messageId,
+    `✏️ ${label}\nفعلاً: هر ~${minutesText(current)} (±${T.num(Math.round(cfg.jitter * 100))}٪ تصادفی)\n\nفاصله‌ی جدید را انتخاب کنید:`,
+    inline([presets.map((m) => ({ text: `${m === current ? '● ' : ''}${minutesText(m)}`, callback_data: `sv:${key}:${m}` })),
+      [{ text: '→ بازگشت', callback_data: 'ivm' }]]));
+}
+
+/** Saves one schedule setting (same table and audit as the dashboard). */
+async function saveSchedule(chat, key, value) {
+  const [old] = await q('SELECT value FROM sync_settings WHERE key = $1', [key]);
+  await q(`INSERT INTO sync_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+    [key, JSON.stringify(value)]);
+  await audit(chat, `schedule:${key}`, old?.value ?? null, value);
 }
 
 const HELP = [
@@ -368,10 +403,18 @@ async function onCallback(client, cb) {
       : '⚠️ در صف قرار گرفت، ولی سرویس زمان‌بندی (worker) روشن نیست؛ تا روشن نشود اجرا انجام نمی‌شود.');
   }
   if (cmd === 'ivm') return intervalMenu(client, chat, mid);
+  if (cmd === 'se' && SCHEDULE_EDITS[arg]) return scheduleEditMenu(client, chat, mid, arg);
+  if (cmd === 'sv') {
+    const [, key, raw] = String(cb.data).split(':'); // sv:<key>:<minutes>
+    const minutes = Number(raw);
+    if (!SCHEDULE_EDITS[key] || !SCHEDULE_EDITS[key].presets.includes(minutes) || !validScheduleValue(key, minutes)) return;
+    await saveSchedule(chat, key, minutes);
+    return done(`✅ ${SCHEDULE_EDITS[key].label}: از این به بعد هر ~${minutesText(minutes)} (±۲۰٪ تصادفی). در پنل مدیریت هم همین دیده می‌شود.`,
+      [[{ text: '⏱ زمان‌بندی', callback_data: 'ivm' }]]);
+  }
   if (cmd === 'ps') {
     const paused = arg === '1';
-    await q(`INSERT INTO sync_settings (key, value) VALUES ('paused', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [JSON.stringify(paused)]);
-    await audit(chat, 'schedulePaused', !paused, paused);
+    await saveSchedule(chat, 'paused', paused);
     return done(paused ? '⏸ زمان‌بندی موقتاً متوقف شد؛ تا «ادامه» هیچ اجرای خودکاری انجام نمی‌شود (اجرای دستی همچنان کار می‌کند).'
       : '▶️ زمان‌بندی دوباره فعال شد.', [[{ text: '📊 وضعیت', callback_data: 'st' }]]);
   }
@@ -604,7 +647,18 @@ const listText = (v) => (Array.isArray(v) ? (v.length ? v.map((x) => T.num(x)).j
 function actionText(a) {
   const o = a.old_value, n = a.new_value;
   switch (a.action) {
-    case 'schedulePaused': return n ? 'زمان‌بندی خودکار را موقتاً متوقف کرد' : 'زمان‌بندی خودکار را دوباره فعال کرد';
+    case 'schedulePaused':
+    case 'schedule:paused': return n ? 'زمان‌بندی خودکار را موقتاً متوقف کرد' : 'زمان‌بندی خودکار را دوباره فعال کرد';
+    case 'schedule:day_start': return `شروع پنجره‌ی روز را ${o ? `از ${o} ` : ''}به ${n} تغییر داد`;
+    case 'schedule:evening_start': return `شروع پنجره‌ی عصر را ${o ? `از ${o} ` : ''}به ${n} تغییر داد`;
+    case 'schedule:night_start': return `شروع خواب شبانه را ${o ? `از ${o} ` : ''}به ${n} تغییر داد`;
+    case 'schedule:day_catalog_minutes':
+    case 'schedule:evening_catalog_minutes':
+    case 'schedule:hero_minutes':
+    case 'schedule:details_minutes': {
+      const label = SCHEDULE_EDITS[a.action.slice(9)].label;
+      return `فاصله‌ی «${label}» را ${o != null ? `از ${minutesText(o)} ` : ''}به ${minutesText(n)} تغییر داد`;
+    }
     case 'intervalHours': return `فاصله‌ی اجرای خودکار را ${o != null ? `از هر ${T.num(o)} ساعت ` : ''}به هر ${T.num(n)} ساعت تغییر داد`;
     case 'manual_run': return 'یک اجرای دستی شروع کرد';
     case 'priceJumpLimit': return `آستانه‌ی جهش قیمت را ${o != null ? `از ${T.num(Math.round(o * 100))}٪ ` : ''}به ${T.num(Math.round(n * 100))}٪ تغییر داد`;

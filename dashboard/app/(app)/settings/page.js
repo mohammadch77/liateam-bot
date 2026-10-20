@@ -4,15 +4,20 @@ import { dateTime, ago } from '@/lib/format';
 import DbError from '../../components/DbError';
 import SettingsForm from './SettingsForm';
 import MessengerCard from './MessengerCard';
+import ScheduleCard from './ScheduleCard';
 
 export const dynamic = 'force-dynamic';
 
 // config.mjs defaults, used only until the bot reports its effective config.
-const DEFAULTS = { excludedCategories: [199, 124], sellableOverrides: [], priceJumpLimit: 0.5, intervalHours: 4 };
+const DEFAULTS = { excludedCategories: [199, 124], sellableOverrides: [], priceJumpLimit: 0.5 };
 const LABEL = { excludedCategories: 'دسته‌های مستثنا', sellableOverrides: 'استثناهای قابل‌فروش', priceJumpLimit: 'آستانه‌ی جهش قیمت',
   intervalHours: 'فاصله‌ی اجرا (ساعت)', manual_run: 'اجرای دستی', telegramEnabled: 'ربات تلگرام', baleEnabled: 'ربات بله',
-  messenger_invite: 'ساخت کد دعوت', messenger_role: 'تغییر نقش کاربر ربات', messenger_remove: 'حذف کاربر ربات' };
-const show = (v, key) => (v == null ? '—' : typeof v === 'boolean' ? (v ? 'روشن' : 'خاموش') : key === 'messenger_invite' ? (v === 'admin' ? 'مدیر' : 'بیننده') : Array.isArray(v) ? (v.length ? v.join('، ') : 'خالی') : key === 'priceJumpLimit' ? `${Math.round(v * 100)}٪` : key === 'intervalHours' ? `${v} ساعت` : String(v));
+  messenger_invite: 'ساخت کد دعوت', messenger_role: 'تغییر نقش کاربر ربات', messenger_remove: 'حذف کاربر ربات',
+  'schedule:paused': 'توقف موقت زمان‌بندی', schedulePaused: 'توقف موقت زمان‌بندی', 'schedule:day_start': 'شروع روز', 'schedule:evening_start': 'شروع عصر',
+  'schedule:night_start': 'شروع خواب شبانه', 'schedule:day_catalog_minutes': 'قیمت و موجودی — روز', 'schedule:evening_catalog_minutes': 'قیمت و موجودی — عصر',
+  'schedule:hero_minutes': 'فاصله‌ی بنرها', 'schedule:details_minutes': 'فاصله‌ی محتوای سنگین' };
+const minutesText = (m) => (m % 60 === 0 ? `${m / 60} ساعت` : `${m} دقیقه`);
+const show = (v, key) => (v == null ? '—' : typeof v === 'boolean' ? (v ? 'روشن' : 'خاموش') : key === 'messenger_invite' ? (v === 'admin' ? 'مدیر' : 'بیننده') : Array.isArray(v) ? (v.length ? v.join('، ') : 'خالی') : key === 'priceJumpLimit' ? `${Math.round(v * 100)}٪` : key === 'intervalHours' ? `${v} ساعت` : /^schedule:.*_minutes$/.test(key) ? minutesText(v) : String(v));
 
 export default async function SettingsPage() {
   let status, saved, categories, audit, chats, [pending] = [];
@@ -36,11 +41,13 @@ export default async function SettingsPage() {
       </div>
       {!workerAlive && (
         <div className="banner warn">
-          worker ربات فعال نیست (آخرین علامت: {ago(status.worker?.heartbeat)}). «اجرای دستی» و «فاصله‌ی اجرا» فقط با <span className="mono">npm run worker</span> اعمال می‌شوند.
+          worker ربات فعال نیست (آخرین علامت: {ago(status.worker?.heartbeat)}). «اجرای دستی» و زمان‌بندی فقط با <span className="mono">npm run worker</span> اعمال می‌شوند.
         </div>
       )}
       <SettingsForm values={values} categories={categories} pending={pending ? { at: dateTime(pending.requested_at), by: pending.requested_by } : null}
         account={{ username: status.credentials?.username_masked ?? null, passwordSet: status.credentials?.password_set ?? null }} />
+
+      <ScheduleCard worker={status.worker ?? null} backoff={status.backoff ?? null} />
 
       <MessengerCard
         status={{ telegram: status.messenger_telegram ?? null, bale: status.messenger_bale ?? null }}

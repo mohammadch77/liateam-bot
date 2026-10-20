@@ -6,10 +6,15 @@ import { RunBadge } from '../../components/badges';
 
 export const dynamic = 'force-dynamic';
 
-const KIND = { auth: 'لاگین / توکن', structure: 'تغییر ساختار صفحه', coverage: 'پوشش ناقص', database: 'دیتابیس در دسترس نبود', error: 'خطای دیگر' };
+const KIND = { auth: 'لاگین / توکن', structure: 'تغییر ساختار صفحه', coverage: 'پوشش ناقص', database: 'دیتابیس در دسترس نبود',
+  blocked: 'لیاتیم درخواست‌ها را رد کرد (عقب‌نشینی)', error: 'خطای دیگر' };
+// what a run did (sync_runs.tasks; runs before the window schedule have none = a full run)
+const TASK = { catalog: 'قیمت و موجودی', hero: 'بنرها', details: 'محتوای سنگین' };
+const tasksText = (r) => (r.tasks?.length ? r.tasks.map((t) => TASK[t] ?? t).join(' + ') : 'کامل');
 
 function summary(r) {
   if (r.status === 'failed') return `${KIND[r.failure_kind] || 'شکست'} · داده‌ای نوشته نشد`;
+  if (r.tasks?.length && !r.tasks.includes('catalog')) return duration(r.duration_ms);
   const parts = [`${num(r.fetched)} خوانده`, `${num(r.sellable)} قابل‌فروش`, `${num(r.rejected)} رد`, duration(r.duration_ms)];
   return parts.join(' · ');
 }
@@ -33,7 +38,7 @@ export default async function RunsPage() {
   return (
     <>
       <div className="page-head">
-        <div><h1>اجراها و هشدار</h1><div className="sub">تاریخچه‌ی اجرای ربات و هشدارهای ارسال‌شده</div></div>
+        <div><h1>اجراها و هشدار</h1><div className="sub">تاریخچه‌ی اجرای ربات و هشدارهای ارسال‌شده · هر اجرا با کاری که انجام داد (قیمت و موجودی، بنرها، محتوای سنگین)</div></div>
       </div>
       <div className="grid g3">
         <div className="card">
@@ -63,7 +68,7 @@ export default async function RunsPage() {
             <div className="run-item" key={r.id}>
               <RunBadge status={r.status} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="tnum">{runStamp(r.started_at)}</div>
+                <div className="tnum">{runStamp(r.started_at)} <span className="badge b-info" style={{ marginInlineStart: 6 }}>{tasksText(r)}</span></div>
                 <div className="sub tnum">{summary(r)}</div>
                 {r.status === 'failed' && r.message && <div className="sub ellipsis" title={r.message}>{r.message}</div>}
               </div>

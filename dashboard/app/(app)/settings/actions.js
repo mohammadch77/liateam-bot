@@ -85,3 +85,33 @@ export async function removeChat(id) {
   revalidatePath('/settings');
   return { ok: true };
 }
+
+// Schedule (sync_settings): the same keys and limits as the bot (src/scheduler.mjs validScheduleValue); the bots'
+// «⏱ زمان‌بندی» edits the same rows, so the panel and the bots always show the same schedule.
+const SCHEDULE_VALID = {
+  paused: (v) => typeof v === 'boolean',
+  day_start: (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v),
+  evening_start: (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v),
+  night_start: (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v),
+  day_catalog_minutes: (v) => Number.isInteger(v) && v >= 10 && v <= 1440,
+  evening_catalog_minutes: (v) => Number.isInteger(v) && v >= 10 && v <= 1440,
+  hero_minutes: (v) => Number.isInteger(v) && v >= 10 && v <= 1440,
+  details_minutes: (v) => Number.isInteger(v) && v >= 10 && v <= 1440,
+};
+
+export async function saveSchedule(key, value) {
+  const user = await requireUser();
+  if (!SCHEDULE_VALID[key]?.(value)) return { error: 'مقدار نامعتبر است' };
+  await tx(async (c) => {
+    const { rows } = await c.query('SELECT value FROM sync_settings WHERE key = $1 FOR UPDATE', [key]);
+    await c.query(
+      `INSERT INTO sync_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+      [key, JSON.stringify(value)],
+    );
+    await c.query('INSERT INTO settings_audit (actor, action, old_value, new_value) VALUES ($1,$2,$3,$4)',
+      [user, `schedule:${key}`, rows[0] ? JSON.stringify(rows[0].value) : null, JSON.stringify(value)]);
+  });
+  revalidatePath('/settings');
+  revalidatePath('/banners');
+  return { ok: true };
+}

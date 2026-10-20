@@ -33,7 +33,7 @@ function ListEditor({ value, labels, onChange }) {
 
 export default function SettingsForm({ values, categories, pending, account }) {
   const labels = Object.fromEntries(categories.map((c) => [c.code, c.label]));
-  const [draft, setDraft] = useState({ priceJumpLimit: String(Math.round(values.priceJumpLimit * 100)), intervalHours: String(values.intervalHours) });
+  const [draft, setDraft] = useState({ priceJumpLimit: String(Math.round(values.priceJumpLimit * 100)) });
   const [confirm, setConfirm] = useState(null);
   const [msg, setMsg] = useState(null);
   const [busy, start] = useTransition();
@@ -59,14 +59,6 @@ export default function SettingsForm({ values, categories, pending, account }) {
         <div className="card">
           <h2>تنظیمات ربات</h2>
           <div className="sub" style={{ marginTop: -6, marginBottom: 6 }}>هر تغییر قبل از اعمال تأیید می‌گیرد و در گزارش ثبت می‌شود.</div>
-          <div className="kv">
-            <div className="k">فاصله‌ی زمان‌بندی<small>هر چند ساعت یک‌بار اجرا شود · ۰٫۲۵ (۱۵ دقیقه) تا ۱۶۸ · ظرف ۳۰ ثانیه اعمال می‌شود</small></div>
-            <div className="chip-add" style={{ alignItems: 'center' }}>
-              <input id="intervalHours" className="input tnum" dir="ltr" value={draft.intervalHours} onChange={(e) => setDraft({ ...draft, intervalHours: e.target.value })} />
-              <span>ساعت</span>
-              <button className="btn btn-sm" type="button" onClick={() => askNumber('intervalHours', 'فاصله‌ی زمان‌بندی', (n) => (n >= 0.25 && n <= 168 ? n : null), (v) => `${fa(v)} ساعت`)}>اعمال…</button>
-            </div>
-          </div>
           <div className="kv">
             <div className="k">آستانه‌ی جهش قیمت<small>بیش از این درصد = رد و هشدار</small></div>
             <div className="chip-add" style={{ alignItems: 'center' }}>

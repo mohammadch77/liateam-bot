@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { config } from './config.mjs';
 import { log } from './logger.mjs';
 import { openDb, applySettings, setStatus, loadSchedule, scheduleRows, setNextRun } from './db.mjs';
-import { TASKS, dueTasks, resolveSchedule, windowAt } from './scheduler.mjs';
+import { TASKS, dueTasks, resolveSchedule, scheduleSummary, windowAt } from './scheduler.mjs';
 import { inBackoff } from './backoff.mjs';
 
 const POLL_MS = 30_000;
@@ -39,13 +39,16 @@ async function tick() {
     }
     for (const [task, at] of Object.entries(plan.defer)) await setNextRun(db, task, at);
     const window = windowAt(now, cfg);
-    const next = Object.fromEntries(TASKS.map((t) => [t, rows[t]?.next_run_at?.toISOString?.() ?? null]));
-    await setStatus(db, 'worker', { heartbeat: now.toISOString(), window: window.name, paused: cfg.paused, next_run_at: next });
+    for (const [task, at] of Object.entries(plan.defer)) rows[task] = { ...rows[task], next_run_at: at };
+    const next = Object.fromEntries(TASKS.map((t) => [t, rows[t]?.next_run_at ? new Date(rows[t].next_run_at).toISOString() : null]));
+    // the schedule in effect, for the dashboard and the bots (they edit sync_settings; this shows the result)
+    const shown = { window: window.name, paused: cfg.paused, next_run_at: next, schedule: scheduleSummary(cfg) };
+    await setStatus(db, 'worker', { heartbeat: now.toISOString(), ...shown });
 
     // backing off (Liateam refused us): nothing runs, manual requests wait in the queue until it ends
     const { rows: [bo] } = await db.query(`SELECT value FROM bot_status WHERE key = 'backoff'`);
     if (inBackoff(bo?.value, now)) {
-      await setStatus(db, 'worker', { heartbeat: now.toISOString(), window: window.name, paused: cfg.paused, next_run_at: next, backoff_until: bo.value.until });
+      await setStatus(db, 'worker', { heartbeat: now.toISOString(), ...shown, backoff_until: bo.value.until });
       return;
     }
 
@@ -64,7 +67,7 @@ async function tick() {
       args = [`--tasks=${due.join(',')}`];
       log.info(`worker: starting sync (scheduled: ${due.join(', ')}; window ${window.name})`);
     }
-    await setStatus(db, 'worker', { heartbeat: now.toISOString(), window: window.name, paused: cfg.paused, next_run_at: next, running_since: now.toISOString() });
+    await setStatus(db, 'worker', { heartbeat: now.toISOString(), ...shown, running_since: now.toISOString() });
   } finally {
     await db.end();
   }

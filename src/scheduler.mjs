@@ -116,14 +116,36 @@ export function simulate(from, hours, cfg = DEFAULT_SCHEDULE, rng = Math.random)
 }
 
 /**
- * Settings: DEFAULT_SCHEDULE ← env ← sync_settings rows ({key: value}). Unknown keys and bad values are ignored
- * (and reported), so a typo never stops the bot.
+ * The keys people edit (dashboard «زمان‌بندی», the bots' «⏱ زمان‌بندی»), with their limits — the same rules in
+ * both places, so a value either applies or is refused, never half-applied:
+ *   paused                                  true / false
+ *   day_start, evening_start, night_start   "HH:MM" — the three windows: day = day_start→evening_start,
+ *                                           evening = evening_start→night_start, night (asleep) = night_start→day_start
+ *   day_catalog_minutes, evening_catalog_minutes   prices/stock
+ *   hero_minutes, details_minutes           banners / heavy content, both windows
+ *   day_|evening_ + catalog|hero|details _minutes   one window, one task
+ */
+export const SCHEDULE_LIMITS = { minMinutes: 10, maxMinutes: 1440 };
+const minutesOk = (v) => Number.isFinite(Number(v)) && Number(v) >= SCHEDULE_LIMITS.minMinutes && Number(v) <= SCHEDULE_LIMITS.maxMinutes;
+export function validScheduleValue(key, value) {
+  if (key === 'paused') return typeof value === 'boolean';
+  if (/^(day|evening|night)_start$/.test(key)) return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+  if (/^((day|evening)_)?(catalog|hero|details)_minutes$/.test(key)) return minutesOk(value);
+  return false;
+}
+
+/**
+ * Settings: DEFAULT_SCHEDULE ← env ← sync_settings rows ({key: value}). Applied in a fixed order (whole windows,
+ * then window starts, then «both windows» intervals, then single-window intervals) so the result does not depend on
+ * the order of the rows. Unknown keys and bad values are ignored (and reported), so a typo never stops the bot.
  */
 export function resolveSchedule(env = {}, rows = {}) {
   const cfg = structuredClone(DEFAULT_SCHEDULE);
   const ignored = [];
   const src = { ...envSettings(env), ...rows };
-  for (const [key, value] of Object.entries(src)) {
+  const rank = (k) => (k === 'windows' ? 0 : /_start$/.test(k) ? 1 : /^(catalog|hero|details)_minutes$/.test(k) ? 2 : 3);
+  const win = (name) => cfg.windows.find((w) => w.name === name);
+  for (const [key, value] of Object.entries(src).sort(([a], [b]) => rank(a) - rank(b))) {
     try {
       if (key === 'paused') cfg.paused = value === true || value === 'true' || value === '1';
       else if (key === 'jitter' && Number(value) >= 0 && Number(value) <= 0.5) cfg.jitter = Number(value);
@@ -131,9 +153,17 @@ export function resolveSchedule(env = {}, rows = {}) {
       else if (key === 'windows' && Array.isArray(value) && value.length) {
         value.forEach((w) => { hhmm(w.from); hhmm(w.to); });
         cfg.windows = value.map((w) => ({ name: String(w.name), from: w.from, to: w.to, sleep: !!w.sleep, minutes: w.minutes ?? {} }));
-      } else if (/^(day|evening)_(catalog|hero|details)_minutes$/.test(key) && Number(value) > 0) {
-        const [win, task] = key.split('_');
-        cfg.windows.find((w) => w.name === win).minutes[task] = Number(value);
+      } else if (/^(day|evening|night)_start$/.test(key) && validScheduleValue(key, value) && win('day') && win('evening') && win('night')) {
+        const name = key.split('_')[0];
+        const prevOf = { day: 'night', evening: 'day', night: 'evening' }[name];
+        win(name).from = value;
+        win(prevOf).to = value;
+      } else if (/^(catalog|hero|details)_minutes$/.test(key) && minutesOk(value)) {
+        const task = key.split('_')[0];
+        for (const w of cfg.windows) if (!w.sleep) w.minutes[task] = Number(value);
+      } else if (/^(day|evening)_(catalog|hero|details)_minutes$/.test(key) && minutesOk(value) && win(key.split('_')[0])) {
+        const [name, task] = key.split('_');
+        win(name).minutes[task] = Number(value);
       } else ignored.push(key);
     } catch {
       ignored.push(key);
@@ -141,6 +171,13 @@ export function resolveSchedule(env = {}, rows = {}) {
   }
   return { cfg, ignored };
 }
+
+/** What the bot reports in bot_status (worker.schedule) for the dashboard and the bots to show. */
+export const scheduleSummary = (cfg) => ({
+  paused: cfg.paused,
+  jitter: cfg.jitter,
+  windows: cfg.windows.map((w) => ({ name: w.name, from: w.from, to: w.to, sleep: !!w.sleep, minutes: w.minutes })),
+});
 
 /** SYNC_* env variables → the same keys as sync_settings. */
 function envSettings(env) {
