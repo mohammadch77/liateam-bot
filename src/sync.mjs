@@ -14,6 +14,7 @@ import { login, hasSession, AuthError } from './auth.mjs';
 import { fetchAllProducts, fetchProductPages, fetchHomePage, responses, BlockedError } from './source.mjs';
 import { applyTrail, inBackoff } from './backoff.mjs';
 import { fromCatalogEvents, insertEvents } from './change-events.mjs';
+import { pathsFor, revalidateShop } from './shop-revalidate.mjs';
 import { StructureError } from './rsc.mjs';
 import { checkProduct, checkUnitDrift, UnitError } from './sanity.mjs';
 import { openDb, loadPrevious, upsertProducts, syncCategories, recordRun, diffCatalog, recordEvents, applySettings, setStatus, detailsDue, saveDetails, saveRich, syncBrands, assignSlugs, saveHeroSlides, loadSchedule, markTasksRun } from './db.mjs';
@@ -80,6 +81,17 @@ const effectiveConfig = () => ({ excludedCategories: config.excludedCategories, 
 
 // Only a masked username leaves the bot (e.g. 0912••••47); the password is reported as set / not set.
 const maskUser = (u) => (!u ? null : u.length >= 7 ? `${u.slice(0, 4)}••••${u.slice(-2)}` : '••••');
+
+/** The pages showing this run's changes (change_events since it started), refreshed in the shop. */
+async function refreshShop(db, since) {
+  const { rows: events } = await db.query('SELECT event_type, product_code FROM change_events WHERE occurred_at >= $1', [since]);
+  if (!events.length) return;
+  const codes = [...new Set(events.map((e) => e.product_code).filter(Boolean))];
+  const { rows } = await db.query('SELECT id, slug_en FROM supplier_products WHERE id = ANY ($1)', [codes]);
+  const paths = pathsFor(events, new Map(rows.map((r) => [r.id, r.slug_en])));
+  const r = await revalidateShop(paths, { log });
+  if (r.ok) log.info(`shop: ${paths.length} page(s) refreshed after ${events.length} change(s)`);
+}
 
 /** Backoff starts and its end, as system change events (announced like any other change). */
 async function onBackoffChange(db, r) {
@@ -397,6 +409,8 @@ async function main() {
       await setStatus(db, 'config', effectiveConfig()).catch(() => {});
       await setStatus(db, 'credentials', { username_masked: maskUser(config.username), password_set: Boolean(config.password) }).catch(() => {});
       await recordRun(db, run, alertLines).catch((e) => log.warn('Could not record run', { error: e.message }));
+      // everything of this run is committed: ask the shop to drop the pages that show the changes (logged only)
+      await refreshShop(db, startedAt).catch((e) => log.warn('shop revalidate skipped', { error: e.message }));
       await db.end();
     }
   }

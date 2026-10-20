@@ -16,6 +16,7 @@ const ALL = [
   'nav',
   'affiliate',
   'product-layout',
+  'revalidate',
 ];
 const wanted = process.argv.slice(2);
 const unknown = wanted.filter((n) => !ALL.includes(n));

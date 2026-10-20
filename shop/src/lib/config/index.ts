@@ -37,6 +37,12 @@ const schema = z.object({
   /** Behind nginx: take the client IP from X-Real-IP. Never enable without a proxy that sets it. */
   TRUST_PROXY: bool.default(false),
 
+  /**
+   * Shared secret of POST /api/internal/revalidate (the sync bot asks the shop to drop cached pages of changed
+   * products). Empty = the endpoint is off (404).
+   */
+  REVALIDATE_SECRET: z.string().min(32, 'at least 32 characters, e.g. `openssl rand -hex 32`').optional(),
+
   // ── SMS ──
   SMS_PROVIDER: z.enum(['dev', 'kavenegar']).default('dev'),
   KAVENEGAR_API_KEY: z.string().trim().optional(),
