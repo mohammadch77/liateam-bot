@@ -68,6 +68,12 @@ export function parseCategoriesPage(text, page) {
       break;
     }
   }
+  // A page past the end (products removed or repeated across pages during the run) comes back with an empty list
+  // but still with its pagination meta: that is the end of the list, not a changed structure.
+  if (!products && firstNumber(text, TOTAL_KEYS) && extractAll(text, LIST_KEYS[0]).some((v) => Array.isArray(v) && v.length === 0)) {
+    products = [];
+    listKey = LIST_KEYS[0];
+  }
   if (!products) throw new StructureError(`لیست محصولات پیدا نشد${at} (کلیدهای امتحان‌شده: ${LIST_KEYS.join(', ')})`);
   const total = firstNumber(text, TOTAL_KEYS);
   if (!total) throw new StructureError(`تعداد کل محصولات (total) پیدا نشد${at}`);

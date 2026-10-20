@@ -97,7 +97,7 @@ export async function fetchAllProducts() {
       tree ??= parseOfficialTree(text);
       if (!tree) for (const [code, c] of parseCategories(text)) if (!categories.has(code)) categories.set(code, c);
       // Logged-out responses come back 200 but with pricing:null and stock capped at 20.
-      if (parsed.products.every((p) => p.pricing == null)) {
+      if (parsed.products.length && parsed.products.every((p) => p.pricing == null)) {
         throw new AuthError(`قیمت‌ها خالی است در صفحه‌ی ${page} - سشن منقضی شده (نمای خارج از حساب)`);
       }
       total ??= parsed.total;

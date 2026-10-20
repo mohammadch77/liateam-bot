@@ -161,3 +161,9 @@ test('payload shape lists field names (incl. pricing / inventory), never values'
   const keys = shapeKeys({ code: 1, title: 't', pricing: { price: 5, payable_price: 4 }, inventory: { total_inventory: 2 } });
   assert.deepEqual(keys.sort(), ['code', 'inventory', 'inventory.total_inventory', 'pricing', 'pricing.payable_price', 'pricing.price', 'title']);
 });
+
+test('rsc: an empty page past the end (with pagination meta) is the end of the list, not a structure change', () => {
+  const r = parseCategoriesPage('x{"products":[],"total":215,"current":11}x', 11);
+  assert.deepEqual(r.products, []);
+  assert.throws(() => parseCategoriesPage('x{"products":[]}x', 11), StructureError);
+});
