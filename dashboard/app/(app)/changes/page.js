@@ -27,7 +27,7 @@ export default async function ChangesPage({ searchParams }) {
     <>
       <MarkSeen maxId={events[0]?.id ?? 0} />
       <div className="page-head">
-        <div><h1>تغییرات محصولات</h1><div className="sub">هر تغییری که ربات در کاتالوگ لیاتیم دیده است: قیمت، موجودی، محصول جدید یا حذف‌شده</div></div>
+        <div><h1>تغییرات محصولات</h1><div className="sub">هر تغییری که ربات در کاتالوگ لیاتیم دیده است: قیمت، موجودی، محصول جدید یا حذف‌شده · <a href="/changes/events">همه‌ی رویدادها (محتوا، عکس، بنر، …) ←</a></div></div>
         <div className="toolbar" style={{ margin: 0 }}>
           {[1, 7, 30, 90].map((x) => (
             <a key={x} className={`btn btn-sm${x === d ? ' btn-primary' : ''}`} href={link(kind, x)}>{x === 1 ? '۲۴ ساعت' : `${num(x)} روز`}</a>

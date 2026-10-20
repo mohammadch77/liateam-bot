@@ -17,15 +17,15 @@ export const LINE = '━━━━━━━━━━━━';
 
 // Notification groups a person can switch on/off, and the event kinds in each.
 export const GROUPS = {
-  price: { label: 'تغییر قیمت', icon: '💰', kinds: ['price', 'cost'] },
+  price: { label: 'تغییر قیمت', icon: '💰', kinds: ['price'] },
   stock: { label: 'موجودی (ناموجود / موجود شد)', icon: '📦', kinds: ['out_of_stock', 'back_in_stock'] },
   catalog: { label: 'محصول جدید یا حذف‌شده', icon: '🆕', kinds: ['new', 'removed', 'returned', 'name'] },
+  content: { label: 'محتوا و بنرها (توضیحات، عکس، نظرات، …)', icon: '📝', kinds: [] },
   errors: { label: 'خطاها و هشدارهای غیرعادی', icon: '🚨', kinds: [] },
   daily: { label: 'گزارش روزانه‌ی سلامت (۹ صبح)', icon: '☀️', kinds: [] },
 };
 export const KIND = {
   price: { icon: '💰', label: 'تغییر قیمت فروش' },
-  cost: { icon: '🏷', label: 'تغییر قیمت تمام‌شده', admin: true },
   out_of_stock: { icon: '🔴', label: 'ناموجود شد' },
   back_in_stock: { icon: '🟢', label: 'دوباره موجود شد' },
   new: { icon: '🆕', label: 'محصول جدید' },
@@ -36,7 +36,7 @@ export const KIND = {
 export const UNUSUAL_PRICE = 0.15; // a price move this large is flagged as unusual
 
 export function eventLine(e) {
-  if (e.kind === 'price' || e.kind === 'cost') {
+  if (e.kind === 'price') {
     const o = Number(e.old_value), n = Number(e.new_value);
     const d = o ? (n - o) / o : 0;
     const flag = Math.abs(d) >= UNUSUAL_PRICE ? ' ⚠️ غیرعادی' : '';

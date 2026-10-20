@@ -13,6 +13,7 @@ import { log } from './logger.mjs';
 import { login, hasSession, AuthError } from './auth.mjs';
 import { fetchAllProducts, fetchProductPages, fetchHomePage, responses, BlockedError } from './source.mjs';
 import { applyTrail, inBackoff } from './backoff.mjs';
+import { fromCatalogEvents, insertEvents } from './change-events.mjs';
 import { StructureError } from './rsc.mjs';
 import { checkProduct, checkUnitDrift, UnitError } from './sanity.mjs';
 import { openDb, loadPrevious, upsertProducts, syncCategories, recordRun, diffCatalog, recordEvents, applySettings, setStatus, detailsDue, saveDetails, saveRich, syncBrands, assignSlugs, saveHeroSlides, loadSchedule, markTasksRun } from './db.mjs';
@@ -80,8 +81,17 @@ const effectiveConfig = () => ({ excludedCategories: config.excludedCategories, 
 // Only a masked username leaves the bot (e.g. 0912••••47); the password is reported as set / not set.
 const maskUser = (u) => (!u ? null : u.length >= 7 ? `${u.slice(0, 4)}••••${u.slice(-2)}` : '••••');
 
-/** Hook for backoff starts/ends (change events are added with the change_events table). */
-async function onBackoffChange() {}
+/** Backoff starts and its end, as system change events (announced like any other change). */
+async function onBackoffChange(db, r) {
+  const rows = [
+    ...r.started.map((minutes) => ({ entity_type: 'system', entity_id: 'sync', event_type: 'sync_backoff',
+      summary_fa: `لیاتیم درخواست‌ها را پشت‌سرِ هم رد کرد؛ ربات ${minutes} دقیقه صبر می‌کند`,
+      details: { phase: 'start', minutes, until: r.state.until, reason: r.state.reason } })),
+    ...(r.ended ? [{ entity_type: 'system', entity_id: 'sync', event_type: 'sync_backoff',
+      summary_fa: 'لیاتیم دوباره عادی جواب می‌دهد؛ زمان‌بندی از سر گرفته شد', details: { phase: 'end' } }] : []),
+  ];
+  if (rows.length) await insertEvents(db, rows);
+}
 
 /** --tasks=a,b (default: all); without --force, only those allowed in the current window and not when paused. */
 function requestedTasks(argv, cfg, now = new Date()) {
@@ -172,8 +182,11 @@ async function main() {
 
       const seenIds = new Set(products.map((p) => p.id));
       const events = diffCatalog(prev, accepted, seenIds);
-      await upsertProducts(db, accepted);
-      await recordEvents(db, events, events.filter((e) => e.kind === 'removed').map((e) => e.product_id));
+      // the catalog write, its history (product_events) and its change events commit together
+      await upsertProducts(db, accepted, async (tx) => {
+        await recordEvents(tx, events, events.filter((e) => e.kind === 'removed').map((e) => e.product_id));
+        await insertEvents(tx, fromCatalogEvents(events));
+      });
       if (events.length) {
         const byKind = events.reduce((m, e) => ({ ...m, [e.kind]: (m[e.kind] || 0) + 1 }), {});
         log.info(`catalog changes: ${events.length}`, byKind);

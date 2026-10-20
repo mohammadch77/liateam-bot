@@ -8,6 +8,7 @@
     "sync": "node src/sync.mjs",
     "sync:run": "node src/sync.mjs",
     "sync:schedule": "node scripts/sync-schedule.mjs",
+    "events:list": "node scripts/events-list.mjs",
     "worker": "node src/worker.mjs",
     "messenger": "node src/messenger.mjs",
     "probe:categories": "node explore/probe-categories.mjs",

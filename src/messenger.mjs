@@ -9,6 +9,7 @@ import { openPool, applySettings, setStatus, loadSchedule } from './db.mjs';
 import { createClient, PLATFORMS } from './messenger-api.mjs';
 import { clock, resolveSchedule, windowAt } from './scheduler.mjs';
 import * as T from './messenger-text.mjs';
+import { groupOf, summarize } from './change-events.mjs';
 
 const LOW_STOCK = Number(process.env.LOW_STOCK || 5);
 const NOTIFY_EVERY_MS = 30_000;
@@ -471,29 +472,32 @@ async function notifyRuns(cursor) {
   }
 }
 
-async function notifyEvents(cursor) {
-  // Only events of finished runs (a run writes its events before its sync_runs row).
-  const events = await q(
-    `SELECT * FROM product_events WHERE id > $1 AND at <= (SELECT max(finished_at) FROM sync_runs) ORDER BY id`, [cursor.events_id]);
-  if (!events.length) return;
-  cursor.events_id = events.at(-1).id;
-  const groupOf = (kind) => Object.entries(T.GROUPS).find(([, g]) => g.kinds.includes(kind))?.[0];
+// Change announcements (change_events): one message per batch, not one per change. A batch waits 2 minutes so a
+// run's changes arrive together; at most NOTIFY_MAX_PER_HOUR batches an hour — beyond that they wait and join the
+// next one. Each person gets the groups they switched on (price, stock, catalog, content, errors).
+const NOTIFY_MAX_PER_HOUR = Number(process.env.NOTIFY_MAX_PER_HOUR || 6);
+async function notifyChanges(cursor) {
+  const pending = await q(
+    `SELECT id, occurred_at, event_type, summary_fa FROM change_events
+      WHERE notified_at IS NULL AND occurred_at < now() - interval '2 minutes' ORDER BY id LIMIT 5000`);
+  if (!pending.length) return;
+  cursor.batches = (cursor.batches ?? []).filter((t) => Date.now() - t < 3600_000);
+  if (cursor.batches.length >= NOTIFY_MAX_PER_HOUR) return;
   const platforms = Object.keys(clients).filter(enabled);
   const chats = platforms.length ? await q('SELECT * FROM messenger_chats WHERE notify AND platform = ANY($1)', [platforms]) : [];
   for (const chat of chats) {
-    const mine = events.filter((e) => chat.kinds.includes(groupOf(e.kind)) && visibleKinds(chat).includes(e.kind));
+    const mine = pending.filter((e) => chat.kinds.includes(groupOf(e.event_type)));
     if (!mine.length) continue;
-    const unusual = mine.filter((e) => e.kind === 'price' && Math.abs((e.new_value - e.old_value) / e.old_value) >= T.UNUSUAL_PRICE).length;
-    const text = [`🛰 به‌روزرسانی لیاتیم · ${T.time(mine.at(-1).at)}`,
-      `${T.num(mine.length)} تغییر در محصولات${unusual ? ` · ⚠️ ${T.num(unusual)} تغییر قیمت غیرعادی` : ''}`,
-      T.eventSections(mine)].join('\n');
     try {
       const client = clients[chat.platform];
-      await send(client, chat.chat_id, text, { reply_markup: menuOr(client, chat, [[{ text: '📋 همه‌ی تغییرات', callback_data: 'ch:0' }]]) });
+      await send(client, chat.chat_id, summarize(mine, { at: mine.at(-1).occurred_at }),
+        { reply_markup: menuOr(client, chat, [[{ text: '📋 همه‌ی تغییرات', callback_data: 'ch:0' }]]) });
     } catch (e) {
       log.warn('messenger: notify failed', { platform: chat.platform, error: e.message });
     }
   }
+  await q('UPDATE change_events SET notified_at = now() WHERE id = ANY ($1)', [pending.map((e) => e.id)]);
+  cursor.batches.push(Date.now());
 }
 
 async function notifyManualResults() {
@@ -674,7 +678,7 @@ async function notifierLoop() {
     try {
       await applySettings(pool, config);
       await notifyRuns(cursor);
-      await notifyEvents(cursor);
+      await notifyChanges(cursor);
       await notifyManualResults();
       await notifyStale(cursor);
       await dailyReport(cursor);
@@ -702,6 +706,11 @@ let wakeNotifier = null;
 }
 
 await applySettings(pool, config);
+// One-time: people linked before the content announcements existed get them too (they can switch them off).
+if (!(await statusMap()).migrated_content) {
+  await q(`UPDATE messenger_chats SET kinds = array_append(kinds, 'content') WHERE NOT 'content' = ANY(kinds)`);
+  await setStatus(pool, 'migrated_content', true);
+}
 // One-time: people linked before the daily report existed get it too (they can switch it off in the bot).
 if (!(await statusMap()).migrated_daily) {
   await q(`UPDATE messenger_chats SET kinds = array_append(kinds, 'daily') WHERE NOT 'daily' = ANY(kinds)`);

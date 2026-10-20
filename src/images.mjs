@@ -1,3 +1,5 @@
+import { insertEvents, productEvent } from './change-events.mjs';
+
 // Do our product photos still exist on Liateam's image host? Liateam sometimes replaces a photo and the old address
 // starts answering 404 (product 426's main photo); the shop would then show a broken image. A light HEAD per address,
 // a few per run with a pause between them (the bot's usual pace), results kept in image_checks and re-checked weekly.
@@ -76,7 +78,7 @@ export async function applyImageChecks(db) {
   await db.query(
     `UPDATE product_images i SET ok = c.ok FROM image_checks c WHERE c.url = i.url AND i.ok IS DISTINCT FROM c.ok`);
   const { rows } = await db.query(
-    `SELECT p.id, p.image_url, p.display_image_url, p.image_checked,
+    `SELECT p.id, p.name, p.image_url, p.display_image_url, p.image_checked,
             COALESCE((SELECT array_agg(url ORDER BY position) FROM product_images WHERE product_id = p.id), '{}') AS gallery
        FROM supplier_products p WHERE p.missing_since IS NULL`);
   let replaced = 0, none = 0;
@@ -85,7 +87,16 @@ export async function applyImageChecks(db) {
     if (shown !== r.image_url) replaced++;
     if (!shown) none++;
     if (shown !== r.display_image_url || !r.image_checked) {
-      await db.query('UPDATE supplier_products SET display_image_url = $2, image_checked = true WHERE id = $1', [r.id, shown]);
+      await db.query('BEGIN');
+      try {
+        await db.query('UPDATE supplier_products SET display_image_url = $2, image_checked = true WHERE id = $1', [r.id, shown]);
+        // the photo the shop shows changed (not its first pick): one event, in the same transaction
+        if (r.image_checked) await insertEvents(db, [productEvent(r.id, r.name, 'images_changed', { has_photo: !!shown })]);
+        await db.query('COMMIT');
+      } catch (e) {
+        await db.query('ROLLBACK');
+        throw e;
+      }
     }
   }
   return { replaced, none };

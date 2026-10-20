@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { fromSections, insertEvents, productEvent } from './change-events.mjs';
 import { config } from './config.mjs';
 
 const SCHEMA = `
@@ -46,6 +47,21 @@ CREATE TABLE IF NOT EXISTS sync_schedule (
   last_status TEXT,
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Every real change the bot writes (change-events.mjs), in the same transaction; announced in batches by the
+-- messenger (notified_at). Only customer-visible values: selling price in TOMAN, stock — never the purchase price.
+CREATE TABLE IF NOT EXISTS change_events (
+  id           BIGSERIAL PRIMARY KEY,
+  occurred_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  entity_type  TEXT NOT NULL CHECK (entity_type IN ('product', 'banner', 'system')),
+  entity_id    TEXT,
+  product_code INTEGER,
+  event_type   TEXT NOT NULL,
+  summary_fa   TEXT NOT NULL,
+  details      JSONB NOT NULL DEFAULT '{}',
+  notified_at  TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS change_events_occurred ON change_events (occurred_at DESC);
+CREATE INDEX IF NOT EXISTS change_events_unnotified ON change_events (occurred_at) WHERE notified_at IS NULL;
 -- Schedule settings overriding env / scheduler.mjs defaults (key → JSON value), e.g. paused, day_catalog_minutes.
 CREATE TABLE IF NOT EXISTS sync_settings (
   key        TEXT PRIMARY KEY,
@@ -408,12 +424,23 @@ export async function detailsDue(db, limit, maxAgeDays) {
  * @returns 'changed' | 'unchanged'
  */
 export async function saveDetails(db, id, { brand, description }) {
-  const { rowCount } = await db.query(
-    `UPDATE supplier_products SET brand = $2, description = $3, details_updated_at = now(), details_checked_at = now()
-      WHERE id = $1 AND (brand IS DISTINCT FROM $2 OR description IS DISTINCT FROM $3)`,
-    [id, brand, description],
-  );
-  if (rowCount) return 'changed';
+  await db.query('BEGIN');
+  let rows;
+  try {
+    ({ rows } = await db.query(
+      `WITH old AS (SELECT name, description FROM supplier_products WHERE id = $1)
+       UPDATE supplier_products p SET brand = $2, description = $3, details_updated_at = now(), details_checked_at = now()
+         FROM old WHERE p.id = $1 AND (p.brand IS DISTINCT FROM $2 OR p.description IS DISTINCT FROM $3)
+       RETURNING p.name, old.description IS NOT NULL AND old.description IS DISTINCT FROM $3 AS description_changed`,
+      [id, brand, description],
+    ));
+    if (rows[0]?.description_changed) await insertEvents(db, [productEvent(id, rows[0].name, 'description_changed')]);
+    await db.query('COMMIT');
+  } catch (e) {
+    await db.query('ROLLBACK');
+    throw e;
+  }
+  if (rows.length) return 'changed';
   await db.query('UPDATE supplier_products SET details_checked_at = now() WHERE id = $1', [id]);
   return 'unchanged';
 }
@@ -431,7 +458,7 @@ export async function saveRich(db, id, rich, hashes) {
         WHERE code = $1 AND (banner_url, banner_portrait_url) IS DISTINCT FROM (COALESCE($2, banner_url), COALESCE($3, banner_portrait_url))`,
       [rich.brandCode, rich.brandBanner, rich.brandBannerPortrait]);
   }
-  const { rows: [row] } = await db.query('SELECT content_hashes FROM supplier_products WHERE id = $1', [id]);
+  const { rows: [row] } = await db.query('SELECT name, content_hashes FROM supplier_products WHERE id = $1', [id]);
   if (!row) return [];
   const old = row.content_hashes ?? {};
   const changed = Object.keys(hashes).filter((k) => old[k] !== hashes[k]);
@@ -472,6 +499,7 @@ export async function saveRich(db, id, rich, hashes) {
       }
     }
     await set({ content_hashes: JSON.stringify(hashes), details_updated_at: new Date() });
+    await insertEvents(db, fromSections(id, row.name, changed.filter((k) => old[k] !== undefined)));
     await db.query('COMMIT');
   } catch (e) {
     await db.query('ROLLBACK');
@@ -526,7 +554,8 @@ export async function assignSlugs(db, englishSlug, persianSlug) {
   return rows.length;
 }
 
-export async function upsertProducts(db, products) {
+/** `inTransaction(db)` runs before COMMIT: the events of this write commit with it, or not at all. */
+export async function upsertProducts(db, products, inTransaction = null) {
   await db.query('BEGIN');
   try {
     for (const p of products) {
@@ -551,6 +580,7 @@ export async function upsertProducts(db, products) {
         );
       }
     }
+    if (inTransaction) await inTransaction(db);
     await db.query('COMMIT');
   } catch (e) {
     await db.query('ROLLBACK');
@@ -690,6 +720,10 @@ export async function saveHeroSlides(db, parsed, hashOf) {
   if (changed) {
     await db.query('BEGIN');
     try {
+      if (prev?.value?.hash) {
+        await insertEvents(db, [{ entity_type: 'banner', entity_id: 'home', event_type: 'banner_changed',
+          summary_fa: `${slides.length} بنر (قبلاً ${prev.value.count ?? '—'})`, details: { count: slides.length, before: prev.value.count ?? null } }]);
+      }
       await db.query('DELETE FROM hero_slides');
       for (const [i, s] of slides.entries()) {
         await db.query(
