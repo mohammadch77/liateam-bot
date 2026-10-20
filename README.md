@@ -66,7 +66,7 @@ Failures are also written to `logs/alerts.log` and the `sync_alerts` table (dash
 - **Shop search:** fuzzy search needs `shop/deploy/shop-db-004-search.sql` once, **as the database owner** (`sudo -u postgres psql lia_sync -f …`): `CREATE EXTENSION pg_trgm` needs that right. It adds `search_norm()` / `search_doc()` and a GIN trigram index on `supplier_products`; it changes no data. Until it has run, the shop falls back to plain substring search on names (logged once as `catalog.search_fallback`).
   - Matching: Arabic ي/ك, ZWNJ, آ/أ, Persian digits and harakat are folded the same way in SQL and in `shop/src/lib/search/normalize.ts`. Partial words match (`LIKE`, served by the index), longer words also by trigram similarity, and misspellings by edit distance against the catalog's own words («رمل» → «ریمل»). Results are ranked by match quality.
   - `npm run check:search` (in `shop/`) checks that both normalizers agree and that suggestions return only public fields.
-- **Settings from the dashboard:** `excludedCategories`, `sellableOverrides`, `priceJumpLimit` and `intervalHours` in the `settings` table override `src/config.mjs`.
+- **Settings from the dashboard:** `excludedCategories`, `sellableOverrides` and `priceJumpLimit` in the `settings` table override `src/config.mjs`; the sync schedule lives in `sync_settings` (see «زمان‌بندی»).
 - **Run history:** the `sync_runs` table stores `started_at`, `status` (ok / warning / failed), `fetched`, `written`, `sellable`, `rejected`, `duration_ms`, `failure_kind` and `message`.
 
 ```sql
@@ -140,46 +140,22 @@ sudo certbot --nginx -d dash.example.com && sudo nginx -t && sudo systemctl relo
 **تنظیمات:** پیش‌فرض‌های `src/scheduler.mjs` ← متغیرهای `.env` ← جدول `sync_settings` (اولویت با جدول؛ کلید/مقدار JSON). کلید ناشناخته یا مقدار نامعتبر نادیده گرفته می‌شود و در لاگ worker می‌آید.
 
 **تغییر از پنل یا ربات (هر دو یکی‌اند):**
-- **داشبورد ← تنظیمات ← «زمان‌بندی همگام‌سازی»:** وضعیت، اجرای بعدی هر وظیفه، فاصله‌ها (قیمت و موجودی در روز و عصر، بنرها، محتوای سنگین)، ساعت شروع روز/عصر/خواب و توقف موقت.
-- **داشبورد ← «بنرها»:** بنرهای فعلی و مقصدشان، آخرین بررسی و آخرین تغییر، بنرهای ردشده با دلیل، تاریخچه‌ی تغییرها و فاصله‌ی بررسی بنرها.
-- **ربات بله/تلگرام ← «⏱ زمان‌بندی»:** همان فاصله‌ها با گزینه‌های آماده، به‌اضافه‌ی توقف موقت.
+- **داشبورد ← تنظیمات ← «زمان‌بندی همگام‌سازی»:**
+  - وضعیت (پنجره‌ی فعلی، فعال/متوقف/عقب‌نشینی)
+  - **اجرای قبلی و بعدی** هر وظیفه (از `sync_schedule`)
+  - **پنجره‌ها:** روز از … تا …، عصر تا …؛ شب بقیه‌ی ساعت‌هاست، همیشه خواب و حذف‌نشدنی
+  - **فاصله‌ی پایه‌ی هر وظیفه در هر پنجره** (قیمت و موجودی، بنرها، محتوای سنگین × روز، عصر)، به دقیقه
+  - دکمه‌ی توقف موقت / ادامه
+- **داشبورد ← «بنرها»:** بنرهای فعلی، بررسی‌ها، تغییرها و فاصله‌ی بنرها (برای روز و عصر با هم).
+- **ربات بله/تلگرام ← «⏱ زمان‌بندی»:** فاصله‌ها با گزینه‌های آماده (بنرها و محتوای سنگین برای روز و عصر با هم) و توقف موقت.
 
-هر سه همان ردیف‌های `sync_settings` را می‌نویسند و در گزارش تغییرات ثبت می‌شوند، پس همیشه همگام‌اند. worker ظرف ۳۰ ثانیه تنظیم جدید را اعمال می‌کند و حالت اعمال‌شده را در `bot_status` (کلید `worker`، بخش `schedule`) گزارش می‌دهد. یک بار لازم است: `sudo -u postgres psql lia_sync < dashboard/deploy/dashboard-role-schedule.sql`.
+هر سه همان ردیف‌های `sync_settings` را می‌نویسند و در گزارش تغییرات (چه کسی، چه چیزی، قبل و بعد) ثبت می‌کنند، پس همیشه همگام‌اند. worker ظرف ۳۰ ثانیه تنظیم جدید را اعمال می‌کند. یک بار لازم است: `sudo -u postgres psql lia_sync < dashboard/deploy/dashboard-role-schedule.sql`.
 
-| کلید `sync_settings` | متغیر `.env` | پیش‌فرض | معنی |
-|---|---|---|---|
-| `paused` | `SYNC_PAUSED` | `false` | `true` = هیچ اجرای خودکاری انجام نمی‌شود |
-| `day_start` / `evening_start` / `night_start` | — | `07:00` / `19:00` / `23:00` | شروع روز، عصر و خواب (هر کدام پایان قبلی است) |
-| `catalog_minutes` / `hero_minutes` / `details_minutes` | — | — | یک فاصله برای روز و عصر با هم |
-| `day_catalog_minutes` | `SYNC_DAY_CATALOG_MINUTES` | `60` | فاصله‌ی پایه‌ی قیمت/موجودی در روز |
-| `evening_catalog_minutes` | `SYNC_EVENING_CATALOG_MINUTES` | `240` | همان، در عصر |
-| `day_hero_minutes` / `evening_hero_minutes` | `SYNC_DAY_HERO_MINUTES` / `SYNC_EVENING_HERO_MINUTES` | `30` | بنرها |
-| `day_details_minutes` / `evening_details_minutes` | `SYNC_DAY_DETAILS_MINUTES` / `SYNC_EVENING_DETAILS_MINUTES` | `180` | محتوای سنگین |
-| `jitter` | `SYNC_JITTER` | `0.2` | جابه‌جایی تصادفی (حداکثر ۰.۵) |
-| `wake_jitter_minutes` | — | `15` | تأخیر تصادفی بیدار شدن بعد از خواب |
-| `windows` | `SYNC_WINDOWS` | جدول بالا | خود پنجره‌ها (JSON؛ مثال پایین) |
-| — | `REQUEST_PAUSE_MIN_MS` / `REQUEST_PAUSE_MAX_MS` | `1000` / `3000` | مکث بین درخواست‌ها |
-| — | `MAX_REQUESTS_PER_RUN` | `60` | سقف درخواست در هر اجرا |
+**قواعد ایمنی** (`src/schedule-rules.mjs`، با یک نسخه‌ی یکسان در `dashboard/lib/scheduleRules.mjs`؛ تست بررسی می‌کند که دو نسخه یکی بمانند). پنل و ربات قبل از ذخیره همین قواعد را چک می‌کنند و مقدار نامعتبر را با پیام فارسی رد می‌کنند؛ خود ربات هم هنگام خواندن، مقدار نامعتبر را نادیده می‌گیرد.
+- **حداقل فاصله‌ها:** قیمت و موجودی ۳۰، بنرها ۱۵، محتوای سنگین ۶۰ دقیقه؛ حداکثر ۲۴ ساعت. قابل تغییر با `SYNC_MIN_CATALOG_MINUTES`، `SYNC_MIN_HERO_MINUTES` و `SYNC_MIN_DETAILS_MINUTES`، با **همان نام در `.env` ربات و `.env` داشبورد**. فاصله‌ی خیلی کم ممکن است باعث مسدود شدن حساب شما در لیاتیم شود.
+- **پنجره‌ها:** به ترتیب روز ← عصر ← شب، بدون هم‌پوشانی و بدون فاصله. روز و عصر هر کدام حداقل ۳۰ دقیقه، و خواب شبانه حداقل ۶۰ دقیقه (حذف نمی‌شود).
 
-**تغییر پنجره‌ها**، مثلاً روز از ۰۸:۰۰ و خواب از ۲۲:۰۰:
-
-```sql
-INSERT INTO sync_settings (key, value) VALUES ('windows', '[
-  {"name":"day","from":"08:00","to":"19:00","minutes":{"catalog":60,"hero":30,"details":180}},
-  {"name":"evening","from":"19:00","to":"22:00","minutes":{"catalog":240,"hero":30,"details":180}},
-  {"name":"night","from":"22:00","to":"08:00","sleep":true}
-]') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
-```
-
-برای برگشتن به پیش‌فرض: `DELETE FROM sync_settings WHERE key = 'windows';`
-
-**خاموش کردن موقت:** در بله/تلگرام «⏱ زمان‌بندی» ← «⏸ توقف موقت» (و «▶️ ادامه»)، یا:
-
-```sql
-INSERT INTO sync_settings (key, value) VALUES ('paused', 'true') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
-```
-
-برای ادامه همان را با `'false'` بزنید. در حالت توقف، «اجرای دستی» و `npm run sync:run -- --force` همچنان کار می‌کنند.
+فیلد قدیمی «فاصله‌ی اجرا (ساعت)» (`intervalHours`) از پنل و کد حذف شد و ردیف قدیمی‌اش هنگام اجرای ربات خودبه‌خود از جدول `settings` پاک می‌شود.
 
 **عقب‌نشینی (backoff):** اگر لیاتیم `BACKOFF_THRESHOLD` بار (پیش‌فرض ۳) پشت‌سرِ هم با ۴۲۹، ۴۰۳، ۵xx یا صفحه‌ی کپچا/چالش جواب بدهد، اجرا همان لحظه متوقف می‌شود و **همه‌ی وظایف** ۳۰ دقیقه صبر می‌کنند. اگر بلافاصله دوباره تکرار شد، ۶۰، بعد ۱۲۰ و سپس حداکثر ۲۴۰ دقیقه. با اولین پاسخ عادی همه‌چیز صفر می‌شود. وضعیت در `bot_status` (کلید `backoff`) است و `npm run sync:schedule` آن را نشان می‌دهد. در این مدت اجرای دستی هم در صف می‌ماند. برای عبور اضطراری: `npm run sync:run -- --force --ignore-backoff`.
 
@@ -190,7 +166,6 @@ INSERT INTO sync_settings (key, value) VALUES ('paused', 'true') ON CONFLICT (ke
 - `npm run sync:run -- --force`: همه‌ی وظیفه‌ها، بیرون از پنجره و در حالت توقف هم، با همان مکث‌ها و همان سقف
 - `npm run sync:run -- --tasks=catalog,hero`: فقط این وظیفه‌ها
 
-فیلد قدیمی «فاصله‌ی زمان‌بندی (ساعت)» از داشبورد برداشته شد؛ جایش کارت «زمان‌بندی همگام‌سازی» است.
 
 ## رویدادهای تغییر (`change_events`)
 هر تغییر واقعی که ربات می‌نویسد، **در همان تراکنش**، یک ردیف در `change_events` هم می‌سازد: تغییر قیمت فروش، موجودی، محصول جدید/حذف‌شده/برگشته، تغییر نام، توضیحات، ویژگی‌ها، مشخصات، نحوه‌ی مصرف، ویدیو، پرسش‌ها، نظرات، گالری، عکس اصلی، حجم/ماندگاری، «مناسب برای»، بنرها، و شروع/پایان عقب‌نشینی (`sync_backoff`).

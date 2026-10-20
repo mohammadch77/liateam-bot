@@ -1,62 +1,62 @@
 'use client';
 import { useState, useTransition } from 'react';
-import { saveSchedule } from './actions';
+import { HELP_FA, TASK_FA } from '@/lib/scheduleRules.mjs';
+import { saveIntervals, savePaused, saveWindows } from './actions';
 
 const toLatin = (s) => String(s).replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
-const fa = (v) => new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2, useGrouping: false }).format(v);
+const fa = (v) => new Intl.NumberFormat('fa-IR', { useGrouping: false }).format(v);
 const minutesText = (m) => (m == null ? '—' : m % 60 === 0 ? `${fa(m / 60)} ساعت` : `${fa(m)} دقیقه`);
 const at = (v) => (v ? new Date(v).toLocaleString('fa-IR', { timeZone: 'Asia/Tehran', dateStyle: 'short', timeStyle: 'short' }) : '—');
-
-// The intervals people change; prices/stock in hours (as before), banners in minutes.
-const FIELDS = [
-  { key: 'day_catalog_minutes', label: 'قیمت و موجودی — روز', hint: 'هر چند ساعت در پنجره‌ی روز', unit: 'ساعت', toMinutes: (n) => Math.round(n * 60), fromMinutes: (m) => m / 60 },
-  { key: 'evening_catalog_minutes', label: 'قیمت و موجودی — عصر', hint: 'هر چند ساعت در پنجره‌ی عصر', unit: 'ساعت', toMinutes: (n) => Math.round(n * 60), fromMinutes: (m) => m / 60 },
-  { key: 'hero_minutes', label: 'بنرهای صفحه‌ی اصلی', hint: 'هر چند دقیقه، روز و عصر', unit: 'دقیقه', toMinutes: (n) => Math.round(n), fromMinutes: (m) => m },
-  { key: 'details_minutes', label: 'محتوای سنگین', hint: 'توضیحات، عکس، ویدیو، پرسش‌ها، نظرات — هر چند ساعت', unit: 'ساعت', toMinutes: (n) => Math.round(n * 60), fromMinutes: (m) => m / 60 },
-];
-const TASK_LABEL = { catalog: 'قیمت و موجودی', hero: 'بنرها', details: 'محتوای سنگین' };
+const STATUS_FA = { ok: 'موفق', warning: 'با هشدار', failed: 'ناموفق' };
+const TASKS = ['catalog', 'hero', 'details'];
+const WINDOWS = [['day', 'روز'], ['evening', 'عصر']];
 const WINDOW_LABEL = { day: 'روز', evening: 'عصر', night: 'شب (خواب)' };
+const DEFAULT_MINUTES = { day: { catalog: 60, hero: 30, details: 180 }, evening: { catalog: 240, hero: 30, details: 180 } };
 
 /**
- * «زمان‌بندی همگام‌سازی»: the schedule in effect (as the bot reports it), each task's next run, and the settings —
- * intervals, window start times, pause. Every change asks for confirmation and is written to sync_settings + the
- * audit log; the worker applies it within 30 s and the bots show the same values.
+ * «زمان‌بندی همگام‌سازی»: windows (day and evening; the night is the rest and always sleeps), the base interval of
+ * each task in each window, each task's last and next run (sync_schedule), backoff and pause. The server checks
+ * every value with the bot's own rules (minimums from env, windows round the clock) before saving to
+ * sync_settings; the worker applies it within 30 s and the bots show the same values.
  */
-export default function ScheduleCard({ worker, backoff }) {
+export default function ScheduleCard({ worker, backoff, runs, minimums }) {
   const sched = worker?.schedule;
   const win = (name) => sched?.windows?.find((w) => w.name === name);
-  const current = {
-    day_catalog_minutes: win('day')?.minutes?.catalog ?? 60,
-    evening_catalog_minutes: win('evening')?.minutes?.catalog ?? 240,
-    hero_minutes: win('day')?.minutes?.hero ?? 30,
-    details_minutes: win('day')?.minutes?.details ?? 180,
-    day_start: win('day')?.from ?? '07:00',
-    evening_start: win('evening')?.from ?? '19:00',
-    night_start: win('night')?.from ?? '23:00',
-  };
+  const times = { day_start: win('day')?.from ?? '07:00', evening_start: win('evening')?.from ?? '19:00', night_start: win('night')?.from ?? '23:00' };
+  const minutes = Object.fromEntries(WINDOWS.map(([w]) => [w, Object.fromEntries(TASKS.map((t) => [t, win(w)?.minutes?.[t] ?? DEFAULT_MINUTES[w][t]]))]));
   const paused = !!(worker?.paused ?? sched?.paused);
-  const [draft, setDraft] = useState(() => ({
-    ...Object.fromEntries(FIELDS.map((f) => [f.key, String(fa(f.fromMinutes(current[f.key])))])),
-    day_start: current.day_start, evening_start: current.evening_start, night_start: current.night_start,
-  }));
+  const backingOff = backoff?.until && new Date(backoff.until) > new Date();
+
+  const [timeDraft, setTimeDraft] = useState(times);
+  const [minDraft, setMinDraft] = useState(() => Object.fromEntries(WINDOWS.flatMap(([w]) => TASKS.map((t) => [`${w}_${t}_minutes`, String(fa(minutes[w][t]))]))));
   const [confirm, setConfirm] = useState(null);
   const [msg, setMsg] = useState(null);
   const [busy, start] = useTransition();
 
-  const askInterval = (f) => {
-    const n = Number(toLatin(draft[f.key]).trim());
-    const minutes = Number.isFinite(n) ? f.toMinutes(n) : NaN;
-    if (!(minutes >= 10 && minutes <= 1440)) return setMsg({ bad: true, text: `«${f.label}» باید بین ۱۰ دقیقه و ۲۴ ساعت باشد` });
-    if (minutes === current[f.key]) return setMsg({ text: 'تغییری نکرده است' });
-    setConfirm({ title: f.label, from: `هر ${minutesText(current[f.key])}`, to: `هر ${minutesText(minutes)}`, run: () => saveSchedule(f.key, minutes) });
+  const askWindows = () => {
+    const next = Object.fromEntries(Object.entries(timeDraft).map(([k, v]) => [k, toLatin(v).trim().replace(/^(\d):/, '0$1:')]));
+    if (Object.keys(next).every((k) => next[k] === times[k])) return setMsg({ text: 'تغییری نکرده است' });
+    setConfirm({
+      title: 'پنجره‌های زمانی',
+      from: `روز ${times.day_start}–${times.evening_start} · عصر ${times.evening_start}–${times.night_start} · خواب ${times.night_start}–${times.day_start}`,
+      to: `روز ${next.day_start}–${next.evening_start} · عصر ${next.evening_start}–${next.night_start} · خواب ${next.night_start}–${next.day_start}`,
+      run: () => saveWindows(next),
+    });
   };
-  const askTime = (key, label) => {
-    const v = toLatin(draft[key]).trim().replace(/^(\d):/, '0$1:');
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(v)) return setMsg({ bad: true, text: `«${label}» را به شکل ۰۷:۰۰ بنویسید` });
-    const others = ['day_start', 'evening_start', 'night_start'].filter((k) => k !== key).map((k) => current[k]);
-    if (others.includes(v)) return setMsg({ bad: true, text: 'شروع دو پنجره نمی‌تواند یکی باشد' });
-    if (v === current[key]) return setMsg({ text: 'تغییری نکرده است' });
-    setConfirm({ title: label, from: current[key], to: v, run: () => saveSchedule(key, v) });
+  const askIntervals = () => {
+    const changes = {};
+    for (const [w] of WINDOWS) for (const t of TASKS) {
+      const key = `${w}_${t}_minutes`;
+      const n = Number(toLatin(minDraft[key]).trim());
+      if (!Number.isInteger(n)) return setMsg({ bad: true, text: `فاصله‌ی «${TASK_FA[t]}» در ${WINDOW_LABEL[w]} باید یک عدد صحیح (دقیقه) باشد` });
+      if (n !== minutes[w][t]) changes[key] = n;
+    }
+    if (!Object.keys(changes).length) return setMsg({ text: 'تغییری نکرده است' });
+    const lines = Object.entries(changes).map(([k, n]) => {
+      const [w, t] = k.split('_');
+      return `${TASK_FA[t]} در ${WINDOW_LABEL[w]}: ${minutesText(minutes[w][t])} ← ${minutesText(n)}`;
+    });
+    setConfirm({ title: 'فاصله‌ها', text: lines.join(' · '), run: () => saveIntervals(changes) });
   };
   const doIt = () => start(async () => {
     const r = await confirm.run();
@@ -64,7 +64,6 @@ export default function ScheduleCard({ worker, backoff }) {
     setMsg(r.error ? { bad: true, text: r.error } : { text: 'اعمال شد؛ ربات ظرف ۳۰ ثانیه از آن استفاده می‌کند و در ربات‌ها هم همین دیده می‌شود' });
   });
 
-  const backingOff = backoff?.until && new Date(backoff.until) > new Date();
   return (
     <div className="card section">
       <h2>زمان‌بندی همگام‌سازی</h2>
@@ -77,44 +76,68 @@ export default function ScheduleCard({ worker, backoff }) {
         <div className="k">وضعیت<small>پنجره‌ی فعلی: {WINDOW_LABEL[worker?.window] ?? '—'}</small></div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {backingOff
-            ? <span className="badge b-bad">عقب‌نشینی تا {at(backoff.until)}</span>
+            ? <span className="badge b-bad">عقب‌نشینی تا {at(backoff.until)} (مرحله‌ی {fa(backoff.level ?? 1)})</span>
             : paused ? <span className="badge b-warn">موقتاً متوقف</span> : <span className="badge b-ok">فعال</span>}
           <button className="btn btn-sm" type="button"
             onClick={() => setConfirm(paused
-              ? { title: 'ادامه‌ی زمان‌بندی', text: 'اجراهای خودکار طبق پنجره‌ها دوباره شروع می‌شوند.', run: () => saveSchedule('paused', false) }
-              : { title: 'توقف موقت زمان‌بندی', text: 'تا «ادامه» هیچ اجرای خودکاری انجام نمی‌شود. «اجرای دستی» همچنان کار می‌کند.', run: () => saveSchedule('paused', true) })}>
+              ? { title: 'ادامه‌ی زمان‌بندی', text: 'اجراهای خودکار طبق پنجره‌ها دوباره شروع می‌شوند.', run: () => savePaused(false) }
+              : { title: 'توقف موقت زمان‌بندی', text: 'تا «ادامه» هیچ اجرای خودکاری انجام نمی‌شود. «اجرای دستی» همچنان کار می‌کند.', run: () => savePaused(true) })}>
             {paused ? '▶ ادامه…' : '⏸ توقف موقت…'}
           </button>
         </div>
       </div>
-      <div className="kv">
-        <div className="k">اجرای بعدی</div>
-        <div className="sub tnum" style={{ textAlign: 'left' }}>
-          {Object.entries(TASK_LABEL).map(([t, l]) => <div key={t}>{l}: {at(worker?.next_run_at?.[t])}</div>)}
-        </div>
+
+      <div className="table-wrap" style={{ margin: '6px 0 12px' }}>
+        <table>
+          <thead><tr><th>وظیفه</th><th>اجرای قبلی</th><th>اجرای بعدی</th></tr></thead>
+          <tbody>
+            {TASKS.map((t) => (
+              <tr key={t}>
+                <td>{TASK_FA[t]}</td>
+                <td className="tnum">{at(runs?.[t]?.last_run_at)}{runs?.[t]?.last_status ? ` · ${STATUS_FA[runs[t].last_status] ?? runs[t].last_status}` : ''}</td>
+                <td className="tnum">{at(runs?.[t]?.next_run_at ?? worker?.next_run_at?.[t])}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {FIELDS.map((f) => (
-        <div className="kv" key={f.key}>
-          <div className="k">{f.label}<small>{f.hint} · فعلاً هر {minutesText(current[f.key])}</small></div>
-          <div className="chip-add" style={{ alignItems: 'center' }}>
-            <input className="input tnum" dir="ltr" value={draft[f.key]} aria-label={f.label}
-              onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} />
-            <span>{f.unit}</span>
-            <button className="btn btn-sm" type="button" onClick={() => askInterval(f)}>اعمال…</button>
-          </div>
-        </div>
-      ))}
+      <h3 style={{ margin: '8px 0' }}>پنجره‌ها</h3>
+      <div className="sub" style={{ marginBottom: 8 }}>شب = بقیه‌ی ساعت‌ها؛ همیشه خواب است و حذف نمی‌شود. پنجره‌ها به ترتیب روز ← عصر ← شب، بدون هم‌پوشانی و بدون فاصله.</div>
+      <div className="chip-add" style={{ alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
+        <span>روز از</span>
+        <input className="input tnum" dir="ltr" style={{ width: 80 }} aria-label="شروع روز" value={timeDraft.day_start} onChange={(e) => setTimeDraft({ ...timeDraft, day_start: e.target.value })} />
+        <span>تا</span>
+        <input className="input tnum" dir="ltr" style={{ width: 80 }} aria-label="پایان روز / شروع عصر" value={timeDraft.evening_start} onChange={(e) => setTimeDraft({ ...timeDraft, evening_start: e.target.value })} />
+        <span>· عصر تا</span>
+        <input className="input tnum" dir="ltr" style={{ width: 80 }} aria-label="پایان عصر / شروع شب" value={timeDraft.night_start} onChange={(e) => setTimeDraft({ ...timeDraft, night_start: e.target.value })} />
+        <span className="sub">· شب از {timeDraft.night_start} تا {timeDraft.day_start} (خواب)</span>
+        <button className="btn btn-sm" type="button" onClick={askWindows}>اعمال…</button>
+      </div>
 
-      {[['day_start', 'شروع روز'], ['evening_start', 'شروع عصر'], ['night_start', 'شروع خواب شبانه']].map(([key, label]) => (
-        <div className="kv" key={key}>
-          <div className="k">{label}<small>{key === 'night_start' ? `از این ساعت تا شروع روز، ربات خواب است` : 'ساعت:دقیقه'}</small></div>
-          <div className="chip-add" style={{ alignItems: 'center' }}>
-            <input className="input tnum" dir="ltr" value={draft[key]} aria-label={label} onChange={(e) => setDraft({ ...draft, [key]: e.target.value })} />
-            <button className="btn btn-sm" type="button" onClick={() => askTime(key, label)}>اعمال…</button>
-          </div>
-        </div>
-      ))}
+      <h3 style={{ margin: '14px 0 8px' }}>فاصله‌ی پایه (دقیقه)</h3>
+      <div className="banner warn" style={{ marginBottom: 8 }}>{HELP_FA}</div>
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>وظیفه</th>{WINDOWS.map(([w, l]) => <th key={w}>{l}</th>)}<th>حداقل</th></tr></thead>
+          <tbody>
+            {TASKS.map((t) => (
+              <tr key={t}>
+                <td>{TASK_FA[t]}</td>
+                {WINDOWS.map(([w, l]) => (
+                  <td key={w}>
+                    <input className="input tnum" dir="ltr" style={{ width: 90 }} aria-label={`${TASK_FA[t]} در ${l} (دقیقه)`}
+                      value={minDraft[`${w}_${t}_minutes`]} onChange={(e) => setMinDraft({ ...minDraft, [`${w}_${t}_minutes`]: e.target.value })} />
+                    <div className="sub">فعلاً {minutesText(minutes[w][t])}</div>
+                  </td>
+                ))}
+                <td className="sub tnum">{minimums?.[t] != null ? `${fa(minimums[t])} دقیقه` : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ marginTop: 10 }}><button className="btn btn-sm" type="button" onClick={askIntervals}>اعمال فاصله‌ها…</button></div>
 
       {confirm && (
         <div className="modal-bg" role="dialog" aria-modal="true" aria-labelledby="schedule-confirm-title">

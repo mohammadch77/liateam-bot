@@ -1,6 +1,7 @@
 'use client';
 import { useState, useTransition } from 'react';
-import { saveSchedule } from '../settings/actions';
+import { saveIntervals } from '../settings/actions';
+import { HELP_FA } from '@/lib/scheduleRules.mjs';
 
 const toLatin = (s) => String(s).replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
 const fa = (v) => new Intl.NumberFormat('fa-IR', { useGrouping: false }).format(v);
@@ -13,19 +14,19 @@ export default function BannerInterval({ minutes }) {
   const [busy, start] = useTransition();
   const ask = () => {
     const n = Math.round(Number(toLatin(value).trim()));
-    if (!(n >= 10 && n <= 1440)) return setMsg({ bad: true, text: 'بین ۱۰ تا ۱۴۴۰ دقیقه' });
+    if (!Number.isInteger(n)) return setMsg({ bad: true, text: 'یک عدد صحیح (دقیقه) بنویسید' });
     if (n === minutes) return setMsg({ text: 'تغییری نکرده است' });
     setConfirm(n);
   };
   const doIt = () => start(async () => {
-    const r = await saveSchedule('hero_minutes', confirm);
+    const r = await saveIntervals({ day_hero_minutes: confirm, evening_hero_minutes: confirm });
     setConfirm(null);
     setMsg(r.error ? { bad: true, text: r.error } : { text: 'اعمال شد؛ در تنظیمات و ربات‌ها هم همین دیده می‌شود' });
   });
   return (
     <div className="card section">
       <div className="kv" style={{ borderBottom: 0 }}>
-        <div className="k">فاصله‌ی بررسی بنرها<small>روز و عصر، هر چند دقیقه (±۲۰٪ تصادفی) · شب‌ها بررسی نمی‌شود</small></div>
+        <div className="k">فاصله‌ی بررسی بنرها<small>روز و عصر، هر چند دقیقه (±۲۰٪ تصادفی) · شب‌ها بررسی نمی‌شود · {HELP_FA} · جداگانه برای روز و عصر: تنظیمات ← زمان‌بندی</small></div>
         <div className="chip-add" style={{ alignItems: 'center' }}>
           <input className="input tnum" dir="ltr" value={value} aria-label="فاصله‌ی بررسی بنرها" onChange={(e) => setValue(e.target.value)} />
           <span>دقیقه</span>

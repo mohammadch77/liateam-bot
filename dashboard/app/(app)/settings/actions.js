@@ -3,13 +3,13 @@ import { revalidatePath } from 'next/cache';
 import { requireUser } from '@/lib/auth';
 import { randomInt, createHash } from 'node:crypto';
 import { tx } from '@/lib/db';
+import { checkInterval, checkWindows, intervalKey, minimums } from '@/lib/scheduleRules.mjs';
 
 // Same rules as SETTING_KEYS in the bot (src/db.mjs); the bot ignores anything invalid anyway.
 const VALID = {
   excludedCategories: (v) => Array.isArray(v) && v.length <= 500 && v.every((x) => Number.isInteger(x) && x > 0),
   sellableOverrides: (v) => Array.isArray(v) && v.length <= 2000 && v.every((x) => Number.isInteger(x) && x > 0),
   priceJumpLimit: (v) => typeof v === 'number' && v > 0 && v <= 10,
-  intervalHours: (v) => typeof v === 'number' && v >= 0.25 && v <= 168,
   telegramEnabled: (v) => typeof v === 'boolean',
   baleEnabled: (v) => typeof v === 'boolean',
   ordersDryRun: (v) => typeof v === 'boolean',
@@ -86,32 +86,72 @@ export async function removeChat(id) {
   return { ok: true };
 }
 
-// Schedule (sync_settings): the same keys and limits as the bot (src/scheduler.mjs validScheduleValue); the bots'
-// «⏱ زمان‌بندی» edits the same rows, so the panel and the bots always show the same schedule.
-const SCHEDULE_VALID = {
-  paused: (v) => typeof v === 'boolean',
-  day_start: (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v),
-  evening_start: (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v),
-  night_start: (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v),
-  day_catalog_minutes: (v) => Number.isInteger(v) && v >= 10 && v <= 1440,
-  evening_catalog_minutes: (v) => Number.isInteger(v) && v >= 10 && v <= 1440,
-  hero_minutes: (v) => Number.isInteger(v) && v >= 10 && v <= 1440,
-  details_minutes: (v) => Number.isInteger(v) && v >= 10 && v <= 1440,
-};
+// Schedule (sync_settings) — the same rules as the bot (lib/scheduleRules.mjs = the bot's src/schedule-rules.mjs):
+// minimum intervals from env, windows round the clock with the night kept. The bots' «⏱ زمان‌بندی» edits the same
+// rows, so the panel and the bots always show the same schedule. Every change: settings_audit (who, what, before, after).
+const TIMES = ['day_start', 'evening_start', 'night_start'];
 
-export async function saveSchedule(key, value) {
-  const user = await requireUser();
-  if (!SCHEDULE_VALID[key]?.(value)) return { error: 'مقدار نامعتبر است' };
+/** Writes rows + their audit lines in one transaction; `group` = one audit line for all keys (the windows). */
+async function writeSchedule(user, changes, group = null) {
   await tx(async (c) => {
-    const { rows } = await c.query('SELECT value FROM sync_settings WHERE key = $1 FOR UPDATE', [key]);
-    await c.query(
-      `INSERT INTO sync_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
-      [key, JSON.stringify(value)],
-    );
-    await c.query('INSERT INTO settings_audit (actor, action, old_value, new_value) VALUES ($1,$2,$3,$4)',
-      [user, `schedule:${key}`, rows[0] ? JSON.stringify(rows[0].value) : null, JSON.stringify(value)]);
+    const keys = Object.keys(changes);
+    const { rows } = await c.query('SELECT key, value FROM sync_settings WHERE key = ANY ($1) FOR UPDATE', [keys]);
+    const old = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+    for (const [key, value] of Object.entries(changes)) {
+      await c.query(
+        `INSERT INTO sync_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+        [key, JSON.stringify(value)],
+      );
+    }
+    if (group) {
+      const before = keys.some((k) => k in old) ? Object.fromEntries(keys.map((k) => [k, old[k] ?? null])) : null;
+      await c.query('INSERT INTO settings_audit (actor, action, old_value, new_value) VALUES ($1,$2,$3,$4)',
+        [user, group, before == null ? null : JSON.stringify(before), JSON.stringify(changes)]);
+    } else {
+      for (const [key, value] of Object.entries(changes)) {
+        await c.query('INSERT INTO settings_audit (actor, action, old_value, new_value) VALUES ($1,$2,$3,$4)',
+          [user, `schedule:${key}`, key in old ? JSON.stringify(old[key]) : null, JSON.stringify(value)]);
+      }
+    }
   });
   revalidatePath('/settings');
   revalidatePath('/banners');
+}
+
+export async function savePaused(paused) {
+  const user = await requireUser();
+  if (typeof paused !== 'boolean') return { error: 'مقدار نامعتبر است' };
+  await writeSchedule(user, { paused });
   return { ok: true };
+}
+
+/** { day_start, evening_start, night_start } together: day → evening → night round the clock, night kept. */
+export async function saveWindows(times) {
+  const user = await requireUser();
+  const next = Object.fromEntries(TIMES.map((k) => [k, typeof times?.[k] === 'string' ? times[k].trim() : times?.[k]]));
+  const error = checkWindows(next);
+  if (error) return { error };
+  await writeSchedule(user, next, 'schedule:windows');
+  return { ok: true };
+}
+
+/** { day_catalog_minutes: 60, evening_hero_minutes: 30, … } — each at least its task's minimum (env). */
+export async function saveIntervals(values) {
+  const user = await requireUser();
+  const entries = Object.entries(values ?? {});
+  if (!entries.length) return { error: 'تغییری نیست' };
+  for (const [key, minutes] of entries) {
+    const iv = intervalKey(key);
+    if (!iv) return { error: 'تنظیم ناشناخته' };
+    const error = checkInterval(iv[1], minutes, process.env);
+    if (error) return { error };
+  }
+  await writeSchedule(user, Object.fromEntries(entries));
+  return { ok: true };
+}
+
+/** The minimums in effect (env), for the form's hints. */
+export async function scheduleMinimums() {
+  await requireUser();
+  return minimums(process.env);
 }

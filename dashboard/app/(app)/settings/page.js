@@ -5,22 +5,25 @@ import DbError from '../../components/DbError';
 import SettingsForm from './SettingsForm';
 import MessengerCard from './MessengerCard';
 import ScheduleCard from './ScheduleCard';
+import { minimums } from '@/lib/scheduleRules.mjs';
 
 export const dynamic = 'force-dynamic';
 
 // config.mjs defaults, used only until the bot reports its effective config.
 const DEFAULTS = { excludedCategories: [199, 124], sellableOverrides: [], priceJumpLimit: 0.5 };
 const LABEL = { excludedCategories: 'دسته‌های مستثنا', sellableOverrides: 'استثناهای قابل‌فروش', priceJumpLimit: 'آستانه‌ی جهش قیمت',
-  intervalHours: 'فاصله‌ی اجرا (ساعت)', manual_run: 'اجرای دستی', telegramEnabled: 'ربات تلگرام', baleEnabled: 'ربات بله',
+  manual_run: 'اجرای دستی', telegramEnabled: 'ربات تلگرام', baleEnabled: 'ربات بله',
   messenger_invite: 'ساخت کد دعوت', messenger_role: 'تغییر نقش کاربر ربات', messenger_remove: 'حذف کاربر ربات',
-  'schedule:paused': 'توقف موقت زمان‌بندی', schedulePaused: 'توقف موقت زمان‌بندی', 'schedule:day_start': 'شروع روز', 'schedule:evening_start': 'شروع عصر',
-  'schedule:night_start': 'شروع خواب شبانه', 'schedule:day_catalog_minutes': 'قیمت و موجودی — روز', 'schedule:evening_catalog_minutes': 'قیمت و موجودی — عصر',
-  'schedule:hero_minutes': 'فاصله‌ی بنرها', 'schedule:details_minutes': 'فاصله‌ی محتوای سنگین' };
+  'schedule:paused': 'توقف موقت زمان‌بندی', schedulePaused: 'توقف موقت زمان‌بندی', 'schedule:windows': 'پنجره‌های زمانی',
+  'schedule:day_catalog_minutes': 'قیمت و موجودی — روز', 'schedule:evening_catalog_minutes': 'قیمت و موجودی — عصر',
+  'schedule:day_hero_minutes': 'بنرها — روز', 'schedule:evening_hero_minutes': 'بنرها — عصر',
+  'schedule:day_details_minutes': 'محتوای سنگین — روز', 'schedule:evening_details_minutes': 'محتوای سنگین — عصر' };
 const minutesText = (m) => (m % 60 === 0 ? `${m / 60} ساعت` : `${m} دقیقه`);
-const show = (v, key) => (v == null ? '—' : typeof v === 'boolean' ? (v ? 'روشن' : 'خاموش') : key === 'messenger_invite' ? (v === 'admin' ? 'مدیر' : 'بیننده') : Array.isArray(v) ? (v.length ? v.join('، ') : 'خالی') : key === 'priceJumpLimit' ? `${Math.round(v * 100)}٪` : key === 'intervalHours' ? `${v} ساعت` : /^schedule:.*_minutes$/.test(key) ? minutesText(v) : String(v));
+const show = (v, key) => (v == null ? '—' : typeof v === 'boolean' ? (v ? 'روشن' : 'خاموش') : key === 'messenger_invite' ? (v === 'admin' ? 'مدیر' : 'بیننده') : Array.isArray(v) ? (v.length ? v.join('، ') : 'خالی') : key === 'priceJumpLimit' ? `${Math.round(v * 100)}٪` : /^schedule:.*_minutes$/.test(key) ? minutesText(v)
+  : key === 'schedule:windows' && typeof v === 'object' ? `روز ${v.day_start ?? '—'}، عصر ${v.evening_start ?? '—'}، خواب ${v.night_start ?? '—'}` : String(v));
 
 export default async function SettingsPage() {
-  let status, saved, categories, audit, chats, [pending] = [];
+  let status, saved, categories, audit, chats, schedule, [pending] = [];
   try {
     [status, saved, categories, audit, [pending]] = await Promise.all([
       getStatus(), getSettings(), getCategories(),
@@ -28,6 +31,7 @@ export default async function SettingsPage() {
       q('SELECT requested_at, requested_by FROM run_requests WHERE picked_at IS NULL ORDER BY id LIMIT 1'),
     ]);
     chats = await q('SELECT id, platform, display_name, role, notify, kinds, last_seen_at FROM messenger_chats ORDER BY linked_at').catch(() => []);
+    schedule = await q('SELECT task, last_run_at, last_status, next_run_at FROM sync_schedule').catch(() => []);
   } catch (e) {
     return <DbError error={e} />;
   }
@@ -47,7 +51,9 @@ export default async function SettingsPage() {
       <SettingsForm values={values} categories={categories} pending={pending ? { at: dateTime(pending.requested_at), by: pending.requested_by } : null}
         account={{ username: status.credentials?.username_masked ?? null, passwordSet: status.credentials?.password_set ?? null }} />
 
-      <ScheduleCard worker={status.worker ?? null} backoff={status.backoff ?? null} />
+      <ScheduleCard worker={status.worker ?? null} backoff={status.backoff ?? null} minimums={minimums(process.env)}
+        runs={Object.fromEntries(schedule.map((r) => [r.task, { last_run_at: r.last_run_at?.toISOString() ?? null, last_status: r.last_status,
+          next_run_at: r.next_run_at?.toISOString() ?? null }]))} />
 
       <MessengerCard
         status={{ telegram: status.messenger_telegram ?? null, bale: status.messenger_bale ?? null }}

@@ -9,6 +9,8 @@
 // plus a random 1–15 minutes. Times are Asia/Tehran wall-clock (no DST since 2022, but computed, not assumed).
 // Settings: env (defaults below) overlaid by the sync_settings table (scheduleSettings in db.mjs).
 
+import { checkInterval, checkWindows, intervalKey } from './schedule-rules.mjs';
+
 export const TASKS = ['catalog', 'hero', 'details'];
 
 export const DEFAULT_SCHEDULE = {
@@ -116,58 +118,48 @@ export function simulate(from, hours, cfg = DEFAULT_SCHEDULE, rng = Math.random)
 }
 
 /**
- * The keys people edit (dashboard «زمان‌بندی», the bots' «⏱ زمان‌بندی»), with their limits — the same rules in
- * both places, so a value either applies or is refused, never half-applied:
- *   paused                                  true / false
- *   day_start, evening_start, night_start   "HH:MM" — the three windows: day = day_start→evening_start,
- *                                           evening = evening_start→night_start, night (asleep) = night_start→day_start
- *   day_catalog_minutes, evening_catalog_minutes   prices/stock
- *   hero_minutes, details_minutes           banners / heavy content, both windows
- *   day_|evening_ + catalog|hero|details _minutes   one window, one task
- */
-export const SCHEDULE_LIMITS = { minMinutes: 10, maxMinutes: 1440 };
-const minutesOk = (v) => Number.isFinite(Number(v)) && Number(v) >= SCHEDULE_LIMITS.minMinutes && Number(v) <= SCHEDULE_LIMITS.maxMinutes;
-export function validScheduleValue(key, value) {
-  if (key === 'paused') return typeof value === 'boolean';
-  if (/^(day|evening|night)_start$/.test(key)) return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
-  if (/^((day|evening)_)?(catalog|hero|details)_minutes$/.test(key)) return minutesOk(value);
-  return false;
-}
-
-/**
- * Settings: DEFAULT_SCHEDULE ← env ← sync_settings rows ({key: value}). Applied in a fixed order (whole windows,
- * then window starts, then «both windows» intervals, then single-window intervals) so the result does not depend on
- * the order of the rows. Unknown keys and bad values are ignored (and reported), so a typo never stops the bot.
+ * Settings: DEFAULT_SCHEDULE ← env ← sync_settings rows ({key: value}). The keys people edit (dashboard «زمان‌بندی»,
+ * the bots' «⏱ زمان‌بندی») follow schedule-rules.mjs, the same rules the dashboard and the bots check before saving:
+ *   paused                                       true / false
+ *   day_start, evening_start, night_start        "HH:MM" — applied only together and only if they make
+ *                                                day → evening → night round the clock (checkWindows)
+ *   day_|evening_ + catalog|hero|details _minutes   one window, one task, at least the task's minimum
+ * Unknown keys and values that break a rule are ignored (and reported), so a typo never stops the bot.
  */
 export function resolveSchedule(env = {}, rows = {}) {
   const cfg = structuredClone(DEFAULT_SCHEDULE);
   const ignored = [];
   const src = { ...envSettings(env), ...rows };
-  const rank = (k) => (k === 'windows' ? 0 : /_start$/.test(k) ? 1 : /^(catalog|hero|details)_minutes$/.test(k) ? 2 : 3);
   const win = (name) => cfg.windows.find((w) => w.name === name);
-  for (const [key, value] of Object.entries(src).sort(([a], [b]) => rank(a) - rank(b))) {
+  // whole windows (env / advanced) first, then the three start times together, then everything else
+  if ('windows' in src) {
     try {
-      if (key === 'paused') cfg.paused = value === true || value === 'true' || value === '1';
-      else if (key === 'jitter' && Number(value) >= 0 && Number(value) <= 0.5) cfg.jitter = Number(value);
-      else if (key === 'wake_jitter_minutes' && Number(value) >= 1 && Number(value) <= 60) cfg.wakeJitterMinutes = Number(value);
-      else if (key === 'windows' && Array.isArray(value) && value.length) {
-        value.forEach((w) => { hhmm(w.from); hhmm(w.to); });
-        cfg.windows = value.map((w) => ({ name: String(w.name), from: w.from, to: w.to, sleep: !!w.sleep, minutes: w.minutes ?? {} }));
-      } else if (/^(day|evening|night)_start$/.test(key) && validScheduleValue(key, value) && win('day') && win('evening') && win('night')) {
-        const name = key.split('_')[0];
-        const prevOf = { day: 'night', evening: 'day', night: 'evening' }[name];
-        win(name).from = value;
-        win(prevOf).to = value;
-      } else if (/^(catalog|hero|details)_minutes$/.test(key) && minutesOk(value)) {
-        const task = key.split('_')[0];
-        for (const w of cfg.windows) if (!w.sleep) w.minutes[task] = Number(value);
-      } else if (/^(day|evening)_(catalog|hero|details)_minutes$/.test(key) && minutesOk(value) && win(key.split('_')[0])) {
-        const [name, task] = key.split('_');
-        win(name).minutes[task] = Number(value);
-      } else ignored.push(key);
+      const value = src.windows;
+      if (!Array.isArray(value) || !value.length) throw new Error();
+      value.forEach((w) => { hhmm(w.from); hhmm(w.to); });
+      cfg.windows = value.map((w) => ({ name: String(w.name), from: w.from, to: w.to, sleep: !!w.sleep, minutes: w.minutes ?? {} }));
     } catch {
-      ignored.push(key);
+      ignored.push('windows');
     }
+  }
+  const starts = ['day_start', 'evening_start', 'night_start'].filter((k) => k in src);
+  if (starts.length) {
+    const times = { day_start: win('day')?.from, evening_start: win('evening')?.from, night_start: win('night')?.from };
+    for (const k of starts) times[k] = src[k];
+    if (win('day') && win('evening') && win('night') && checkWindows(times) === null) {
+      win('day').from = times.day_start; win('day').to = times.evening_start;
+      win('evening').from = times.evening_start; win('evening').to = times.night_start;
+      win('night').from = times.night_start; win('night').to = times.day_start;
+    } else ignored.push(...starts);
+  }
+  for (const [key, value] of Object.entries(src)) {
+    if (key === 'windows' || starts.includes(key)) continue;
+    const iv = intervalKey(key);
+    if (key === 'paused') cfg.paused = value === true || value === 'true' || value === '1';
+    else if (key === 'jitter' && Number(value) >= 0 && Number(value) <= 0.5) cfg.jitter = Number(value);
+    else if (key === 'wake_jitter_minutes' && Number(value) >= 1 && Number(value) <= 60) cfg.wakeJitterMinutes = Number(value);
+    else if (iv && win(iv[0]) && checkInterval(iv[1], Number(value), env) === null) win(iv[0]).minutes[iv[1]] = Number(value);
+    else ignored.push(key);
   }
   return { cfg, ignored };
 }

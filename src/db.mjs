@@ -68,6 +68,14 @@ CREATE TABLE IF NOT EXISTS sync_settings (
   value      JSONB NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- One-time cleanups (idempotent): the old fixed interval is replaced by the window schedule; «both windows» intervals
+-- (catalog_minutes, hero_minutes, details_minutes) become one row per window, which is what the panel and the bots edit.
+INSERT INTO sync_settings (key, value)
+  SELECT w.name || '_' || s.key, s.value FROM sync_settings s CROSS JOIN (VALUES ('day'), ('evening')) AS w(name)
+   WHERE s.key IN ('catalog_minutes', 'hero_minutes', 'details_minutes')
+ON CONFLICT (key) DO NOTHING;
+DELETE FROM sync_settings WHERE key IN ('catalog_minutes', 'hero_minutes', 'details_minutes');
+DELETE FROM settings WHERE key = 'intervalHours';
 
 -- Supplier category tree. name is NULL for codes seen on products but never named by the supplier.
 CREATE TABLE IF NOT EXISTS categories (
@@ -232,7 +240,7 @@ CREATE TABLE IF NOT EXISTS sync_alerts (
 );
 -- Runtime settings edited from the dashboard; missing keys fall back to src/config.mjs.
 CREATE TABLE IF NOT EXISTS settings (
-  key        TEXT PRIMARY KEY,               -- excludedCategories | sellableOverrides | priceJumpLimit | intervalHours
+  key        TEXT PRIMARY KEY,               -- excludedCategories | sellableOverrides | priceJumpLimit | …
   value      JSONB NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -664,7 +672,6 @@ export const SETTING_KEYS = {
   excludedCategories: (v) => Array.isArray(v) && v.every(Number.isInteger),
   sellableOverrides: (v) => Array.isArray(v) && v.every(Number.isInteger),
   priceJumpLimit: (v) => typeof v === 'number' && v > 0 && v <= 10,
-  intervalHours: (v) => typeof v === 'number' && v >= 0.25 && v <= 168,
   telegramEnabled: (v) => typeof v === 'boolean',
   baleEnabled: (v) => typeof v === 'boolean',
   // Orders: true = every step runs except the final POST /order/orders (default until switched off).

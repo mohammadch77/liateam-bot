@@ -77,7 +77,7 @@ function sessionInfo() {
 
 // Settings in effect (config.mjs defaults overlaid with the settings table), shown in the dashboard.
 const effectiveConfig = () => ({ excludedCategories: config.excludedCategories, sellableOverrides: config.sellableOverrides,
-  priceJumpLimit: config.priceJumpLimit, intervalHours: config.intervalHours });
+  priceJumpLimit: config.priceJumpLimit });
 
 // Only a masked username leaves the bot (e.g. 0912••••47); the password is reported as set / not set.
 const maskUser = (u) => (!u ? null : u.length >= 7 ? `${u.slice(0, 4)}••••${u.slice(-2)}` : '••••');

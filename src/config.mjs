@@ -36,8 +36,6 @@ export const config = {
   excludedCategories: [199, 124],
   // Product codes that stay sellable even if they sit in an excluded category.
   sellableOverrides: [],
-  // Legacy fixed interval (before the window schedule in scheduler.mjs); kept only for the dashboard/bots display.
-  intervalHours: Number(env.SYNC_INTERVAL_HOURS || 4),
   // Messenger bots are switched on/off from the dashboard; tokens live only in .env.
   telegramEnabled: false,
   baleEnabled: false,

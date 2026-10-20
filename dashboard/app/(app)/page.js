@@ -64,9 +64,9 @@ export default async function Overview() {
           <div className="stat-foot">{h.last ? `${ago(h.last.started_at)} · مدت ${duration(h.last.duration_ms)}` : '—'}</div>
         </div>
         <div className="card">
-          <div className="stat-label">اجرای بعدی</div>
+          <div className="stat-label">به‌روزرسانی بعدی قیمت‌ها</div>
           <div className="stat-value">{cd ? `${cd} ساعت دیگر` : h.nextRun ? 'هم‌اکنون' : '—'}</div>
-          <div className="stat-foot">زمان‌بندی هر {num(h.intervalH)} ساعت{!h.workerAlive && ' · worker خاموش (تخمینی)'}</div>
+          <div className="stat-foot">{h.paused ? 'زمان‌بندی موقتاً متوقف' : h.window === 'night' ? 'شب: خواب تا صبح' : `هر ~${num(h.intervalMin)} دقیقه (${h.window === 'evening' ? 'عصر' : 'روز'})`}{!h.workerAlive && ' · worker خاموش'}</div>
         </div>
         <div className="card">
           <div className="stat-label">اعتبار سشن</div>

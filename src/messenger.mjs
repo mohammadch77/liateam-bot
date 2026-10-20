@@ -7,7 +7,8 @@ import { config } from './config.mjs';
 import { log } from './logger.mjs';
 import { openPool, applySettings, setStatus, loadSchedule } from './db.mjs';
 import { createClient, PLATFORMS } from './messenger-api.mjs';
-import { clock, resolveSchedule, validScheduleValue, windowAt } from './scheduler.mjs';
+import { clock, resolveSchedule, windowAt } from './scheduler.mjs';
+import { checkInterval, HELP_FA, minimums } from './schedule-rules.mjs';
 import * as T from './messenger-text.mjs';
 import { groupOf, summarize } from './change-events.mjs';
 
@@ -264,17 +265,19 @@ async function runConfirm(client, chat) {
 }
 
 // Schedule settings the bots can change (the dashboard edits the same sync_settings rows: always in sync).
+// Each edit writes per-window rows (banners and heavy content: both windows), never below the task's minimum.
 const SCHEDULE_EDITS = {
-  day_catalog_minutes: { label: 'قیمت و موجودی در روز', presets: [30, 45, 60, 90, 120, 180] },
-  evening_catalog_minutes: { label: 'قیمت و موجودی در عصر', presets: [60, 120, 180, 240, 360] },
-  hero_minutes: { label: 'بنرهای صفحه‌ی اصلی', presets: [15, 30, 60, 120, 240] },
-  details_minutes: { label: 'محتوای سنگین (توضیحات، عکس، نظرات)', presets: [60, 120, 180, 360, 720] },
+  day_catalog: { label: 'قیمت و موجودی در روز', task: 'catalog', keys: ['day_catalog_minutes'], presets: [30, 45, 60, 90, 120, 180] },
+  evening_catalog: { label: 'قیمت و موجودی در عصر', task: 'catalog', keys: ['evening_catalog_minutes'], presets: [60, 120, 180, 240, 360] },
+  hero: { label: 'بنرهای صفحه‌ی اصلی', task: 'hero', keys: ['day_hero_minutes', 'evening_hero_minutes'], presets: [15, 30, 60, 120, 240] },
+  details: { label: 'محتوای سنگین (توضیحات، عکس، نظرات)', task: 'details', keys: ['day_details_minutes', 'evening_details_minutes'], presets: [60, 120, 180, 360, 720] },
 };
+const presetsOf = (e) => e.presets.filter((m) => m >= minimums(process.env)[e.task]);
 const minutesText = (m) => (m % 60 === 0 ? `${T.num(m / 60)} ساعت` : `${T.num(m)} دقیقه`);
 const effectiveMinutes = (cfg, key) => {
   const day = cfg.windows.find((w) => w.name === 'day')?.minutes ?? {};
   const evening = cfg.windows.find((w) => w.name === 'evening')?.minutes ?? {};
-  return { day_catalog_minutes: day.catalog, evening_catalog_minutes: evening.catalog, hero_minutes: day.hero, details_minutes: day.details }[key];
+  return { day_catalog: day.catalog, evening_catalog: evening.catalog, hero: day.hero, details: day.details }[key];
 };
 
 async function intervalMenu(client, chat, messageId) {
@@ -287,7 +290,7 @@ async function intervalMenu(client, chat, messageId) {
     [`⏱ زمان‌بندی ربات (به وقت تهران، هر فاصله ±${T.num(Math.round(cfg.jitter * 100))}٪ تصادفی)`, T.LINE,
       ...cfg.windows.map(fmt), T.LINE,
       `الان: ${clock(now, cfg)} · ${windowAt(now, cfg).sleep ? 'خواب' : 'فعال'}${cfg.paused ? ' · ⏸ موقتاً متوقف' : ''}`,
-      isAdmin(chat) ? 'برای تغییر یک فاصله روی آن بزنید. ساعت شروع روز/عصر/خواب از پنل مدیریت تنظیم می‌شود؛ هر دو یکی‌اند.' : ''].join('\n'),
+      isAdmin(chat) ? `برای تغییر یک فاصله روی آن بزنید. ساعت پنجره‌ها و فاصله‌ی هر پنجره جداگانه از پنل مدیریت؛ هر دو یکی‌اند.\n⚠️ ${HELP_FA}` : ''].join('\n'),
     inline([
       ...(isAdmin(chat) ? Object.keys(SCHEDULE_EDITS).map((k) => [edit(k)]) : []),
       ...(isAdmin(chat) ? [[cfg.paused ? { text: '▶️ ادامه‌ی زمان‌بندی', callback_data: 'ps:0' } : { text: '⏸ توقف موقت', callback_data: 'ps:1' }]] : []),
@@ -297,9 +300,10 @@ async function intervalMenu(client, chat, messageId) {
 async function scheduleEditMenu(client, chat, messageId, key) {
   const { cfg } = await loadSchedule(pool, resolveSchedule);
   const current = effectiveMinutes(cfg, key);
-  const { label, presets } = SCHEDULE_EDITS[key];
+  const { label } = SCHEDULE_EDITS[key];
+  const presets = presetsOf(SCHEDULE_EDITS[key]);
   return show(client, chat.chat_id, messageId,
-    `✏️ ${label}\nفعلاً: هر ~${minutesText(current)} (±${T.num(Math.round(cfg.jitter * 100))}٪ تصادفی)\n\nفاصله‌ی جدید را انتخاب کنید:`,
+    `✏️ ${label}\nفعلاً: هر ~${minutesText(current)} (±${T.num(Math.round(cfg.jitter * 100))}٪ تصادفی)\n⚠️ ${HELP_FA}\n\nفاصله‌ی جدید را انتخاب کنید:`,
     inline([presets.map((m) => ({ text: `${m === current ? '● ' : ''}${minutesText(m)}`, callback_data: `sv:${key}:${m}` })),
       [{ text: '→ بازگشت', callback_data: 'ivm' }]]));
 }
@@ -407,8 +411,9 @@ async function onCallback(client, cb) {
   if (cmd === 'sv') {
     const [, key, raw] = String(cb.data).split(':'); // sv:<key>:<minutes>
     const minutes = Number(raw);
-    if (!SCHEDULE_EDITS[key] || !SCHEDULE_EDITS[key].presets.includes(minutes) || !validScheduleValue(key, minutes)) return;
-    await saveSchedule(chat, key, minutes);
+    const e = SCHEDULE_EDITS[key];
+    if (!e || !presetsOf(e).includes(minutes) || checkInterval(e.task, minutes, process.env)) return;
+    for (const k of e.keys) await saveSchedule(chat, k, minutes);
     return done(`✅ ${SCHEDULE_EDITS[key].label}: از این به بعد هر ~${minutesText(minutes)} (±۲۰٪ تصادفی). در پنل مدیریت هم همین دیده می‌شود.`,
       [[{ text: '⏱ زمان‌بندی', callback_data: 'ivm' }]]);
   }
@@ -652,14 +657,7 @@ function actionText(a) {
     case 'schedule:day_start': return `شروع پنجره‌ی روز را ${o ? `از ${o} ` : ''}به ${n} تغییر داد`;
     case 'schedule:evening_start': return `شروع پنجره‌ی عصر را ${o ? `از ${o} ` : ''}به ${n} تغییر داد`;
     case 'schedule:night_start': return `شروع خواب شبانه را ${o ? `از ${o} ` : ''}به ${n} تغییر داد`;
-    case 'schedule:day_catalog_minutes':
-    case 'schedule:evening_catalog_minutes':
-    case 'schedule:hero_minutes':
-    case 'schedule:details_minutes': {
-      const label = SCHEDULE_EDITS[a.action.slice(9)].label;
-      return `فاصله‌ی «${label}» را ${o != null ? `از ${minutesText(o)} ` : ''}به ${minutesText(n)} تغییر داد`;
-    }
-    case 'intervalHours': return `فاصله‌ی اجرای خودکار را ${o != null ? `از هر ${T.num(o)} ساعت ` : ''}به هر ${T.num(n)} ساعت تغییر داد`;
+    case 'schedule:windows': return `پنجره‌ها را ${o ? `از روز ${o.day_start ?? '—'}، عصر ${o.evening_start ?? '—'}، خواب ${o.night_start ?? '—'} ` : ''}به روز ${n.day_start}، عصر ${n.evening_start}، خواب ${n.night_start} تغییر داد`;
     case 'manual_run': return 'یک اجرای دستی شروع کرد';
     case 'priceJumpLimit': return `آستانه‌ی جهش قیمت را ${o != null ? `از ${T.num(Math.round(o * 100))}٪ ` : ''}به ${T.num(Math.round(n * 100))}٪ تغییر داد`;
     case 'excludedCategories': return `دسته‌های کنارگذاشته را تغییر داد: ${listText(o)} ← ${listText(n)}`;
@@ -669,7 +667,14 @@ function actionText(a) {
     case 'messenger_invite': return `یک کد دعوت (${n === 'admin' ? 'مدیر' : 'بیننده'}) برای ربات‌ها ساخت`;
     case 'messenger_role': return `نقش یک کاربر ربات را تغییر داد: ${n}`;
     case 'messenger_remove': return `کاربر ${o} را از ربات‌ها حذف کرد`;
-    default: return `تنظیم «${a.action}» را تغییر داد`;
+    default: {
+      const iv = /^schedule:(day|evening)_(catalog|hero|details)_minutes$/.exec(a.action);
+      if (iv) {
+        const label = `${{ catalog: 'قیمت و موجودی', hero: 'بنرها', details: 'محتوای سنگین' }[iv[2]]} در ${iv[1] === 'day' ? 'روز' : 'عصر'}`;
+        return `فاصله‌ی «${label}» را ${o != null ? `از ${minutesText(o)} ` : ''}به ${minutesText(n)} تغییر داد`;
+      }
+      return `تنظیم «${a.action}» را تغییر داد`;
+    }
   }
 }
 
