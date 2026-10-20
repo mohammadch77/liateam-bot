@@ -1,13 +1,15 @@
 // Long-running scheduler for servers: every 30 s it looks at sync_schedule (scheduler.mjs windows: day / evening /
 // night) and starts src/sync.mjs with the tasks that are due (catalog, hero, details), one run at a time. Each run
 // stores its tasks' next times, so a restart keeps the pattern. Manual runs queued in run_requests (dashboard,
-// bots) run every task at once, ignoring the window; nothing runs while the schedule is paused (sync_settings).
+// bots) run every task at once, ignoring the window; nothing runs while the schedule is paused (sync_settings)
+// or while backing off after Liateam refused us (backoff.mjs).
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { config } from './config.mjs';
 import { log } from './logger.mjs';
 import { openDb, applySettings, setStatus, loadSchedule, scheduleRows, setNextRun } from './db.mjs';
 import { TASKS, dueTasks, resolveSchedule, windowAt } from './scheduler.mjs';
+import { inBackoff } from './backoff.mjs';
 
 const POLL_MS = 30_000;
 const syncScript = fileURLToPath(new URL('./sync.mjs', import.meta.url));
@@ -39,6 +41,13 @@ async function tick() {
     const window = windowAt(now, cfg);
     const next = Object.fromEntries(TASKS.map((t) => [t, rows[t]?.next_run_at?.toISOString?.() ?? null]));
     await setStatus(db, 'worker', { heartbeat: now.toISOString(), window: window.name, paused: cfg.paused, next_run_at: next });
+
+    // backing off (Liateam refused us): nothing runs, manual requests wait in the queue until it ends
+    const { rows: [bo] } = await db.query(`SELECT value FROM bot_status WHERE key = 'backoff'`);
+    if (inBackoff(bo?.value, now)) {
+      await setStatus(db, 'worker', { heartbeat: now.toISOString(), window: window.name, paused: cfg.paused, next_run_at: next, backoff_until: bo.value.until });
+      return;
+    }
 
     // never two runs closer than minGapMinutes, whoever asks; pending manual requests simply wait
     const { rows: [last] } = await db.query('SELECT max(started_at) AS at FROM sync_runs');

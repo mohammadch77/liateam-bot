@@ -7,6 +7,7 @@ import { normalize } from './normalize.mjs';
 import { parseCategories, parseOfficialTree } from './categories.mjs';
 import { AuthError } from './auth.mjs';
 import { parseProductDetails } from './product-details.mjs';
+import { DEFAULT_BACKOFF, isBlockedResponse } from './backoff.mjs';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Pause before every request: random between pauseMinMs and pauseMaxMs (default 1–3 s).
@@ -16,6 +17,27 @@ export const pause = () => sleep(config.pauseMinMs + Math.random() * (config.pau
  * Requests to Liateam in this process (one sync run). The listing pages always run and are counted first; product
  * pages and the home page are skipped once `maxRequestsPerRun` is used up (they continue next run).
  */
+export class BlockedError extends Error {}
+
+/**
+ * Every answer from Liateam in this run, in order (backoff.mjs folds it into the stored state at the end).
+ * `prior` = blocked answers in a row before this run. Reaching the threshold stops the run at once (BlockedError).
+ */
+export const responses = {
+  trail: [],
+  prior: 0,
+  threshold: Number(process.env.BACKOFF_THRESHOLD || DEFAULT_BACKOFF.threshold),
+  note(status, body, what) {
+    const blocked = isBlockedResponse(status, body);
+    this.trail.push({ blocked, reason: blocked ? `${what}: HTTP ${status}${status === 200 ? ' (challenge page)' : ''}` : null });
+    if (!blocked) return;
+    let run = 0;
+    for (let i = this.trail.length - 1; i >= 0 && this.trail[i].blocked; i--) run++;
+    if (run === this.trail.length) run += this.prior;
+    if (run >= this.threshold) throw new BlockedError(`لیاتیم ${run} بار پشت‌سرِ هم درخواست را رد کرد (${what}: HTTP ${status})`);
+  },
+};
+
 export const budget = {
   used: 0,
   count() { this.used++; },
@@ -63,12 +85,13 @@ export async function fetchAllProducts() {
       const res = await ctx.get(`/categories?page=${page}&_rsc`);
       const status = res.status();
       const location = res.headers().location ?? '';
+      const text = status === 200 ? await res.text() : '';
+      responses.note(status, text, `listing page ${page}`);
       if (status === 401 || status === 403 || (status >= 300 && status < 400 && /\/auth\//.test(location))) {
         throw new AuthError(`سشن رد شد در صفحه‌ی ${page} (HTTP ${status}${location ? ' -> ' + location : ''})`);
       }
       if (status !== 200) throw new Error(`HTTP ${status} در /categories?page=${page}${location ? ' -> ' + location : ''}`);
 
-      const text = await res.text();
       const parsed = parseCategoriesPage(text, page);
       // The category tree rides along in the same payload; no extra request to the supplier.
       tree ??= parseOfficialTree(text);
@@ -135,8 +158,9 @@ export async function fetchProductPages(codes, onPage) {
       await pause();
       try {
         const res = await ctx.get(`/products/${code}?_rsc`);
+        const text = res.status() === 200 ? await res.text() : '';
+        responses.note(res.status(), text, `product page ${code}`);
         if (res.status() !== 200) throw new Error(`HTTP ${res.status()}`);
-        const text = await res.text();
         const own = extractAll(text, 'pricing').filter((x) => x && (x.code === code || x.product_code === code));
         const variants = extractAll(text, 'variant_products').filter(Array.isArray).flat();
         out.set(code, {
@@ -148,7 +172,8 @@ export async function fetchProductPages(codes, onPage) {
           } : null,
           details: parseProductDetails(text, code),
         });
-      } catch {
+      } catch (e) {
+        if (e instanceof BlockedError) throw e;
         out.set(code, null);
       }
       // outside the try above: an error while saving is a real error (database), not a page problem
@@ -179,8 +204,10 @@ export async function fetchHomePage() {
     if (!budget.take()) throw new Error('request cap of this run reached');
     await pause();
     const res = await ctx.get('/?_rsc');
+    const text = res.status() === 200 ? await res.text() : '';
+    responses.note(res.status(), text, 'home page');
     if (res.status() !== 200) throw new Error(`HTTP ${res.status()} در صفحه‌ی اصلی`);
-    return await res.text();
+    return text;
   } finally {
     await ctx.dispose();
   }

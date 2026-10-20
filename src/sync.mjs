@@ -11,7 +11,8 @@ import fs from 'node:fs';
 import { config } from './config.mjs';
 import { log } from './logger.mjs';
 import { login, hasSession, AuthError } from './auth.mjs';
-import { fetchAllProducts, fetchProductPages, fetchHomePage } from './source.mjs';
+import { fetchAllProducts, fetchProductPages, fetchHomePage, responses, BlockedError } from './source.mjs';
+import { applyTrail, inBackoff } from './backoff.mjs';
 import { StructureError } from './rsc.mjs';
 import { checkProduct, checkUnitDrift, UnitError } from './sanity.mjs';
 import { openDb, loadPrevious, upsertProducts, syncCategories, recordRun, diffCatalog, recordEvents, applySettings, setStatus, detailsDue, saveDetails, saveRich, syncBrands, assignSlugs, saveHeroSlides, loadSchedule, markTasksRun } from './db.mjs';
@@ -55,6 +56,7 @@ function classify(e) {
   if (e instanceof LoginError) return ['auth', '🔐 توکن منقضی شده و لاگین خودکار شکست خورد — لاگین دستی لازم است (npm run login)'];
   if (e instanceof StructureError) return ['structure', '🧩 ساختار صفحه‌ی تأمین‌کننده عوض شده — ربات متوقف شد و چیزی ننوشت'];
   if (e instanceof UnitError) return ['unit', '💱 واحد قیمت لیاتیم عوض شده به نظر می‌رسد (تومان/ریال) — هیچ قیمتی نوشته نشد، بررسی دستی لازم است'];
+  if (e instanceof BlockedError) return ['blocked', '🛑 لیاتیم درخواست‌ها را پشت‌سرِ هم رد کرد (۴۲۹/۴۰۳/۵xx یا صفحه‌ی چالش) — ربات عقب‌نشینی کرد و بعداً دوباره تلاش می‌کند'];
   if (e instanceof CoverageError) return ['coverage', '📉 کمتر از ۹۰٪ محصولات دریافت شد — چیزی نوشته نشد'];
   if (e instanceof DatabaseError) return ['database', '🗄️ دیتابیس در دسترس نیست (Docker Desktop / Postgres روشن است؟)'];
   return ['error', '❌ اجرای sync شکست خورد'];
@@ -78,6 +80,9 @@ const effectiveConfig = () => ({ excludedCategories: config.excludedCategories, 
 // Only a masked username leaves the bot (e.g. 0912••••47); the password is reported as set / not set.
 const maskUser = (u) => (!u ? null : u.length >= 7 ? `${u.slice(0, 4)}••••${u.slice(-2)}` : '••••');
 
+/** Hook for backoff starts/ends (change events are added with the change_events table). */
+async function onBackoffChange() {}
+
 /** --tasks=a,b (default: all); without --force, only those allowed in the current window and not when paused. */
 function requestedTasks(argv, cfg, now = new Date()) {
   const arg = argv.find((a) => a.startsWith('--tasks='));
@@ -93,6 +98,7 @@ async function main() {
   const alertLines = [];
   let db;
   let schedule = null;
+  let backoff = null;
   let products = [], total = 0, fallbacks = [];
   const accepted = [];
   const rejected = [];
@@ -106,6 +112,15 @@ async function main() {
     ({ cfg: schedule } = await loadSchedule(db, resolveSchedule));
     const tasks = requestedTasks(process.argv, schedule);
     run.tasks = [...tasks];
+    // backing off (Liateam refused us): no request at all until it ends, whoever asks
+    const { rows: [bo] } = await db.query(`SELECT value FROM bot_status WHERE key = 'backoff'`);
+    backoff = bo?.value ?? null;
+    if (inBackoff(backoff, new Date()) && !process.argv.includes('--ignore-backoff')) {
+      run.status = 'skipped';
+      log.info(`sync: backing off until ${backoff.until} (level ${backoff.level}); nothing sent to Liateam`);
+      return;
+    }
+    responses.prior = backoff?.consecutive ?? 0;
     if (!tasks.size) {
       run.status = 'skipped';
       log.info(`sync: nothing to do now (${schedule.paused ? 'paused' : `window «${windowAt(new Date(), schedule).name}»`}; use --force to run anyway)`);
@@ -316,6 +331,7 @@ async function main() {
             { skipped: r.skipped.map((x) => `${x.source_code} ${x.title}: ${SKIP_REASON_FA[x.reason] ?? x.reason}`) });
         }
       } catch (e) {
+        if (e instanceof BlockedError) throw e;
         log.warn('hero: home page could not be read — stored slides kept', { error: e.message });
       }
     }
@@ -346,6 +362,17 @@ async function main() {
     if (db && run.status === 'skipped') {
       await db.end();
       return;
+    }
+    if (db && responses.trail.length) {
+      try {
+        const r = applyTrail(backoff, responses.trail, new Date());
+        await setStatus(db, 'backoff', r.state);
+        for (const minutes of r.started) log.alert(`backoff: Liateam refused ${responses.threshold}× in a row — pausing every task for ${minutes} min (until ${r.state.until})`, { reason: r.state.reason });
+        if (r.ended) log.info('backoff: Liateam answers normally again — back to the schedule');
+        await onBackoffChange(db, r);
+      } catch (e) {
+        log.warn('backoff: could not store the state', { error: e.message });
+      }
     }
     if (db) {
       if (schedule && run.tasks?.length) {
