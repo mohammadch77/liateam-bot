@@ -138,6 +138,24 @@ export function sizeLabel(value: string | number | null, unit: 'ml' | 'g' | null
   return `${new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }).format(n)} ${UNIT_FA[unit]}`;
 }
 
+const SIZE_KEYS = /^(حجم|حجم محصول|سایز|وزن|وزن خالص|مقدار)$/;
+const SIZE_TEXT =
+  /([0-9۰-۹]+(?:[.٫][0-9۰-۹]+)?)\s*(میلی[\s\p{Cf}]?لیتر|میل|ml|cc|سی[\s\p{Cf}]?سی|گرم|gr?)(?![\p{L}])/iu;
+/**
+ * The size when Liateam left measurement empty: from a size row in «مشخصات» («حجم محصول: 10 میلی لیتر»), else from
+ * the name («… با حجم 100 میل»). Only an explicit number + ml/g; anything else stays null (the row is then hidden).
+ */
+export function sizeFromText(name: string, attributes: Array<{ key: string; value: string }>): string | null {
+  const texts = [...attributes.filter((a) => SIZE_KEYS.test(a.key.trim())).map((a) => a.value), name];
+  for (const t of texts) {
+    const m = SIZE_TEXT.exec(t);
+    if (!m?.[1] || !m[2]) continue;
+    const n = Number(m[1].replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace('٫', '.'));
+    return sizeLabel(n, /گرم|^g/i.test(m[2]) ? 'g' : 'ml');
+  }
+  return null;
+}
+
 const VIDEO_PLAYER =
   /^https:\/\/player\.arvancloud\.ir\/index\.html\?config=https:\/\/[a-z0-9-]+\.arvanvod\.ir\/[\w/.-]+\.json$/i;
 const IMAGE_HOST = /^https:\/\/s3\.liateam\.ir\//;
@@ -189,7 +207,8 @@ function toContent(row: ProductDetailRow, c: ProductContentRows, site: SiteRevie
     faqs: c.faqs,
     reviews: reviews.slice(0, PRODUCT_REVIEWS_SHOWN),
     reviewsTotal: (row.reviews_total ?? c.reviews.length) + site.length,
-    size: sizeLabel(row.measurement_value, row.measurement_unit),
+    size:
+      sizeLabel(row.measurement_value, row.measurement_unit) ?? sizeFromText(clean(row.name), c.attributes),
     country: row.origin_country ? clean(row.origin_country) : null,
     expireMonths: row.expire_months,
     color: row.color && /^#[0-9a-f]{6}$/i.test(row.color) ? row.color : null,

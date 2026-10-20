@@ -499,22 +499,9 @@
   }
 }
 
-/* «معرفی»: text (~72 characters a line) | video or a photo — the same shape for every product */
-.introGrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-}
-@media (min-width: 1024px) {
-  .introGrid {
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
-    gap: 48px;
-  }
-}
+/* «معرفی»: full width */
 .prose {
   min-width: 0;
-  max-width: 72ch; /* ~72 characters a line */
   font-size: 15px;
   line-height: 2.1;
   color: var(--color-ink-2);
@@ -553,34 +540,6 @@
   border-radius: 50%;
   background: var(--color-accent);
 }
-.lead {
-  padding: 12px 16px;
-  border-radius: var(--radius-lg);
-  background: var(--color-blush);
-  color: var(--color-ink);
-  font-weight: 600;
-  line-height: 2;
-}
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.chips li {
-  padding: 4px 12px;
-  border-radius: 999px;
-  background: var(--color-surface);
-  font-size: 12.5px;
-  font-weight: 600;
-  line-height: 1.9;
-}
-.prose .chips li {
-  padding-inline-start: 12px;
-}
-.prose .chips li::before {
-  display: none;
-}
-
 /* folded long text: ~8 lines with a fade, «ادامه‌ی مطلب» opens the rest (CSS :has, no JavaScript) */
 .fold > .foldBody {
   max-height: calc(8 * 2.1em);
@@ -629,29 +588,24 @@
 }
 
 .media {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  position: relative;
   margin: 0;
   min-width: 0;
-}
-.media iframe {
-  width: 100%;
   aspect-ratio: 16 / 9;
-  border: 0;
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-}
-.media figcaption {
-  font-size: 12.5px;
-  color: var(--color-muted);
-}
-.mediaPhoto {
-  position: relative;
-  display: block;
-  aspect-ratio: 4 / 3;
   border-radius: var(--radius-lg);
   overflow: hidden;
+  background: var(--color-surface);
+}
+.media iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.mediaPhoto {
+  position: absolute;
+  inset: 0;
   background: radial-gradient(
     90% 80% at 50% 40%,
     #fff 0%,
@@ -663,8 +617,13 @@
   padding: 6%;
   mix-blend-mode: multiply;
 }
+@media (max-width: 1023px) {
+  .media {
+    margin-block: 16px;
+  }
+}
 
-/* «مشخصات» + «نحوه مصرف» side by side on desktop (always both: one may hold its empty note) */
+/* «مشخصات» (half) beside the video or a photo (half), as tall as the specs column */
 .pair {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -673,7 +632,12 @@
   .pair {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 40px;
-    align-items: start;
+    align-items: stretch;
+  }
+  .pair > .media {
+    aspect-ratio: auto;
+    min-height: 280px;
+    height: 100%;
   }
 }
 .attrTable {

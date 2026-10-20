@@ -29,7 +29,6 @@ type Props = {
 
 const loadProduct = cache(async (id: number) => catalogService.product(id));
 
-const dateFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'medium', timeStyle: 'short' });
 const dayFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'medium' });
 
 /**
@@ -43,7 +42,7 @@ const LIMITS = {
   specs: 8,
   faqs: 5,
   reviews: 4,
-  /** a text block longer than this (characters) is folded at ~8 lines with «ادامه‌ی مطلب» */
+  /** a text longer than this (characters) is folded at ~8 lines with «نمایش بیشتر» */
   foldAt: 300,
 } as const;
 
@@ -127,8 +126,17 @@ export default async function ProductPage({ params, searchParams }: Props) {
           : b.text.length),
     0,
   );
-  // beside «معرفی»: the video, else the second gallery photo (else the first): the section always has the same shape
+  const howLength = c.howToUse.join(' ').length;
+  // beside «مشخصات»: the video, else the second gallery photo (else the first); with neither, «مشخصات» is full width
   const sidePhoto = c.images[1] ?? c.images[0] ?? null;
+  const hasMedia = !!c.videoEmbedUrl || !!sidePhoto;
+  // the key facts, only those the product has (no «نامشخص» rows)
+  const quickSpecs: Array<{ key: string; value: ReactNode }> = [
+    { key: 'برند', value: brand ? <Link href={brand.href}>{brand.name}</Link> : (p.brandName ?? null) },
+    { key: 'حجم', value: c.size },
+    { key: 'کشور سازنده', value: c.country },
+    { key: 'مدت اعتبار', value: c.expireMonths ? `${toFaDigits(c.expireMonths)} ماه پس از تولید` : null },
+  ].filter((q) => q.value);
 
   const tabs = [
     { id: 'intro', label: 'معرفی' },
@@ -220,20 +228,16 @@ export default async function ProductPage({ params, searchParams }: Props) {
             )}
           </section>
 
-          <dl className={`${s.card} ${s.quickSpecs}`} aria-label="مشخصات سریع">
-            <div>
-              <dt>برند</dt>
-              <dd>{brand ? <Link href={brand.href}>{brand.name}</Link> : (p.brandName ?? '—')}</dd>
-            </div>
-            <div>
-              <dt>حجم</dt>
-              <dd>{c.size ?? '—'}</dd>
-            </div>
-            <div>
-              <dt>کشور سازنده</dt>
-              <dd>{c.country ?? '—'}</dd>
-            </div>
-          </dl>
+          {quickSpecs.length > 0 && (
+            <dl className={`${s.card} ${s.quickSpecs}`} aria-label="مشخصات سریع">
+              {quickSpecs.map((q) => (
+                <div key={q.key}>
+                  <dt>{q.key}</dt>
+                  <dd>{q.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
         </div>
 
         <aside className={s.buyBox} aria-label="خرید">
@@ -259,15 +263,11 @@ export default async function ProductPage({ params, searchParams }: Props) {
           <ul className={s.facts}>
             <li>
               <Icon name="verified" size={19} className={s.factIcon} />
-              ضمانت اصالت؛ مستقیم از تأمین‌کننده رسمی
+              ضمانت اصالت کالا
             </li>
             <li>
               <Icon name="local_shipping" size={19} className={s.factIcon} />
               ارسال به سراسر ایران
-            </li>
-            <li>
-              <Icon name="refresh" size={19} className={s.factIcon} />
-              قیمت و موجودی به‌روز: {dateFa.format(p.updatedAt)}
             </li>
           </ul>
           <span className={s.code}>کد کالا: {toFaDigits(p.id)}</span>
@@ -296,56 +296,18 @@ export default async function ProductPage({ params, searchParams }: Props) {
       <OpenSectionOnHash />
       <div className={s.sections}>
         <ProductSection id="intro" title="معرفی محصول" open>
-          <div className={s.introGrid}>
-            <div className={s.prose}>
-              {c.summary.length > 0 && <p className={s.lead}>{c.summary.join(' · ')}</p>}
-              <Fold long={descriptionLength > LIMITS.foldAt} label="ادامه‌ی مطلب">
-                {description.length > 0 ? (
-                  <Description blocks={description} />
-                ) : (
-                  <p>توضیحی برای این محصول ثبت نشده است.</p>
-                )}
-              </Fold>
-              {c.features.length > 0 && (
-                <ul className={s.chips} aria-label="ویژگی‌ها">
-                  {c.features.map((f, i) => (
-                    <li key={i}>{f}</li>
-                  ))}
-                </ul>
+          <div className={s.prose}>
+            <Fold long={descriptionLength > LIMITS.foldAt}>
+              {description.length > 0 ? (
+                <Description blocks={description} />
+              ) : (
+                <p>توضیحی برای این محصول ثبت نشده است.</p>
               )}
-            </div>
-            {c.videoEmbedUrl ? (
-              <figure className={s.media}>
-                {/* only Liateam's ArvanCloud player (checked on the server); sandboxed, no top navigation */}
-                <iframe
-                  src={c.videoEmbedUrl}
-                  title={`ویدیوی ${p.name}`}
-                  loading="lazy"
-                  sandbox="allow-scripts allow-same-origin allow-presentation"
-                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  allowFullScreen
-                />
-                <figcaption>ویدیوی معرفی محصول</figcaption>
-              </figure>
-            ) : (
-              sidePhoto && (
-                <figure className={s.media} style={c.color ? { ['--tint' as string]: c.color } : undefined}>
-                  <span className={s.mediaPhoto}>
-                    <Image
-                      src={sidePhoto.url}
-                      alt={sidePhoto.alt}
-                      fill
-                      sizes="(min-width: 1024px) 420px, 92vw"
-                    />
-                  </span>
-                </figure>
-              )
-            )}
+            </Fold>
           </div>
         </ProductSection>
 
-        <div className={s.pair}>
+        <div className={hasMedia ? s.pair : undefined}>
           <ProductSection id="specs" title="مشخصات">
             {c.attributes.length > 0 ? (
               <>
@@ -364,8 +326,42 @@ export default async function ProductPage({ params, searchParams }: Props) {
               <EmptyNote>مشخصاتی برای این محصول ثبت نشده است.</EmptyNote>
             )}
           </ProductSection>
-          <ProductSection id="how" title="نحوه مصرف">
-            {c.howToUse.length > 0 ? (
+          {c.videoEmbedUrl ? (
+            <figure className={s.media} data-media="video">
+              {/* only Liateam's ArvanCloud player (checked on the server); sandboxed, no top navigation */}
+              <iframe
+                src={c.videoEmbedUrl}
+                title={`ویدیوی ${p.name}`}
+                loading="lazy"
+                sandbox="allow-scripts allow-same-origin allow-presentation"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+              />
+            </figure>
+          ) : (
+            sidePhoto && (
+              <figure
+                className={s.media}
+                data-media="photo"
+                style={c.color ? { ['--tint' as string]: c.color } : undefined}
+              >
+                <span className={s.mediaPhoto}>
+                  <Image
+                    src={sidePhoto.url}
+                    alt={sidePhoto.alt}
+                    fill
+                    sizes="(min-width: 1024px) 50vw, 92vw"
+                  />
+                </span>
+              </figure>
+            )
+          )}
+        </div>
+
+        <ProductSection id="how" title="نحوه مصرف">
+          {c.howToUse.length > 0 ? (
+            <Fold long={howLength > LIMITS.foldAt}>
               <ol className={s.steps}>
                 {c.howToUse.map((line, i) => (
                   <li key={i}>
@@ -376,15 +372,15 @@ export default async function ProductPage({ params, searchParams }: Props) {
                   </li>
                 ))}
               </ol>
-            ) : (
-              <EmptyNote>اطلاعات تکمیلی برای این محصول ثبت نشده است.</EmptyNote>
-            )}
-            <p className={s.careNote} role="note">
-              <Icon name="warning" size={19} />
-              {CARE_NOTE}
-            </p>
-          </ProductSection>
-        </div>
+            </Fold>
+          ) : (
+            <EmptyNote>اطلاعات تکمیلی برای این محصول ثبت نشده است.</EmptyNote>
+          )}
+          <p className={s.careNote} role="note">
+            <Icon name="warning" size={19} />
+            {CARE_NOTE}
+          </p>
+        </ProductSection>
 
         <ProductSection id="faq" title="پرسش‌های متداول">
           {c.faqs.length > 0 ? (
@@ -461,16 +457,16 @@ function ProductSection({
   );
 }
 
-/** Long text folded at ~8 lines; «ادامه‌ی مطلب» unfolds it (no JavaScript; the whole text is in the page). */
-function Fold({ long, label, children }: { long: boolean; label: string; children: ReactNode }) {
+/** Long text folded at ~8 lines; «نمایش بیشتر» unfolds it (no JavaScript; the whole text is in the page). */
+function Fold({ long, children }: { long: boolean; children: ReactNode }) {
   if (!long) return <div className={s.foldBody}>{children}</div>;
   return (
     <div className={s.fold}>
       <div className={s.foldBody}>{children}</div>
       <details className={s.foldToggle}>
         <summary>
-          <span className={s.foldMore}>{label}</span>
-          <span className={s.foldLess}>بستن</span>
+          <span className={s.foldMore}>نمایش بیشتر</span>
+          <span className={s.foldLess}>نمایش کمتر</span>
           <Icon name="keyboard_arrow_down" size={20} className={s.moreIcon} />
         </summary>
       </details>

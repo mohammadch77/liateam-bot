@@ -62,7 +62,7 @@ check(
   '1d FAQ: first question first, opens on click',
   (await faq.locator('summary').textContent()).trim() === dbFaq && (await faq.getAttribute('open')) !== null,
 );
-const iframe = page.locator('#intro iframe');
+const iframe = page.locator('figure[data-media=video] iframe');
 const src = (await iframe.getAttribute('src')) ?? '';
 const sandbox = (await iframe.getAttribute('sandbox')) ?? '';
 check(
@@ -78,16 +78,22 @@ check(
   authors.length > 0 && authors.every((a) => /^\S+ \S\.$|^\S+$|^خریدار$/.test(a.trim())),
   authors.slice(0, 3).join('، '),
 );
-// «معرفی»: text at a readable measure (~72 characters a line), the video beside it
-const intro = await page.evaluate(() => {
-  const prose = document.querySelector('#intro [class*=prose]').getBoundingClientRect();
-  const media = document.querySelector('#intro figure').getBoundingClientRect();
-  return { prose: prose.width, beside: media.right <= prose.left + 2 };
+// «معرفی» full width; «مشخصات» half width with the video beside it, as tall as the specs column
+const layout = await page.evaluate(() => {
+  const r = (q) => document.querySelector(q).getBoundingClientRect();
+  const intro = r('#intro'),
+    specs = r('#specs'),
+    media = r('figure[data-media=video]');
+  return {
+    introFull: intro.width > 1000,
+    half: Math.abs(specs.width - media.width) < 4 && media.right <= specs.left + 2,
+    sameHeight: Math.abs(specs.height - media.height) < 4,
+  };
 });
 check(
-  '1g desktop: description at ~72 characters a line, video beside it',
-  intro.prose > 400 && intro.prose <= 800 && intro.beside,
-  `${Math.round(intro.prose)} px`,
+  '1g desktop: intro full width, specs | video in halves, same height',
+  layout.introFull && layout.half && layout.sameHeight,
+  JSON.stringify(layout),
 );
 await shot(page, 'product-desktop.png', { fullPage: true });
 
@@ -98,8 +104,8 @@ check(
   '2a no FAQ → the FAQ tab stays, with «پرسشی … ثبت نشده» + contact link; no video → a photo instead',
   t2.length === 5 &&
     (await page.locator('#faq a[href="/contact"]').count()) === 1 &&
-    (await page.locator('#intro iframe').count()) === 0 &&
-    (await page.locator('#intro figure img').count()) === 1,
+    (await page.locator('figure[data-media=video] iframe').count()) === 0 &&
+    (await page.locator('figure[data-media=photo] img').count()) === 1,
   t2.join(' | '),
 );
 const noHow = Number(

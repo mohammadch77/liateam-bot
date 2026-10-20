@@ -1,11 +1,25 @@
 // Product page template end to end on three sample products — rich (426: video, 53 FAQs, long text), medium
-// (160) and low-data (520: no FAQ, no summary): the same five tabs and sections for all, empty states instead of
-// missing sections, long text / FAQ / reviews / specs folded, page heights in a close range, the phone accordion
-// («معرفی» open) and sticky buy bar, no horizontal scroll at 390–1920 px. Read-only.
+// (160) and low-data (520: no FAQ, no summary) — plus one without a video and one without size/country: the same
+// five tabs and sections, brand/size/country only in the information column (rows hidden when missing), no
+// «آخرین به‌روزرسانی» in the buy box, no purple feature box in «معرفی», intro full width, specs | video (or photo)
+// in halves, «نمایش بیشتر» on long text, the phone order and accordion, sticky buy bar, no horizontal scroll at
+// 390–1920 px. Read-only.
 import { BASE, check, chromium, finish, shot, sql } from './_harness.mjs';
 
 const ids = { rich: 426, medium: 160, low: 520 };
 const slug = (id) => sql(`select slug_en from product_catalog where id = ${id}`);
+const VISIBLE = `is_sellable and price > 0 and missing_since is null and slug_en is not null`;
+const noVideo = Number(
+  sql(
+    `select id from product_catalog where ${VISIBLE} and video_embed_url is null and id not in (160, 520) order by id limit 1`,
+  ),
+);
+// no size/country: none in the data today (country is always «ایران»), so the hidden-row case is checked on a
+// product without a size if one exists
+const noSize = Number(
+  sql(`select id from product_catalog where ${VISIBLE} and measurement_value is null order by id limit 1`) ||
+    0,
+);
 const TABS = ['معرفی', 'مشخصات', 'نحوه مصرف', 'پرسش‌ها', 'دیدگاه‌ها'];
 const SECTIONS = ['intro', 'specs', 'how', 'faq', 'reviews'];
 
@@ -50,10 +64,41 @@ try {
       cols.every((t) => t > 0 && Math.abs(t - cols[0]) < 40),
       cols.join(','),
     );
-    const quick = await d.locator('dl[aria-label="مشخصات سریع"] dt').allInnerTexts();
+    const quick = await d.locator('[class*=info] dl[aria-label="مشخصات سریع"] dt').allInnerTexts();
     check(
-      `1 ${kind}: quick specs card (brand, size, country)`,
-      JSON.stringify(quick) === JSON.stringify(['برند', 'حجم', 'کشور سازنده']),
+      `1 ${kind}: brand, size, country in the information column`,
+      ['برند', 'حجم', 'کشور سازنده'].every((k) => quick.includes(k)),
+      quick.join(' | '),
+    );
+    const buy = await d.locator('aside[aria-label="خرید"]').innerText();
+    check(
+      `1 ${kind}: buy box without «به‌روزرسانی», with the trust lines`,
+      !/به‌روز/.test(buy) && /ضمانت اصالت کالا/.test(buy) && /ارسال به سراسر ایران/.test(buy),
+    );
+    check(
+      `1 ${kind}: no feature box / chips in «معرفی»`,
+      (await d
+        .locator('#intro [class*=lead], #intro [class*=chips], #intro [aria-label="ویژگی‌ها"]')
+        .count()) === 0,
+    );
+    const lay = await d.evaluate(() => {
+      const r = (q) => document.querySelector(q)?.getBoundingClientRect();
+      const intro = r('#intro'),
+        specs = r('#specs'),
+        media = r('figure[data-media]');
+      return {
+        introFull: intro.width > 1000,
+        half: !!media && Math.abs(specs.width - media.width) < 4,
+        sameHeight: !!media && Math.abs(specs.height - media.height) < 4,
+        order: [...document.querySelectorAll('[data-section]')].map((e) =>
+          Math.round(e.getBoundingClientRect().top),
+        ),
+      };
+    });
+    check(
+      `1 ${kind}: intro full width, specs | media in halves and the same height`,
+      lay.introFull && lay.half && lay.sameHeight,
+      JSON.stringify(lay),
     );
     check(
       `1 ${kind}: rating line (٪ · دیدگاه · پرسش)`,
@@ -63,8 +108,8 @@ try {
     heights.desktop[kind] = await d.evaluate(() => document.documentElement.scrollHeight);
     if (kind === 'rich') {
       check(
-        '2a rich: long description folded with «ادامه‌ی مطلب»',
-        (await d.getByText('ادامه‌ی مطلب').count()) === 1,
+        '2a rich: long description folded with «نمایش بیشتر»',
+        (await d.locator('#intro').getByText('نمایش بیشتر').count()) === 1,
       );
       const faqShown = await d.locator('#faq details:not([class*=more] details):visible').count();
       check(
@@ -73,8 +118,10 @@ try {
         `${faqShown} visible`,
       );
       check(
-        '2c rich: video beside the introduction',
-        (await d.locator('#intro iframe[src^="https://player.arvancloud.ir/"]').count()) === 1,
+        '2c rich: video beside the specs (ArvanCloud player, sandboxed)',
+        (await d
+          .locator('figure[data-media=video] iframe[src^="https://player.arvancloud.ir/"][sandbox]')
+          .count()) === 1,
       );
       check(
         '2d rich: «همه‌ی مشخصات» after 8 rows',
@@ -86,12 +133,17 @@ try {
         (await d.locator('#reviews [class*=reviewsGrid] > [class*=reviewList] > article').count()) === 4 &&
           (await d.getByText(/مشاهده‌ی همه‌ی دیدگاه‌ها/).count()) === 1,
       );
-      await d.getByText('ادامه‌ی مطلب').click();
+      const before = await d.locator('#specs').evaluate((e) => e.getBoundingClientRect().top);
+      await d.locator('#intro').getByText('نمایش بیشتر').click();
       const unfolded = await d
-        .locator('[class*=fold] > [class*=foldBody]')
+        .locator('#intro [class*=fold] > [class*=foldBody]')
         .first()
         .evaluate((e) => e.scrollHeight <= e.clientHeight + 2);
-      check('2f «ادامه‌ی مطلب» unfolds the whole text', unfolded);
+      const after = await d.locator('#specs').evaluate((e) => e.getBoundingClientRect().top);
+      check(
+        '2f «نمایش بیشتر» unfolds the whole text, «نمایش کمتر» shown',
+        unfolded && after > before && (await d.locator('#intro').getByText('نمایش کمتر').isVisible()),
+      );
     }
     if (kind === 'low') {
       check(
@@ -100,8 +152,9 @@ try {
           (await d.getByText('پرسشی برای این محصول ثبت نشده است').count()) === 1,
       );
       check(
-        '3b low: photo beside the introduction (no video)',
-        (await d.locator('#intro figure img').count()) === 1,
+        '3b low: photo beside the specs (no video)',
+        (await d.locator('figure[data-media=photo] img').count()) === 1 &&
+          (await d.locator('figure[data-media=video]').count()) === 0,
       );
     }
     check(
@@ -110,6 +163,23 @@ try {
     );
     await d.evaluate(() => window.scrollTo(0, 0));
     await shot(d, `layout-${kind}-1440.png`, { fullPage: true });
+  }
+  // one more product without a video, and one without a size (its row hidden, never «نامشخص»/«—»)
+  await open(d, noVideo);
+  check(
+    `3c no video (${noVideo}): a photo beside the specs`,
+    (await d.locator('figure[data-media=photo] img').count()) === 1 &&
+      (await d.locator('iframe').count()) === 0,
+  );
+  if (noSize) {
+    await open(d, noSize);
+    const q = await d.locator('dl[aria-label="مشخصات سریع"]').innerText();
+    const hasSize = /حجم/.test(q);
+    check(
+      `3d without size in the data (${noSize}): no empty rows; size only when found in the specs/name`,
+      !/—|نامشخص/.test(q) && (!hasSize || /[۰-۹]+ (میلی‌لیتر|گرم)/.test(q)),
+      q.replace(/\s+/g, ' '),
+    );
   }
   const dh = Object.values(heights.desktop);
   check(
@@ -126,6 +196,24 @@ try {
     check(
       `5 ${kind}: phone accordion, only «معرفی» open`,
       JSON.stringify(openState) === JSON.stringify([true, false, false, false, false]),
+    );
+    const order = await m.evaluate(() =>
+      [
+        '[class*=gallery]',
+        '[class*=info]',
+        'aside[aria-label="خرید"]',
+        '#intro',
+        '#specs',
+        'figure[data-media]',
+        '#how',
+        '#faq',
+        '#reviews',
+      ].map((q) => document.querySelector(q)?.getBoundingClientRect().top ?? -1),
+    );
+    check(
+      `5 ${kind}: phone order gallery, info, buy, intro, specs, video, how, FAQ, reviews`,
+      order.every((t, i) => t >= 0 && (i === 0 || t > order[i - 1])),
+      order.map(Math.round).join(','),
     );
     const bar = await m.locator('[class*=stickyBuy]').boundingBox();
     check(
