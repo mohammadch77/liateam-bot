@@ -20,8 +20,11 @@ const noSize = Number(
   sql(`select id from product_catalog where ${VISIBLE} and measurement_value is null order by id limit 1`) ||
     0,
 );
-const TABS = ['معرفی', 'مشخصات', 'نحوه مصرف', 'پرسش‌ها', 'دیدگاه‌ها'];
-const SECTIONS = ['intro', 'specs', 'how', 'faq', 'reviews'];
+// a video adds its own tab and section after «مشخصات» (426 has one; 160 and 520 do not)
+const withVideo = (id) =>
+  sql(`select video_embed_url is not null from product_catalog where id = ${id}`) === 't';
+const TABS = (v) => ['معرفی', 'مشخصات', ...(v ? ['ویدیو'] : []), 'نحوه مصرف', 'پرسش‌ها', 'دیدگاه‌ها'];
+const SECTIONS = (v) => ['intro', 'specs', ...(v ? ['video'] : []), 'how', 'faq', 'reviews'];
 
 const browser = await chromium.launch();
 const open = async (page, id) => {
@@ -40,15 +43,15 @@ try {
     );
     check(
       `1 ${kind} (${id}): the same five tabs`,
-      JSON.stringify(tabs) === JSON.stringify(TABS),
+      JSON.stringify(tabs) === JSON.stringify(TABS(withVideo(id))),
       tabs.join(' | '),
     );
     const sections = await d
       .locator('[data-section]')
       .evaluateAll((els) => els.map((e) => e.dataset.section));
     check(
-      `1 ${kind}: the same five sections in the same order`,
-      JSON.stringify(sections) === JSON.stringify(SECTIONS),
+      `1 ${kind}: the same sections in the same order (+ «ویدیو» only with a video)`,
+      JSON.stringify(sections) === JSON.stringify(SECTIONS(withVideo(id))),
     );
     const visible = await d
       .locator('[data-section] > div')
@@ -87,7 +90,7 @@ try {
       const r = (q) => document.querySelector(q)?.getBoundingClientRect();
       const intro = r('#intro'),
         specs = r('#specs'),
-        media = r('figure[data-media]');
+        media = r('#video') ?? r('figure[data-media]');
       return {
         introFull: intro.width > 1000,
         half: !!media && Math.abs(specs.width - media.width) < 4,
@@ -125,6 +128,38 @@ try {
           .locator('figure[data-media=video] iframe[src^="https://player.arvancloud.ir/"][sandbox]')
           .count()) === 1,
       );
+      const heads = await d.evaluate(() => {
+        const t = (q) => document.querySelector(q)?.getBoundingClientRect();
+        const sp = t('#specs h2'),
+          vi = t('#video h2'),
+          specs = t('#specs'),
+          video = t('#video');
+        return {
+          title: document.querySelector('#video h2')?.textContent,
+          level: !!sp && !!vi && Math.abs(sp.top - vi.top) < 2 && Math.abs(sp.height - vi.height) < 2,
+          sameHeight: !!specs && !!video && Math.abs(specs.height - video.height) < 4,
+          player:
+            document.querySelector('#video figure[data-media=video]')?.getBoundingClientRect().height ?? 0,
+        };
+      });
+      check(
+        '2c rich: «ویدیو معرفی محصول» heading level with «مشخصات», the same height, player filling it',
+        heads.title === 'ویدیو معرفی محصول' && heads.level && heads.sameHeight && heads.player >= 280,
+        JSON.stringify(heads),
+      );
+      await d.locator('nav[data-tabs] a[href="#video"]').click();
+      await d.waitForFunction(() => location.hash === '#video');
+      await d.waitForTimeout(600);
+      const onVideo = await d.evaluate(() => ({
+        top: Math.round(document.getElementById('video').getBoundingClientRect().top),
+        current: document.querySelector('nav[data-tabs] a[aria-current]')?.getAttribute('href'),
+      }));
+      check(
+        '2c rich: the «ویدیو» tab scrolls to the video and is marked current',
+        onVideo.top >= 0 && onVideo.top < 140 && onVideo.current === '#video',
+        JSON.stringify(onVideo),
+      );
+      await d.evaluate(() => window.scrollTo(0, 0));
       check(
         '2d rich: «همه‌ی مشخصات» after 8 rows',
         (await d.locator('#specs > div > dl > div').count()) === 8 &&
@@ -173,6 +208,13 @@ try {
     (await d.locator('figure[data-media=photo] img').count()) === 1 &&
       (await d.locator('iframe').count()) === 0,
   );
+  check(
+    `3c no video (${noVideo}): no «ویدیو» tab, section or heading (the photo has no label)`,
+    (await d.locator('nav[data-tabs] a[href="#video"]').count()) === 0 &&
+      (await d.locator('#video').count()) === 0 &&
+      (await d.getByText('ویدیو معرفی محصول').count()) === 0 &&
+      (await d.locator('figure[data-media=photo] figcaption').count()) === 0,
+  );
   if (noSize) {
     await open(d, noSize);
     const q = await d.locator('dl[aria-label="مشخصات سریع"]').innerText();
@@ -197,20 +239,22 @@ try {
     const openState = await m.locator('[data-section]').evaluateAll((els) => els.map((e) => e.open));
     check(
       `5 ${kind}: phone accordion, only «معرفی» open`,
-      JSON.stringify(openState) === JSON.stringify([true, false, false, false, false]),
+      JSON.stringify(openState) === JSON.stringify(SECTIONS(withVideo(id)).map((x) => x === 'intro')),
     );
-    const order = await m.evaluate(() =>
-      [
-        '[class*=gallery]',
-        '[class*=info]',
-        'aside[aria-label="خرید"]',
-        '#intro',
-        '#specs',
-        'figure[data-media]',
-        '#how',
-        '#faq',
-        '#reviews',
-      ].map((q) => document.querySelector(q)?.getBoundingClientRect().top ?? -1),
+    const order = await m.evaluate(
+      (withVideo) =>
+        [
+          '[class*=gallery]',
+          '[class*=info]',
+          'aside[aria-label="خرید"]',
+          '#intro',
+          '#specs',
+          withVideo ? '#video' : 'figure[data-media]',
+          '#how',
+          '#faq',
+          '#reviews',
+        ].map((q) => document.querySelector(q)?.getBoundingClientRect().top ?? -1),
+      withVideo(id),
     );
     check(
       `5 ${kind}: phone order gallery, info, buy, intro, specs, video, how, FAQ, reviews`,
@@ -231,6 +275,23 @@ try {
     '5b tapping a section heading opens it',
     await m.locator('[data-section="faq"]').evaluate((e) => e.open),
   );
+  // phone: the video is its own accordion section, and a #video link opens it
+  await m.goto(`${BASE}/p/${slug(ids.rich)}#video`, { waitUntil: 'load', timeout: 120000 });
+  await m
+    .waitForFunction(() => document.getElementById('video')?.open === true, null, { timeout: 15000 })
+    .catch(() => {});
+  const mv = await m.evaluate(() => ({
+    title: document.querySelector('#video > summary h2')?.textContent,
+    open: document.getElementById('video')?.open,
+    player: document.querySelector('#video iframe')?.getBoundingClientRect().width ?? 0,
+    over: document.documentElement.scrollWidth - innerWidth,
+  }));
+  check(
+    '5c phone: «ویدیو معرفی محصول» accordion, opened by #video, player within the width',
+    mv.title === 'ویدیو معرفی محصول' && mv.open && mv.player > 300 && mv.over <= 0,
+    JSON.stringify(mv),
+  );
+  await shot(m, 'video-390.png');
   const mh = Object.values(heights.mobile);
   check(
     '4b phone heights in a close range (max ≤ 1.35 × min)',

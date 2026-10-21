@@ -17,6 +17,7 @@ import { REVIEW_POLICY } from '@/server/services/review.service';
 import { getCurrentUser } from '@/server/services/session.service';
 import { Badge, Breadcrumb, Button, Container, Icon, Price, ProductCard, ProductGrid, Section } from '@/ui';
 import { CatalogUnavailable } from '../../_catalog/CatalogListing';
+import { ActiveTab } from './ActiveTab';
 import { Gallery } from './Gallery';
 import { OpenSectionOnHash } from './OpenSectionOnHash';
 import { ReviewForm } from './ReviewForm';
@@ -141,6 +142,8 @@ export default async function ProductPage({ params, searchParams }: Props) {
   const tabs = [
     { id: 'intro', label: 'معرفی' },
     { id: 'specs', label: 'مشخصات' },
+    // only when there really is a video (a gallery photo in its place gets no tab and no heading)
+    ...(c.videoEmbedUrl ? [{ id: 'video', label: 'ویدیو' }] : []),
     { id: 'how', label: 'نحوه مصرف' },
     { id: 'faq', label: c.faqs.length ? `پرسش‌ها (${toFaDigits(c.faqs.length)})` : 'پرسش‌ها' },
     { id: 'reviews', label: c.reviewsTotal ? `دیدگاه‌ها (${toFaDigits(c.reviewsTotal)})` : 'دیدگاه‌ها' },
@@ -283,7 +286,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
       </div>
 
       {/* in-page tabs: always the same five, sticky while scrolling (desktop) */}
-      <nav className={s.tabs} aria-label="بخش‌های صفحه‌ی محصول">
+      <nav className={s.tabs} aria-label="بخش‌های صفحه‌ی محصول" data-tabs>
         <ul>
           {tabs.map((t) => (
             <li key={t.id}>
@@ -294,6 +297,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
       </nav>
 
       <OpenSectionOnHash />
+      <ActiveTab />
       <div className={s.sections}>
         <ProductSection id="intro" title="معرفی محصول" open>
           <div className={s.prose}>
@@ -327,18 +331,20 @@ export default async function ProductPage({ params, searchParams }: Props) {
             )}
           </ProductSection>
           {c.videoEmbedUrl ? (
-            <figure className={s.media} data-media="video">
-              {/* only Liateam's ArvanCloud player (checked on the server); sandboxed, no top navigation */}
-              <iframe
-                src={c.videoEmbedUrl}
-                title={`ویدیوی ${p.name}`}
-                loading="lazy"
-                sandbox="allow-scripts allow-same-origin allow-presentation"
-                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                referrerPolicy="strict-origin-when-cross-origin"
-                allowFullScreen
-              />
-            </figure>
+            <ProductSection id="video" title="ویدیو معرفی محصول">
+              <figure className={s.media} data-media="video">
+                {/* only Liateam's ArvanCloud player (checked on the server); sandboxed, no top navigation */}
+                <iframe
+                  src={c.videoEmbedUrl}
+                  title={`ویدیوی ${p.name}`}
+                  loading="lazy"
+                  sandbox="allow-scripts allow-same-origin allow-presentation"
+                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                />
+              </figure>
+            </ProductSection>
           ) : (
             sidePhoto && (
               <figure

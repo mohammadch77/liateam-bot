@@ -410,8 +410,12 @@
   transition: opacity var(--motion-fast) var(--motion-ease);
 }
 .tabs a:hover::after,
-.tabs a:focus-visible::after {
+.tabs a:focus-visible::after,
+.tabs a[aria-current]::after {
   opacity: 1;
+}
+.tabs a[aria-current] {
+  color: var(--color-primary);
 }
 
 @media (min-width: 1024px) {
@@ -621,6 +625,9 @@
   .media {
     margin-block: 16px;
   }
+  .sectionBody > .media {
+    margin-block: 0;
+  }
 }
 
 /* «مشخصات» (half) beside the video or a photo (half), as tall as the specs column */
@@ -638,6 +645,24 @@
     aspect-ratio: auto;
     min-height: 280px;
     height: 100%;
+  }
+  /* the video section: its heading level with «مشخصات», the player filling the rest of the row's height */
+  .pair > .section {
+    display: flex;
+    flex-direction: column;
+  }
+  .pair > .section::details-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .pair > .section .sectionBody {
+    flex: 1;
+  }
+  .pair .sectionBody > .media {
+    flex: 1;
+    aspect-ratio: auto;
+    min-height: 280px;
   }
 }
 .attrTable {

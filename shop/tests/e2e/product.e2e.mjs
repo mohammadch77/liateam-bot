@@ -40,8 +40,12 @@ const tabs = () => page.locator('nav[aria-label="بخش‌های صفحه‌ی �
 await go(`/p/${slugOf(full)}`);
 const t1 = await tabs();
 check(
-  '1a tabs: intro, specs, how-to-use, FAQ, reviews',
-  t1.length === 5 && t1[0] === 'معرفی' && t1[3].startsWith('پرسش‌ها') && t1[4].startsWith('دیدگاه‌ها'),
+  '1a tabs: intro, specs, video (this product has one), how-to-use, FAQ, reviews',
+  t1.length === 6 &&
+    t1[0] === 'معرفی' &&
+    t1[2] === 'ویدیو' &&
+    t1[4].startsWith('پرسش‌ها') &&
+    t1[5].startsWith('دیدگاه‌ها'),
   t1.join(' | '),
 );
 for (const id of ['intro', 'specs', 'how', 'faq', 'reviews'])
@@ -83,7 +87,7 @@ const layout = await page.evaluate(() => {
   const r = (q) => document.querySelector(q).getBoundingClientRect();
   const intro = r('#intro'),
     specs = r('#specs'),
-    media = r('figure[data-media=video]');
+    media = r('#video');
   return {
     introFull: intro.width > 1000,
     half: Math.abs(specs.width - media.width) < 4 && media.right <= specs.left + 2,
