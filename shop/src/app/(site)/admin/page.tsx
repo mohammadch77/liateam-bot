@@ -24,6 +24,13 @@ const ACTION_LABEL: Record<string, string> = {
   'discount.disable': 'غیرفعال‌سازی تخفیف',
   'campaign.create': 'ساخت کمپین',
   'campaign.update': 'ویرایش کمپین',
+  'pack.create': 'ساخت پک',
+  'pack.update': 'ویرایش پک',
+  'pack.enable': 'فعال‌سازی پک',
+  'pack.disable': 'غیرفعال‌سازی پک',
+  'pack.seed': 'ساخت پک‌های اولیه',
+  'pack_collection.create': 'ساخت مجموعه‌ی پک',
+  'pack_collection.update': 'ویرایش مجموعه‌ی پک',
 };
 const timeFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'short', timeStyle: 'short' });
 
@@ -47,6 +54,8 @@ export default async function AdminPage() {
           <Link href="/admin/discounts">تخفیف‌ها</Link>
           {' · '}
           <Link href="/admin/campaigns">کمپین‌ها</Link>
+          {' · '}
+          <Link href="/admin/packs">پک‌ها</Link>
         </p>
         <dl className={s.list}>
           {events.map((e) => (
