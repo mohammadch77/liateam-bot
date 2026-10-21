@@ -29,6 +29,8 @@ CREATE TABLE shop_discounts (
   label       TEXT        CONSTRAINT discount_label_length CHECK (char_length(label) <= 60),
   campaign_id BIGINT      REFERENCES campaigns (id) ON DELETE SET NULL,
   active      BOOLEAN     NOT NULL DEFAULT true,
+  -- the admin's explicit decision: this discount may sell under the purchase price (the cap still applies)
+  allow_loss  BOOLEAN     NOT NULL DEFAULT false,
   created_by  BIGINT      REFERENCES users (id) ON DELETE SET NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT discount_target CHECK ((scope = 'all') = (target_code IS NULL)),

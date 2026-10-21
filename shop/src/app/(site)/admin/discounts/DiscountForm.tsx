@@ -20,6 +20,7 @@ export type DiscountDraft = {
   label: string;
   campaign: string;
   active: boolean;
+  allowLoss: boolean;
 };
 
 const SCOPES: Option[] = [
@@ -143,16 +144,27 @@ export function DiscountForm({
           <input type="checkbox" name="active" defaultChecked={draft.active} />
           <span>فعال</span>
         </label>
+        <label className={`${a.check} ${a.danger}`}>
+          <input type="checkbox" name="allowLoss" defaultChecked={draft.allowLoss} />
+          <span>اجازه‌ی فروش با زیان (زیر قیمت خرید)</span>
+        </label>
       </div>
       <p className={a.hint}>
-        زمان‌ها به وقت تهران است. از چند تخفیفِ هم‌زمان روی یک محصول، فقط بزرگ‌ترین اعمال می‌شود و کل تخفیف
-        هیچ‌وقت از سقف مجاز بیشتر نمی‌شود.
+        زمان‌ها به وقت تهران است. بدون تیک «اجازه‌ی فروش با زیان»، تخفیفی که قیمت را به قیمت خرید برساند ذخیره
+        نمی‌شود؛ با آن تیک، تصمیم با شماست و فقط سقف کل تخفیف اعمال می‌شود. از چند تخفیفِ هم‌زمان روی یک
+        محصول، فقط بزرگ‌ترین اعمال می‌شود و کل تخفیف هیچ‌وقت از سقف مجاز بیشتر نمی‌شود.
       </p>
 
       {state.message && <Alert tone={state.ok ? 'success' : 'danger'}>{state.message}</Alert>}
       {state.preview && (
         <div className={a.preview} data-preview>
           <b>پیش‌نمایش اثر: {toFaDigits(state.preview.affected)} محصول</b>
+          {state.preview.atLoss > 0 && (
+            <span className={a.lossNote} data-at-loss>
+              ⚠ این تخفیف {toFaDigits(state.preview.atLoss)} محصول را زیر قیمت خرید (با زیان) می‌فروشد. فقط با
+              تیک «اجازه‌ی فروش با زیان» ذخیره می‌شود.
+            </span>
+          )}
           {state.preview.samples.length > 0 && (
             <table>
               <thead>

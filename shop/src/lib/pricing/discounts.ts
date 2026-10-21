@@ -17,6 +17,8 @@ export type Discount = {
   startsAt: Date;
   endsAt: Date | null;
   active: boolean;
+  /** the admin allowed selling under the purchase price with this discount */
+  allowLoss: boolean;
   campaignId: number | null;
   /** the campaign's own state (a discount of a stopped or finished campaign does not run) */
   campaignActive: boolean | null;
@@ -38,9 +40,16 @@ export type ManualDiscount = {
   amount: number;
   discountId: number;
   campaignId: number | null;
+  allowLoss: boolean;
 };
 
-export const NO_DISCOUNT: ManualDiscount = { percent: 0, amount: 0, discountId: 0, campaignId: null };
+export const NO_DISCOUNT: ManualDiscount = {
+  percent: 0,
+  amount: 0,
+  discountId: 0,
+  campaignId: null,
+  allowLoss: false,
+};
 
 /** Running now: switched on, started, not ended, and its campaign (if any) switched on and not ended. */
 export function isLive(d: Discount, now: Date): boolean {
@@ -85,6 +94,7 @@ export function bestManual(p: PricedProduct, discounts: readonly Discount[], now
     amount: best.kind === 'amount' ? Math.min(best.value, p.price) : 0,
     discountId: best.id,
     campaignId: best.campaignId,
+    allowLoss: best.allowLoss,
   };
 }
 

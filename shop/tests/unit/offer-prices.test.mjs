@@ -31,9 +31,12 @@ const psql = (user, sql) =>
     ],
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
   ).trim();
-// price, cost, manual %, manual toman, base margin, cap, min margin → "final|clamped"
+// price, cost, manual %, manual toman, base margin, cap, min margin[, loss allowed] → "final|clamped"
 const price = (...a) =>
-  psql('lia', `SELECT final_toman || '|' || clamped FROM public.shop_offer_price(${a.join(',')})`);
+  psql(
+    'lia',
+    `SELECT final_toman || '|' || clamped FROM public.shop_offer_price(${[...a, ...(a.length < 8 ? [false] : [])].join(',')})`,
+  );
 
 test('pass-through: Liateam 10% to us, base margin 4% → the customer gets 6%', () => {
   assert.equal(price(1_000_000, 900_000, 0, 0, 4, 30, 0), '940000|false');
@@ -58,6 +61,12 @@ test('floor: never under cost + minimum margin; the floor decides → clamped', 
   assert.equal(price(1_000_000, 960_000, 3, 0, 4, 30, 0), '970000|false');
 });
 
+test('loss allowed (the admin decides): the floor does not cut it, the cap still does; reported as clamped', () => {
+  assert.equal(price(1_000_000, 960_000, 25, 0, 4, 30, 0, true), '750000|true');
+  assert.equal(price(1_000_000, 960_000, 60, 0, 4, 30, 0, true), '700000|true'); // cap 30%
+  assert.equal(price(1_000_000, 960_000, 3, 0, 4, 30, 0, true), '970000|false'); // no loss: same as without
+});
+
 test('a new Liateam price is discounted again from scratch (rounded up to 100 toman, never above the price)', () => {
   assert.equal(price(1_250_000, 1_200_000, 2, 0, 4, 30, 0), '1225000|false');
   assert.equal(price(333_333, 300_000, 0, 0, 4, 30, 0), '313400|false'); // 6.0001% off, rounded up
@@ -66,7 +75,7 @@ test('a new Liateam price is discounted again from scratch (rounded up to 100 to
 
 test('access: the shop role may not call the formula; the wrapper returns only id, final price and a yes/no', () => {
   assert.throws(
-    () => psql('lia_shop_staging', 'SELECT * FROM public.shop_offer_price(1,1,0,0,0,0,0)'),
+    () => psql('lia_shop_staging', 'SELECT * FROM public.shop_offer_price(1,1,0,0,0,0,0,false)'),
     /permission denied/,
   );
   assert.throws(
@@ -77,7 +86,7 @@ test('access: the shop role may not call the formula; the wrapper returns only i
     'lia_shop_staging',
     `SELECT row_to_json(x)::text FROM public.shop_offer_prices(
        ARRAY(SELECT id FROM public.product_catalog WHERE is_sellable AND price > 0 LIMIT 3),
-       ARRAY[0,0,0]::numeric[], ARRAY[0,0,0]::bigint[], 4, 30, 0) x`,
+       ARRAY[0,0,0]::numeric[], ARRAY[0,0,0]::bigint[], ARRAY[false,false,false], 4, 30, 0) x`,
   );
   for (const line of out.split('\n').filter(Boolean)) {
     assert.deepEqual(Object.keys(JSON.parse(line)).sort(), ['clamped', 'final_toman', 'id']);
@@ -87,7 +96,7 @@ test('access: the shop role may not call the formula; the wrapper returns only i
     'lia_shop_staging',
     `SELECT bool_and(clamped) FROM public.shop_offer_prices(
        ARRAY(SELECT id FROM public.product_catalog WHERE is_sellable AND price > 0 LIMIT 3),
-       ARRAY[100,100,100]::numeric[], ARRAY[0,0,0]::bigint[], -50, 500, -50) x`,
+       ARRAY[100,100,100]::numeric[], ARRAY[0,0,0]::bigint[], ARRAY[false,false,false], -50, 500, -50) x`,
   );
   assert.equal(neg, 't');
 });

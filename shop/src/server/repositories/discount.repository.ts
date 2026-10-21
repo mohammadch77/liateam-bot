@@ -20,6 +20,7 @@ export type DiscountRow = {
   label: string | null;
   campaign_id: number | null;
   active: boolean;
+  allow_loss: boolean;
   created_at: Date;
   campaign_active: boolean | null;
   campaign_ends_at: Date | null;
@@ -46,6 +47,7 @@ export type DiscountInput = {
   label: string | null;
   campaignId: number | null;
   active: boolean;
+  allowLoss: boolean;
 };
 
 export type CampaignInput = {
@@ -66,7 +68,7 @@ export type PricingRow = {
 };
 
 const DISCOUNT_COLS = `d.id::int, d.scope, d.target_code, d.kind, d.value::int, d.starts_at, d.ends_at, d.label,
-  d.campaign_id::int, d.active, d.created_at, c.active AS campaign_active, c.ends_at AS campaign_ends_at,
+  d.campaign_id::int, d.active, d.allow_loss, d.created_at, c.active AS campaign_active, c.ends_at AS campaign_ends_at,
   c.title AS campaign_title`;
 const CAMPAIGN_COLS = 'id::int, title, banner_text, ends_at, link, active, created_at';
 
@@ -79,6 +81,7 @@ export const toDiscount = (r: DiscountRow): Discount => ({
   startsAt: r.starts_at,
   endsAt: r.ends_at,
   active: r.active,
+  allowLoss: r.allow_loss,
   campaignId: r.campaign_id,
   campaignActive: r.campaign_active,
   campaignEndsAt: r.campaign_ends_at,
@@ -90,8 +93,8 @@ async function hasOfferFunction(): Promise<boolean> {
   if (pricingReady && (pricingReady.ok || Date.now() - pricingReady.at < 5 * 60_000)) return pricingReady.ok;
   const row = await queryOne<{ ok: boolean }>(
     'discount.offer_function_ready',
-    `SELECT to_regprocedure('public.shop_offer_prices(integer[],numeric[],bigint[],numeric,numeric,numeric)') IS NOT NULL
-        AND has_function_privilege('public.shop_offer_prices(integer[],numeric[],bigint[],numeric,numeric,numeric)',
+    `SELECT to_regprocedure('public.shop_offer_prices(integer[],numeric[],bigint[],boolean[],numeric,numeric,numeric)') IS NOT NULL
+        AND has_function_privilege('public.shop_offer_prices(integer[],numeric[],bigint[],boolean[],numeric,numeric,numeric)',
                                    'EXECUTE') AS ok`,
   );
   const ok = !!row?.ok;
@@ -135,9 +138,21 @@ export const discountRepository = {
     const row = await queryOne<{ id: number }>(
       'discount.insert',
       `INSERT INTO shop_discounts
-         (scope, target_code, kind, value, starts_at, ends_at, label, campaign_id, active, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id::int`,
-      [d.scope, d.targetCode, d.kind, d.value, d.startsAt, d.endsAt, d.label, d.campaignId, d.active, by],
+         (scope, target_code, kind, value, starts_at, ends_at, label, campaign_id, active, allow_loss, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id::int`,
+      [
+        d.scope,
+        d.targetCode,
+        d.kind,
+        d.value,
+        d.startsAt,
+        d.endsAt,
+        d.label,
+        d.campaignId,
+        d.active,
+        d.allowLoss,
+        by,
+      ],
       db,
     );
     return row!.id;
@@ -147,9 +162,21 @@ export const discountRepository = {
     const rows = await query(
       'discount.update',
       `UPDATE shop_discounts SET scope = $2, target_code = $3, kind = $4, value = $5, starts_at = $6, ends_at = $7,
-              label = $8, campaign_id = $9, active = $10
+              label = $8, campaign_id = $9, active = $10, allow_loss = $11
         WHERE id = $1 RETURNING id`,
-      [id, d.scope, d.targetCode, d.kind, d.value, d.startsAt, d.endsAt, d.label, d.campaignId, d.active],
+      [
+        id,
+        d.scope,
+        d.targetCode,
+        d.kind,
+        d.value,
+        d.startsAt,
+        d.endsAt,
+        d.label,
+        d.campaignId,
+        d.active,
+        d.allowLoss,
+      ],
       db,
     );
     return rows.length === 1;
@@ -226,7 +253,7 @@ export const discountRepository = {
    * null = the function is not installed yet.
    */
   async offerPrices(
-    items: ReadonlyArray<{ id: number; percent: number; amount: number }>,
+    items: ReadonlyArray<{ id: number; percent: number; amount: number; allowLoss: boolean }>,
     rules: { baseMargin: number; cap: number; minMargin: number },
   ): Promise<Map<number, { final: number; clamped: boolean }> | null> {
     if (!(await hasOfferFunction())) return null;
@@ -234,11 +261,12 @@ export const discountRepository = {
     const rows = await query<{ id: number; final_toman: string; clamped: boolean }>(
       'discount.offer_prices',
       `SELECT id, final_toman, clamped
-         FROM public.shop_offer_prices($1::int[], $2::numeric[], $3::bigint[], $4, $5, $6)`,
+         FROM public.shop_offer_prices($1::int[], $2::numeric[], $3::bigint[], $4::boolean[], $5, $6, $7)`,
       [
         items.map((i) => i.id),
         items.map((i) => i.percent),
         items.map((i) => Math.round(i.amount)),
+        items.map((i) => i.allowLoss),
         rules.baseMargin,
         rules.cap,
         rules.minMargin,

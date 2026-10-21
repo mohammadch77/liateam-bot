@@ -73,6 +73,7 @@ export default async function AdminDiscountsPage({
         label: editing.label ?? '',
         campaign: editing.campaign_id ? String(editing.campaign_id) : '',
         active: editing.active,
+        allowLoss: editing.allow_loss,
       }
     : {
         id: null,
@@ -85,6 +86,7 @@ export default async function AdminDiscountsPage({
         label: '',
         campaign: '',
         active: true,
+        allowLoss: false,
       };
 
   return (
@@ -157,7 +159,10 @@ export default async function AdminDiscountsPage({
                       <td className="tnum">
                         {timeFa.format(r.starts_at)} تا {r.ends_at ? timeFa.format(r.ends_at) : 'بدون پایان'}
                       </td>
-                      <td>{[r.label, r.campaign_title].filter(Boolean).join(' · ') || '—'}</td>
+                      <td>
+                        {[r.label, r.campaign_title].filter(Boolean).join(' · ') || '—'}
+                        {r.allow_loss && <span className={`${a.status} ${a.danger}`}> زیان مجاز</span>}
+                      </td>
                       <td>
                         <div className={a.rowActions}>
                           <Link href={`/admin/discounts?edit=${r.id}`}>ویرایش</Link>

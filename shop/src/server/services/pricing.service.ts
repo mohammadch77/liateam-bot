@@ -98,7 +98,12 @@ async function load(): Promise<State> {
     return { row: r, manual: bestManual(product, discounts, now) };
   });
   const prices = await discountRepository.offerPrices(
-    items.map(({ row, manual }) => ({ id: row.id, percent: manual.percent, amount: manual.amount })),
+    items.map(({ row, manual }) => ({
+      id: row.id,
+      percent: manual.percent,
+      amount: manual.amount,
+      allowLoss: manual.allowLoss,
+    })),
     pricingRules(),
   );
   const offers = new Map<number, Offer>();

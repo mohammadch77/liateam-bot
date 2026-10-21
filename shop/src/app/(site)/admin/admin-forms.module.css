@@ -118,3 +118,16 @@
   gap: 12px;
   margin-bottom: 12px;
 }
+
+/* «اجازه‌ی فروش با زیان»: a deliberate, visible choice */
+.danger {
+  color: var(--color-danger, #b3261e);
+}
+.lossNote {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-danger, #b3261e) 10%, transparent);
+  color: var(--color-danger, #b3261e);
+  font-weight: 700;
+  line-height: 1.9;
+}

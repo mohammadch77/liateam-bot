@@ -22,6 +22,7 @@ const fields = (form: FormData) => ({
   label: String(form.get('label') ?? ''),
   campaign: String(form.get('campaign') ?? ''),
   active: form.get('active') ? 'on' : undefined,
+  allowLoss: form.get('allowLoss') ? 'on' : undefined,
 });
 
 /** «پیش‌نمایش» or «ذخیره» (button name=intent); admins only, audited on save. Errors are safe Persian text. */

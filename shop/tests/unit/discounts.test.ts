@@ -20,6 +20,7 @@ const d = (x: Partial<Discount>): Discount => ({
   startsAt: new Date(now.getTime() - hour),
   endsAt: null,
   active: true,
+  allowLoss: false,
   campaignId: null,
   campaignActive: null,
   campaignEndsAt: null,

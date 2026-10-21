@@ -26,6 +26,7 @@ const stamp = String(Date.now()).slice(-6);
 const phones = { admin: `0915${stamp}1`, customer: `0915${stamp}2` };
 const LABEL = `e2e-${stamp}`;
 const PRODUCT = 426;
+const LOSS = 520;
 const CATEGORY = Number(one(`select category[1] from product_catalog where id = 160`));
 const VISIBLE = 'is_sellable and price > 0 and missing_since is null and slug_en is not null';
 const slugOf = (id) => one(`select slug_en from product_catalog where id = ${id}`);
@@ -170,6 +171,31 @@ try {
     `select scope || ':' || coalesce(target_code::text, '') || ':' || value from ${SCHEMA}.shop_discounts where label = '${LABEL}' order by id`,
   );
   check('3d two discounts saved', saved.split('\n').length === 2, saved.replace(/\n/g, ' '));
+  // loss allowed (the admin's decision): 25% on another product → the preview warns, the save goes through
+  await admin.goto(`${BASE}/admin/discounts`, { waitUntil: 'load' });
+  await fillDiscount({ scope: 'product', target: LOSS, value: 25 });
+  await form.locator('input[name=allowLoss]').check();
+  await form.getByRole('button', { name: 'پیش‌نمایش اثر' }).click();
+  await form.locator('[data-at-loss]').waitFor({ timeout: 20000 });
+  const lossNote = await form.locator('[data-at-loss]').innerText();
+  check(
+    '3f loss allowed: the preview warns «زیر قیمت خرید» (a count, no price)',
+    /زیر قیمت خرید/.test(lossNote) && !leaks(lossNote, [LOSS]).length,
+    lossNote,
+  );
+  await form.getByRole('button', { name: 'ساخت تخفیف' }).click();
+  await saved_('تخفیف ساخته شد.');
+  check(
+    '3g loss allowed: saved with the flag, audited',
+    one(
+      `select allow_loss from ${SCHEMA}.shop_discounts where label = '${LABEL}' and target_code = ${LOSS}`,
+    ) === 't' &&
+      Number(
+        one(
+          `select count(*) from ${SCHEMA}.audit_log where action = 'discount.create' and meta->>'allowLoss' = 'true' and created_at > now() - interval '10 minutes'`,
+        ),
+      ) >= 1,
+  );
   const audit = Number(
     one(
       `select count(*) from ${SCHEMA}.audit_log where action in ('discount.create', 'campaign.create') and created_at > now() - interval '10 minutes'`,
@@ -194,6 +220,14 @@ try {
     Number(del) === p426 && Number(now) === final426,
     `${del} → ${now}`,
   );
+  await anon.goto(`${BASE}/p/${slugOf(LOSS)}`, { waitUntil: 'load' });
+  const lossNow = Number(toLatin(await buy.locator('[class*=current] b').first().innerText()));
+  check(
+    '4a2 loss allowed: the product sells at 25% off (under the purchase price, as the admin chose)',
+    lossNow === Math.ceil((priceOf(LOSS) * 0.75) / 100) * 100,
+    `${lossNow}`,
+  );
+  await anon.goto(`${BASE}/p/${slugOf(PRODUCT)}`, { waitUntil: 'load' });
   const pageHtml = await anon.content();
   check(
     '4b product page: no purchase price / Liateam discount in the HTML',

@@ -57,6 +57,10 @@ const discountSchema = z
       .string()
       .optional()
       .transform((v) => v === 'on' || v === '1'),
+    allowLoss: z
+      .string()
+      .optional()
+      .transform((v) => v === 'on' || v === '1'),
   })
   .superRefine((d, ctx) => {
     if (d.scope !== 'all' && !(d.target && Number.isInteger(d.target) && d.target > 0))
@@ -100,10 +104,15 @@ function parse<T>(schema: z.ZodType<T>, raw: Record<string, unknown>): T {
 
 export type DiscountPreview = {
   affected: number;
+  /** how many of them this discount would sell under the purchase price (a count, never a price) */
+  atLoss: number;
   samples: Array<{ id: number; name: string; price: number; final: number }>;
 };
 
-/** Products this discount covers, its preview, and whether the floor would cut it anywhere. */
+/**
+ * Products this discount covers, its preview, and whether it reaches the floor anywhere (`unsafe`). With «loss
+ * allowed» the preview prices are the real (unfloored) ones and `atLoss` says on how many products.
+ */
 async function check(input: DiscountInput): Promise<DiscountPreview & { unsafe: boolean }> {
   const [rows, cats] = await Promise.all([
     discountRepository.pricingRows(),
@@ -128,6 +137,7 @@ async function check(input: DiscountInput): Promise<DiscountPreview & { unsafe: 
     startsAt: new Date(0),
     endsAt: null,
     active: true,
+    allowLoss: input.allowLoss,
     campaignId: null,
     campaignActive: null,
     campaignEndsAt: null,
@@ -142,6 +152,7 @@ async function check(input: DiscountInput): Promise<DiscountPreview & { unsafe: 
   const names = new Map((await catalogRepository.productsByIds(sampleIds)).map((r) => [r.id, r.name]));
   return {
     affected: affected.length,
+    atLoss: affected.filter(({ r }) => prices.get(r.id)?.clamped).length,
     // a product the database cannot price gets no discount at all: counted as unsafe too
     unsafe: affected.some(({ r }) => !prices.get(r.id) || prices.get(r.id)!.clamped),
     samples: sampleIds.map((id) => ({
@@ -177,6 +188,7 @@ function toInput(raw: Record<string, unknown>): DiscountInput {
     label: v.label || null,
     campaignId: v.campaign,
     active: v.active,
+    allowLoss: v.allowLoss,
   };
 }
 
@@ -201,19 +213,22 @@ export const discountService = {
     await authorize('admin');
     const input = toInput(raw);
     await validTarget(input.scope, input.targetCode);
-    const { affected, samples } = await check(input);
-    return { affected, samples };
+    const { affected, atLoss, samples } = await check(input);
+    return { affected, atLoss, samples };
   },
 
-  /** Create (no id) or update; refused when the floor would cut it on any covered product. */
+  /**
+   * Create (no id) or update. Without «loss allowed» it is refused when it reaches the purchase-price floor on any
+   * covered product; with it (the admin's own decision) it is saved and the audit says so.
+   */
   async save(id: number | null, raw: Record<string, unknown>, meta: RequestMeta): Promise<number> {
     const admin = await authorize('admin');
     const input = toInput(raw);
     await validTarget(input.scope, input.targetCode);
     if (input.campaignId !== null && !(await discountRepository.getCampaign(input.campaignId)))
       throw new AppError('INVALID_DATA', { message: 'کمپین انتخاب‌شده پیدا نشد' });
-    const { unsafe, affected } = await check(input);
-    if (unsafe) throw new AppError('DISCOUNT_UNSAFE');
+    const { unsafe, affected, atLoss } = await check(input);
+    if (unsafe && !input.allowLoss) throw new AppError('DISCOUNT_UNSAFE');
     const saved = await withTransaction(async (db) => {
       const newId = id === null ? await discountRepository.insert(input, admin.id, db) : id;
       if (id !== null && !(await discountRepository.update(id, input, db))) throw new AppError('NOT_FOUND');
@@ -229,6 +244,8 @@ export const discountService = {
             kind: input.kind,
             value: input.value,
             affected,
+            allowLoss: input.allowLoss,
+            atLoss,
           },
           ip: meta.ip,
         },
@@ -245,7 +262,11 @@ export const discountService = {
     const row = await discountRepository.get(id);
     if (!row) throw new AppError('NOT_FOUND');
     // switching one back on is a new decision: the safety check runs again
-    if (active && (await check({ ...toDiscountInput(toDiscount(row)), active: true })).unsafe)
+    if (
+      !row.allow_loss &&
+      active &&
+      (await check({ ...toDiscountInput(toDiscount(row)), active: true })).unsafe
+    )
       throw new AppError('DISCOUNT_UNSAFE');
     await withTransaction(async (db) => {
       await discountRepository.setActive(id, active, db);
@@ -306,5 +327,6 @@ function toDiscountInput(d: Discount): DiscountInput {
     label: null,
     campaignId: d.campaignId,
     active: d.active,
+    allowLoss: d.allowLoss,
   };
 }
