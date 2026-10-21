@@ -13,6 +13,8 @@
 //   score 2     a «مناسب برای» concern names it (چربی / خشکی / پوست حساس …);
 //   score 1     made for every skin type («انواع پوست», or no skin type given at all);
 //   excluded    names only other skin types (e.g. «پوست خشک و حساس» for oily skin);
+//   exception   a sensitive-skin cream must name sensitive skin (score 2+): an «انواع پوست» cream is not enough
+//               (the best one was a brightening / anti-spot cream), so without one the step stays «به‌زودی»;
 //   then        in stock first, then the most reviews on Liateam (popularity), then the lower id.
 // No candidate with a score → the step stays empty and the shop shows «به‌زودی» (never a wrong product).
 import fs from 'node:fs';
@@ -35,7 +37,7 @@ const SKINS = [
   { key: 'oily', title: 'پوست چرب', word: /چرب/, concern: /چربی/ },
   { key: 'dry', title: 'پوست خشک', word: /خشک/, concern: /خشکی/ },
   { key: 'combination', title: 'پوست مختلط', word: /مختلط/, concern: /مختلط/ },
-  { key: 'sensitive', title: 'پوست حساس', word: /حساس/, concern: /حساس/ },
+  { key: 'sensitive', title: 'پوست حساس', word: /حساس/, concern: /حساس/, strictSteps: ['کرم'] },
 ];
 const ALL_TYPES = /چرب|خشک|مختلط|حساس|نرمال/;
 // Liateam category codes (their tree, 2026-10): cleansers 190 → 191 gel, 193 micellar, 194 bi-phase, 195 foam
@@ -79,7 +81,7 @@ try {
           [score, why] = [1, r.skin ? `همه‌ی پوست‌ها (${r.skin})` : 'همه‌ی پوست‌ها'];
         return { ...r, score, why };
       })
-      .filter((r) => r.score > 0)
+      .filter((r) => r.score > (skin.strictSteps?.includes(step.label) ? 1 : 0))
       .sort(
         (a, b) => b.score - a.score || (b.stock > 0) - (a.stock > 0) || b.reviews - a.reviews || a.id - b.id,
       );
