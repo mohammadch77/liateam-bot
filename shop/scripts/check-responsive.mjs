@@ -19,13 +19,14 @@ const PAGES = [
   '/affiliate',
   '/offers',
   '/offers?sort=cheapest',
-  '/c/173', // a parent category (redirects to its canonical /c/173-…)
+  '/packs/skin-routine/oily',
+  '/c/173', // a parent category (redirects to its canonical /c/173-â€¦)
   '/c/173?sort=price_asc&inStock=1&page=1',
-  '/p/541', // a product (redirects to /p/541-…)
-  '/search?q=%D8%B4%D8%A7%D9%85%D9%BE%D9%88', // «شامپو»
+  '/p/541', // a product (redirects to /p/541-â€¦)
+  '/search?q=%D8%B4%D8%A7%D9%85%D9%BE%D9%88', // Â«Ø´Ø§Ù…Ù¾ÙˆÂ»
   '/search?q=qqzzxx', // empty state
   '/login',
-  '/cart', // «به‌زودی» placeholder (all of them share one component)
+  '/cart', // Â«Ø¨Ù‡â€ŒØ²ÙˆØ¯ÛŒÂ» placeholder (all of them share one component)
   '/legal/privacy',
   '/styleguide',
 ];
@@ -88,7 +89,7 @@ for (const path of pages) {
     const bad = !res?.ok() || r.overflowX > 0 || r.outside.length || r.clipped.length || jsErrors.length;
     if (bad) failures++;
     console.log(
-      `${bad ? '✗' : '✓'} ${path.padEnd(14)} ${String(w).padStart(4)}px`,
+      `${bad ? 'âœ—' : 'âœ“'} ${path.padEnd(14)} ${String(w).padStart(4)}px`,
       bad ? JSON.stringify({ status: res?.status(), ...r, jsErrors: jsErrors.slice(0, 2) }) : '',
     );
     await page.close();

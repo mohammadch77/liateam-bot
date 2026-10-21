@@ -5,11 +5,14 @@ import { getConfig } from '@/lib/config';
 import { productPath } from '@/lib/catalog-urls';
 import { toAppError } from '@/lib/errors';
 import { formatToman } from '@/lib/format/money';
+import { logger } from '@/lib/logger';
 import { catalogService } from '@/server/services/catalog.service';
+import { packService, type CollectionView } from '@/server/services/pack.service';
 import { Container, Icon, ProductCard, ProductGrid, Section } from '@/ui';
 import { CatalogUnavailable } from './_catalog/CatalogListing';
 import { HeroSlider } from './HeroSlider';
 import { OffersRail } from './OffersRail';
+import { SkinRoutine, type RoutinePack } from './SkinRoutine';
 import s from './home.module.css';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -32,6 +35,34 @@ export default async function HomePage() {
     );
   }
   const hero = data.featuredHero;
+  // «روتین پوستی»: only while a pack runs; never fails the home page
+  const routine: CollectionView | null = await packService.collection('skin-routine').catch((e) => {
+    logger.warn('home.routine_unavailable', { err: e });
+    return null;
+  });
+  const routinePacks: RoutinePack[] = (routine?.packs ?? []).map((p) => ({
+    key: p.key,
+    variantTitle: p.variantTitle,
+    title: p.title,
+    href: p.href,
+    total: p.total,
+    final: p.final,
+    saving: p.saving,
+    available: p.available,
+    steps: p.steps.map((st) => ({
+      label: st.label,
+      status: st.status,
+      price: st.price,
+      product: st.product
+        ? {
+            name: st.product.name,
+            href: st.product.href,
+            brand: st.product.brandName,
+            imageUrl: st.product.imageUrl ?? null,
+          }
+        : null,
+    })),
+  }));
 
   return (
     <div className={s.home}>
@@ -150,6 +181,9 @@ export default async function HomePage() {
             </ProductGrid>
           </Section>
         )}
+
+        {/* placed here for now; the final order of the home sections comes with part 3 */}
+        {routine && routinePacks.length > 0 && <SkinRoutine title={routine.title} packs={routinePacks} />}
 
         <section className={s.affiliate} aria-labelledby="affiliate-band-title">
           <div className={s.affiliateText}>
