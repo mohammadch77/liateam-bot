@@ -26,6 +26,8 @@ CREATE TABLE packs (
   discount_kind  TEXT        NOT NULL CONSTRAINT pack_discount_kind CHECK (discount_kind IN ('percent', 'fixed_price')),
   discount_value BIGINT      NOT NULL,
   active         BOOLEAN     NOT NULL DEFAULT true,
+  -- the admin's explicit decision: this pack may sell under the items' purchase prices
+  allow_loss     BOOLEAN     NOT NULL DEFAULT false,
   starts_at      TIMESTAMPTZ,
   ends_at        TIMESTAMPTZ,
   sort_order     INTEGER     NOT NULL DEFAULT 0,

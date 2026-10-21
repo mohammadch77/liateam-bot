@@ -70,6 +70,7 @@ async function view(collection: CollectionRow, packs: PackRow[], items: PackItem
             p.discount_kind,
             p.discount_value,
             minMargin,
+            p.allow_loss,
           )
         : null;
       const final = priced?.final ?? null;
@@ -175,6 +176,7 @@ const packSchema = z
       z.coerce.number({ message: 'مقدار تخفیف عدد نیست' }).int('مقدار تخفیف باید عدد صحیح باشد'),
     ),
     active: flag,
+    allowLoss: flag,
     startsAt: optionalDate('شروع'),
     endsAt: optionalDate('پایان'),
     sortOrder: z.preprocess(faDigits, z.coerce.number().int().min(0).max(1000).catch(0)),
@@ -216,6 +218,7 @@ function toPackInput(raw: unknown): PackInput {
     discountKind: v.discountKind,
     discountValue: v.discountValue,
     active: v.active,
+    allowLoss: v.allowLoss,
     startsAt: v.startsAt,
     endsAt: v.endsAt,
     sortOrder: v.sortOrder,
@@ -232,6 +235,8 @@ export type PackPreview = {
   saving: number;
   /** some product is out of stock right now: the pack shows «فعلاً در دسترس نیست» */
   unavailableNow: boolean;
+  /** the pack price is under the items' purchase prices (+ margin): a yes/no, never a number */
+  atLoss: boolean;
 };
 
 /** The pack priced as if every product were in stock (the floor check), plus the preview. */
@@ -250,6 +255,7 @@ async function check(p: PackInput): Promise<PackPreview & { unsafe: boolean }> {
     p.discountKind,
     p.discountValue,
     pricingRules().minMargin,
+    p.allowLoss,
   );
   if (ids.length && !priced)
     throw new AppError('INTERNAL', { message: 'محاسبه‌ی قیمت پک هنوز روی سرور نصب نشده است.' });
@@ -262,6 +268,7 @@ async function check(p: PackInput): Promise<PackPreview & { unsafe: boolean }> {
     final: priced?.final ?? null,
     saving: priced ? savingPercent(total, priced.final) : 0,
     unavailableNow: ids.some((id) => products.get(id)!.stock === 'out'),
+    atLoss: !!priced?.clamped,
     unsafe: !priced || priced.clamped,
   };
 }
@@ -298,7 +305,8 @@ export const packService = {
     const admin = await authorize('admin');
     const input = toPackInput(raw);
     const r = await check(input);
-    if (r.unsafe) throw new AppError('DISCOUNT_UNSAFE');
+    // under the floor only with the admin's «اجازه‌ی فروش با زیان» (a pack that cannot be priced never)
+    if (r.unsafe && !(input.allowLoss && r.final !== null)) throw new AppError('DISCOUNT_UNSAFE');
     const saved = await withTransaction(async (db) => {
       const packId = await packRepository.savePack(id, input, admin.id, db);
       if (!packId) throw new AppError('NOT_FOUND');
@@ -308,7 +316,13 @@ export const packService = {
           action: id === null ? 'pack.create' : 'pack.update',
           entityType: 'pack',
           entityId: String(packId),
-          meta: { kind: input.discountKind, value: input.discountValue, steps: input.steps.length },
+          meta: {
+            kind: input.discountKind,
+            value: input.discountValue,
+            steps: input.steps.length,
+            allowLoss: input.allowLoss,
+            atLoss: r.atLoss,
+          },
           ip: meta.ip,
         },
         db,

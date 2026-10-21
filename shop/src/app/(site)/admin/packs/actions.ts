@@ -20,6 +20,7 @@ function packFields(form: FormData) {
     discountKind: text(form, 'discountKind'),
     discountValue: text(form, 'discountValue'),
     active: form.get('active') ? 'on' : undefined,
+    allowLoss: form.get('allowLoss') ? 'on' : undefined,
     startsAt: text(form, 'startsAt'),
     endsAt: text(form, 'endsAt'),
     sortOrder: text(form, 'sortOrder'),

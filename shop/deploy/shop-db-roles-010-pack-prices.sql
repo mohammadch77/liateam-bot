@@ -1,13 +1,14 @@
 -- Step 10 of the shop's database roles: the price of a pack (several products sold together), computed inside the
 -- database like a discount (009): the pack may never go under the items' purchase prices + the minimum margin, and
 -- the shop role still never reads cost_price.
---   public.shop_pack_price(ids, display_total, kind, value, min_margin) → (final_toman, clamped)
+--   public.shop_pack_price(ids, display_total, kind, value, min_margin, no_floor) → (final_toman, clamped)
 --     ids            the pack's products (a product twice counts twice)
 --     display_total  the sum of the items' current shop prices (after their own discounts), computed by the shop
 --     kind / value   'percent' (1–90) off display_total, or 'fixed_price' (toman)
+--     no_floor       the admin allowed a loss on this pack: the floor does not cut it (still reported)
 --     → final_toman  rounded up to 100 toman, never above display_total; no row when a product is unknown or has
 --                    no purchase price (the shop then shows the pack as unavailable)
---     → clamped      true when the floor decided the price (or the pack price reached it exactly)
+--     → clamped      true when the pack price reaches the floor (with no_floor: it sells at a loss)
 -- Run once as the database owner:
 --   sudo -u postgres psql lia_sync -f shop/deploy/shop-db-roles-010-pack-prices.sql
 -- Safe to rerun.
@@ -15,8 +16,11 @@
 \set ON_ERROR_STOP on
 BEGIN;
 
+-- the first version had no no_floor argument (only ever installed on development machines)
+DROP FUNCTION IF EXISTS public.shop_pack_price(integer[], bigint, text, bigint, numeric);
+
 CREATE OR REPLACE FUNCTION public.shop_pack_price(
-  ids integer[], display_total bigint, kind text, value bigint, min_margin numeric)
+  ids integer[], display_total bigint, kind text, value bigint, min_margin numeric, no_floor boolean)
 RETURNS TABLE (final_toman bigint, clamped boolean)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public
@@ -35,11 +39,12 @@ AS $$
       FROM c
      WHERE c.unknown = 0 AND c.n > 0 AND display_total > 0 AND kind IN ('percent', 'fixed_price')
   )
-  SELECT least(display_total, greatest(wanted, floor)), wanted <= floor FROM w
+  SELECT least(display_total, CASE WHEN no_floor THEN wanted ELSE greatest(wanted, floor) END), wanted <= floor
+    FROM w
 $$;
 
-REVOKE ALL ON FUNCTION public.shop_pack_price(integer[], bigint, text, bigint, numeric) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.shop_pack_price(integer[], bigint, text, bigint, numeric)
+REVOKE ALL ON FUNCTION public.shop_pack_price(integer[], bigint, text, bigint, numeric, boolean) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.shop_pack_price(integer[], bigint, text, bigint, numeric, boolean)
    TO lia_shop_staging, lia_shop;
 
 COMMIT;

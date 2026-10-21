@@ -29,6 +29,7 @@ export type PackRow = {
   discount_kind: PackKind;
   discount_value: number;
   active: boolean;
+  allow_loss: boolean;
   starts_at: Date | null;
   ends_at: Date | null;
   sort_order: number;
@@ -57,6 +58,7 @@ export type PackInput = {
   discountKind: PackKind;
   discountValue: number;
   active: boolean;
+  allowLoss: boolean;
   startsAt: Date | null;
   endsAt: Date | null;
   sortOrder: number;
@@ -65,12 +67,12 @@ export type PackInput = {
 
 const COLLECTION_COLS = 'id::int, slug, title, variant_label, active, sort_order';
 const PACK_COLS = `id::int, collection_id::int, variant_key, variant_title, title, description, discount_kind,
-  discount_value::bigint, active, starts_at, ends_at, sort_order`;
+  discount_value::bigint, active, allow_loss, starts_at, ends_at, sort_order`;
 
 let ready: { ok: boolean; at: number } | null = null;
 async function hasPackFunction(): Promise<boolean> {
   if (ready && (ready.ok || Date.now() - ready.at < 5 * 60_000)) return ready.ok;
-  const sig = 'public.shop_pack_price(integer[],bigint,text,bigint,numeric)';
+  const sig = 'public.shop_pack_price(integer[],bigint,text,bigint,numeric,boolean)';
   const row = await queryOne<{ ok: boolean }>(
     'pack.function_ready',
     `SELECT to_regprocedure('${sig}') IS NOT NULL AND has_function_privilege('${sig}', 'EXECUTE') AS ok`,
@@ -157,14 +159,15 @@ export const packRepository = {
       p.startsAt,
       p.endsAt,
       p.sortOrder,
+      p.allowLoss,
     ];
     let packId: number;
     if (id === null) {
       const row = await queryOne<{ id: number }>(
         'pack.insert',
         `INSERT INTO packs (collection_id, variant_key, variant_title, title, description, discount_kind,
-                            discount_value, active, starts_at, ends_at, sort_order, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id::int`,
+                            discount_value, active, starts_at, ends_at, sort_order, allow_loss, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id::int`,
         [...args, by],
         db,
       );
@@ -173,7 +176,8 @@ export const packRepository = {
       const rows = await query(
         'pack.update',
         `UPDATE packs SET collection_id = $2, variant_key = $3, variant_title = $4, title = $5, description = $6,
-                discount_kind = $7, discount_value = $8, active = $9, starts_at = $10, ends_at = $11, sort_order = $12
+                discount_kind = $7, discount_value = $8, active = $9, starts_at = $10, ends_at = $11, sort_order = $12,
+                allow_loss = $13
           WHERE id = $1 RETURNING id`,
         [id, ...args],
         db,
@@ -218,12 +222,13 @@ export const packRepository = {
     kind: PackKind,
     value: number,
     minMargin: number,
+    allowLoss: boolean,
   ): Promise<{ final: number; clamped: boolean } | null> {
     if (!productIds.length || !(await hasPackFunction())) return null;
     const row = await queryOne<{ final_toman: number; clamped: boolean }>(
       'pack.price',
-      'SELECT final_toman, clamped FROM public.shop_pack_price($1::int[], $2, $3, $4, $5)',
-      [productIds, Math.round(displayTotal), kind, Math.round(value), minMargin],
+      'SELECT final_toman, clamped FROM public.shop_pack_price($1::int[], $2, $3, $4, $5, $6)',
+      [productIds, Math.round(displayTotal), kind, Math.round(value), minMargin, allowLoss],
     );
     return row ? { final: Number(row.final_toman), clamped: row.clamped } : null;
   },

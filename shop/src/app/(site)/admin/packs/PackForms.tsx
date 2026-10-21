@@ -24,6 +24,7 @@ export type PackDraft = {
   discountKind: string;
   discountValue: string;
   active: boolean;
+  allowLoss: boolean;
   startsAt: string;
   endsAt: string;
   sortOrder: string;
@@ -145,6 +146,10 @@ export function PackForm({
           <input type="checkbox" name="active" defaultChecked={draft.active} />
           <span>فعال</span>
         </label>
+        <label className={`${a.check} ${a.danger}`}>
+          <input type="checkbox" name="allowLoss" defaultChecked={draft.allowLoss} />
+          <span>اجازه‌ی فروش با زیان (زیر قیمت خرید)</span>
+        </label>
       </div>
       <label className={a.field}>
         <span>توضیح (اختیاری)</span>
@@ -208,6 +213,12 @@ export function PackForm({
             </span>{' '}
             تومان · صرفه‌جویی: {toFaDigits(state.preview.saving)}٪
           </b>
+          {state.preview.atLoss && (
+            <span className={a.lossNote} data-at-loss>
+              ⚠ قیمت این پک زیر قیمت خرید محصولاتش است (فروش با زیان). فقط با تیک «اجازه‌ی فروش با زیان» ذخیره
+              می‌شود.
+            </span>
+          )}
           {state.preview.unavailableNow && (
             <span className={a.lossNote}>
               یکی از محصولات الان ناموجود است؛ پک تا موجود شدنش «فعلاً در دسترس نیست».

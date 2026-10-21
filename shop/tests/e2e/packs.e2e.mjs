@@ -165,6 +165,30 @@ try {
       one(`select count(*) from ${SCHEMA}.packs where variant_key = '${KEY}'`) === '0',
     refusalText,
   );
+  // the admin's own decision: 10% with «اجازه‌ی فروش با زیان» → the preview warns, the pack saves at a real 10%
+  await form.locator('input[name=allowLoss]').check();
+  await form.getByRole('button', { name: 'پیش‌نمایش' }).click();
+  await form.locator('[data-at-loss]').waitFor({ timeout: 20000 });
+  const lossNote = await form.locator('[data-at-loss]').innerText();
+  check(
+    '5a2 loss allowed: the preview warns «زیر قیمت خرید», no number',
+    /زیر قیمت خرید/.test(lossNote) && !/[0-9۰-۹]/.test(lossNote),
+  );
+  await form.getByRole('button', { name: 'ساخت پک' }).click();
+  await form.getByText('پک ساخته شد.').waitFor({ timeout: 20000 });
+  await anon.goto(`${BASE}/packs/skin-routine/${KEY}`, { waitUntil: 'load' });
+  check(
+    '5a3 loss allowed: the pack sells at a real 10% saving',
+    /۱۰٪ صرفه‌جویی/.test(await anon.locator('aside[aria-label="قیمت پک"]').innerText()),
+  );
+  sql(`delete from ${SCHEMA}.packs where variant_key = '${KEY}'`);
+  await admin.goto(`${BASE}/admin/packs`, { waitUntil: 'load' });
+  await form.locator('input[name=title]').fill(`پک آزمایشی ${stamp}`);
+  await form.locator('input[name=variantTitle]').fill('آزمایشی');
+  await form.locator('input[name=variantKey]').fill(KEY);
+  await form.locator('input[name=step0Product]').fill(String(p1));
+  await form.locator('input[name=step1Product]').fill(String(p2));
+  for (const i of [2, 3, 4]) await form.locator(`input[name=step${i}Label]`).fill('');
   await form.locator('input[name=discountValue]').fill('2');
   await form.getByRole('button', { name: 'پیش‌نمایش' }).click();
   await form.locator('[data-preview]').waitFor({ timeout: 20000 });

@@ -43,6 +43,7 @@ export default async function AdminPacksPage({
         discountKind: editPack.discount_kind,
         discountValue: String(editPack.discount_value),
         active: editPack.active,
+        allowLoss: editPack.allow_loss,
         startsAt: local(editPack.starts_at),
         endsAt: local(editPack.ends_at),
         sortOrder: String(editPack.sort_order),
@@ -60,6 +61,7 @@ export default async function AdminPacksPage({
         discountKind: 'percent',
         discountValue: '',
         active: true,
+        allowLoss: false,
         startsAt: '',
         endsAt: '',
         sortOrder: '0',
@@ -144,6 +146,7 @@ export default async function AdminPacksPage({
                             {p.discount_kind === 'percent'
                               ? `${toFaDigits(p.discount_value)}٪`
                               : `قیمت ثابت ${formatToman(p.discount_value)} تومان`}
+                            {p.allow_loss && <span className={`${a.status} ${a.danger}`}> زیان مجاز</span>}
                           </td>
                           <td>
                             {items

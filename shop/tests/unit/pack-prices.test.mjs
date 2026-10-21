@@ -43,10 +43,10 @@ const ids = `ARRAY[${a[0]},${b[0]}]`;
 const total = a[1] + b[1];
 const cost = a[2] + b[2];
 const ceil100 = (n) => Math.ceil(n / 100) * 100;
-const pack = (user, displayTotal, kind, value, margin = 1) =>
+const pack = (user, displayTotal, kind, value, margin = 1, loss = false) =>
   psql(
     user,
-    `SELECT final_toman || '|' || clamped FROM public.shop_pack_price(${ids}, ${displayTotal}, '${kind}', ${value}, ${margin})`,
+    `SELECT final_toman || '|' || clamped FROM public.shop_pack_price(${ids}, ${displayTotal}, '${kind}', ${value}, ${margin}, ${loss})`,
   );
 
 test('percent: a small discount above the floor', () => {
@@ -65,6 +65,11 @@ test('fixed price: above the floor as given; under it → the floor; never above
   assert.equal(pack('lia_shop_staging', total, 'fixed_price', total * 2), `${total}|false`);
 });
 
+test('loss allowed (the admin decides): 10% really applies, reported as under the floor', () => {
+  assert.equal(pack('lia_shop_staging', total, 'percent', 10, 1, true), `${ceil100(total * 0.9)}|true`);
+  assert.equal(pack('lia_shop_staging', total, 'percent', 2, 1, true), `${ceil100(total * 0.98)}|false`);
+});
+
 test('a new total (Liateam changed a price): priced again from it', () => {
   const higher = total + 100_000;
   assert.equal(pack('lia_shop_staging', higher, 'percent', 2), `${ceil100(higher * 0.98)}|false`);
@@ -74,7 +79,7 @@ test('an unknown product → no price (the shop shows the pack as unavailable)',
   assert.equal(
     psql(
       'lia_shop_staging',
-      `SELECT count(*) FROM public.shop_pack_price(ARRAY[${a[0]}, 99999999], ${total}, 'percent', 2, 1)`,
+      `SELECT count(*) FROM public.shop_pack_price(ARRAY[${a[0]}, 99999999], ${total}, 'percent', 2, 1, false)`,
     ),
     '0',
   );
@@ -83,7 +88,7 @@ test('an unknown product → no price (the shop shows the pack as unavailable)',
 test('access: only final price and a yes/no; the shop role cannot read cost_price; others cannot call it', () => {
   const json = psql(
     'lia_shop_staging',
-    `SELECT row_to_json(x)::text FROM public.shop_pack_price(${ids}, ${total}, 'percent', 2, 1) x`,
+    `SELECT row_to_json(x)::text FROM public.shop_pack_price(${ids}, ${total}, 'percent', 2, 1, false) x`,
   );
   assert.deepEqual(Object.keys(JSON.parse(json)).sort(), ['clamped', 'final_toman']);
   assert.ok(!json.includes(String(cost)) && !json.includes(String(a[2])) && !json.includes(String(b[2])));
