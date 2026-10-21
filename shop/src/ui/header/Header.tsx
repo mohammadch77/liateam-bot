@@ -12,6 +12,8 @@ export type Brand = { name: string; latin: string; homeHref?: string };
 export type NavItem = {
   label: string;
   href: string;
+  /** Liateam's category / brand code: the menus load its products on hover (/api/nav/products) */
+  code?: number;
   current?: boolean;
   /** visible products (shown in the menus) */
   count?: number;

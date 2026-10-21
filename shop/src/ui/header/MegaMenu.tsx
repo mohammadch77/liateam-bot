@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
@@ -8,6 +7,7 @@ import { formatNumber } from '@/lib/format/number';
 import { cx } from '../cx';
 import { Icon } from '../icon/Icon';
 import type { NavItem } from './Header';
+import { MenuOpen, NavProductGrid, PreviewImage, arrowKeys } from './NavProducts';
 import s from './MegaMenu.module.css';
 
 const CLOSE_DELAY_MS = 180;
@@ -121,7 +121,7 @@ function NavMenu({
           if ((e.target as Element).closest('a')) close(); // a followed link (also to the current page)
         }}
       >
-        {children}
+        <MenuOpen.Provider value={open}>{children}</MenuOpen.Provider>
       </div>
     </div>
   );
@@ -164,7 +164,7 @@ function CategoryPanel({ items, allHref }: { items: readonly NavItem[]; allHref:
   const shown = Math.min(active, items.length - 1);
   return (
     <div className={s.inner}>
-      <ul className={s.roots} aria-label="دسته‌بندی‌های اصلی">
+      <ul className={s.roots} aria-label="دسته‌بندی‌های اصلی" onKeyDown={arrowKeys}>
         {items.map((c, i) => (
           <li key={c.href} className={s.rootItem}>
             <Link
@@ -193,9 +193,24 @@ function CategoryPanel({ items, allHref }: { items: readonly NavItem[]; allHref:
   );
 }
 
-/** Sub-categories of the active category, with its cover tile. */
+/**
+ * Sub-categories of the active category, the products of the sub-category under the pointer / focus (the first one
+ * until then: the only one loaded ahead), and the cover tile, which shows the hovered product's picture.
+ */
 function Pane({ item }: { item: NavItem }) {
   const children = item.children ?? [];
+  // a category without sub-categories shows its own products
+  const targets = children.length ? children : [item];
+  const [active, setActive] = useState(0);
+  const [preview, setPreview] = useState<string | null>(null);
+  const intent = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(intent.current), []);
+  const target = targets[Math.min(active, targets.length - 1)]!;
+  const choose = (i: number, now = false) => {
+    clearTimeout(intent.current);
+    if (now) setActive(i);
+    else intent.current = setTimeout(() => setActive(i), ACTIVATE_DELAY_MS);
+  };
   return (
     <div className={s.pane}>
       <div className={s.paneMain}>
@@ -205,10 +220,17 @@ function Pane({ item }: { item: NavItem }) {
           <Icon name="chevron_left" size={18} />
         </Link>
         {children.length > 0 && (
-          <ul className={s.children} aria-label={`زیردسته‌های ${item.label}`}>
-            {children.map((ch) => (
+          <ul className={s.children} aria-label={`زیردسته‌های ${item.label}`} onKeyDown={arrowKeys}>
+            {children.map((ch, i) => (
               <li key={ch.href}>
-                <Link href={ch.href} className={s.child}>
+                <Link
+                  href={ch.href}
+                  className={cx(s.child, i === active && s.childActive)}
+                  onPointerEnter={() => choose(i)}
+                  onPointerLeave={() => clearTimeout(intent.current)}
+                  onFocus={() => choose(i, true)}
+                  aria-describedby={i === active ? 'nav-products-of' : undefined}
+                >
                   {ch.label}
                   {ch.count != null && <span className={s.childCount}>{formatNumber(ch.count)}</span>}
                 </Link>
@@ -216,9 +238,17 @@ function Pane({ item }: { item: NavItem }) {
             ))}
           </ul>
         )}
+        <span id="nav-products-of" className={s.productsTitle}>
+          پرفروش‌های {target.label}
+        </span>
+        <NavProductGrid
+          title={target.label}
+          target={target.code != null ? { cat: target.code } : null}
+          onPreview={setPreview}
+        />
       </div>
       <Link href={item.href} className={s.promo} tabIndex={-1} aria-hidden="true">
-        {item.imageUrl && <Image src={item.imageUrl} alt="" fill sizes="264px" className={s.promoImage} />}
+        <PreviewImage base={item.imageUrl ?? null} preview={preview} />
         <b className={s.promoTitle}>{item.label}</b>
         <span className={s.promoCta}>
           مشاهده
@@ -229,7 +259,7 @@ function Pane({ item }: { item: NavItem }) {
   );
 }
 
-/** «برندها»: the label goes to the brands page; the panel lists every brand (logo, name, product count). */
+/** «برندها»: the label goes to the brands page; the panel: every brand, the hovered brand's products and picture. */
 export function BrandMenu({ items, href }: { items: readonly NavItem[]; href: string }) {
   if (!items.length) {
     return (
@@ -240,30 +270,74 @@ export function BrandMenu({ items, href }: { items: readonly NavItem[]; href: st
   }
   return (
     <NavMenu label="برندها" href={href} panelLabel="فهرست برندها">
-      <div className={s.inner}>
-        <ul className={s.brands} aria-label="برندها">
-          {items.map((b) => (
-            <li key={b.href}>
-              <Link href={b.href} className={s.brand} aria-current={b.current ? 'page' : undefined}>
-                <span className={s.brandLogo}>
-                  {b.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- SVG logo served by our own route
-                    <img src={b.imageUrl} alt="" width={96} height={40} />
-                  ) : (
-                    <Icon name="spa" size={28} />
-                  )}
-                </span>
-                <span className={s.brandName}>{b.label}</span>
-                {b.count != null && <span className={s.childCount}>{formatNumber(b.count)} محصول</span>}
-              </Link>
-            </li>
-          ))}
-        </ul>
-        <Link href={href} className={s.all}>
-          همه‌ی برندها
-          <Icon name="chevron_left" size={18} />
+      <BrandPanel items={items} href={href} />
+    </NavMenu>
+  );
+}
+
+function BrandPanel({ items, href }: { items: readonly NavItem[]; href: string }) {
+  const [active, setActive] = useState(0);
+  const [preview, setPreview] = useState<string | null>(null);
+  const intent = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(intent.current), []);
+  const brand = items[Math.min(active, items.length - 1)]!;
+  const choose = (i: number, now = false) => {
+    clearTimeout(intent.current);
+    if (now) setActive(i);
+    else intent.current = setTimeout(() => setActive(i), ACTIVATE_DELAY_MS);
+  };
+  return (
+    <div className={s.inner} data-brand-panel>
+      <ul className={s.roots} aria-label="برندها" onKeyDown={arrowKeys}>
+        {items.map((b, i) => (
+          <li key={b.href} className={s.rootItem}>
+            <Link
+              href={b.href}
+              className={cx(s.rootLink, i === active && s.rootActive)}
+              aria-current={b.current ? 'page' : undefined}
+              onPointerEnter={() => choose(i)}
+              onPointerLeave={() => clearTimeout(intent.current)}
+              onFocus={() => choose(i, true)}
+              data-nav-brand={b.code}
+            >
+              <span className={s.rootLabel}>{b.label}</span>
+              {b.count != null && <span className={s.childCount}>{formatNumber(b.count)}</span>}
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <div className={s.pane}>
+        <div className={s.paneMain}>
+          <Link href={brand.href} className={s.paneAll}>
+            همه محصولات {brand.label}
+            <Icon name="chevron_left" size={18} />
+          </Link>
+          <NavProductGrid
+            title={brand.label}
+            target={brand.code != null ? { brand: brand.code } : null}
+            onPreview={setPreview}
+          />
+        </div>
+        <Link href={brand.href} className={cx(s.promo, s.brandPromo)} tabIndex={-1} aria-hidden="true">
+          {preview ? (
+            <PreviewImage base={null} preview={preview} />
+          ) : (
+            brand.imageUrl && (
+              // eslint-disable-next-line @next/next/no-img-element -- SVG logo served by our own route
+              <img src={brand.imageUrl} alt="" className={s.brandPromoLogo} />
+            )
+          )}
+          <b className={s.promoTitle}>{brand.label}</b>
+          <span className={s.promoCta}>
+            مشاهده
+            <Icon name="arrow_back" size={17} />
+          </span>
         </Link>
       </div>
-    </NavMenu>
+      <Link href={href} className={s.all}>
+        همه‌ی برندها
+        <Icon name="chevron_left" size={18} />
+      </Link>
+    </div>
   );
 }

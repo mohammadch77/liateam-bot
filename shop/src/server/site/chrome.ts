@@ -33,9 +33,10 @@ export async function headerCategories(): Promise<NavItem[]> {
     return menu.map((x) => ({
       label: x.name,
       href: x.href,
+      code: x.code,
       count: x.count,
       imageUrl: x.imageUrl,
-      children: x.children.map((ch) => ({ label: ch.name, href: ch.href, count: ch.count })),
+      children: x.children.map((ch) => ({ label: ch.name, href: ch.href, count: ch.count, code: ch.code })),
     }));
   } catch (e) {
     logger.warn('site.header_categories_unavailable', { code: toAppError(e).code });
@@ -49,6 +50,7 @@ export async function headerBrands(): Promise<NavItem[]> {
     return (await catalogService.brands()).map((b) => ({
       label: b.name,
       href: b.href,
+      code: b.code,
       count: b.count,
       imageUrl: b.logoUrl,
     }));
