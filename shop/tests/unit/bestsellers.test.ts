@@ -76,3 +76,19 @@ test('tabs as in the design: همه / مراقبت پوست / آرایشی / ع�
   const all = BESTSELLER_TABS.flatMap((t) => t.categories ?? []);
   assert.equal(new Set(all).size, all.length);
 });
+
+test('menus: 6 cards from 1280 px, 4 below; «مشاهده همه» only when there are more', async () => {
+  const { navLimit, composeNavProducts } = await import('../../src/lib/bestsellers.ts');
+  assert.deepEqual([1024, 1279, 1280, 1440, 1920].map(navLimit), [4, 4, 6, 6, 6]);
+  const six = Array.from({ length: 6 }, (_, i) => c(i + 1));
+  assert.deepEqual(composeNavProducts([], six, 6), { ids: [1, 2, 3, 4, 5, 6], more: false });
+  const r = composeNavProducts([], six, 4);
+  assert.equal(r.ids.length, 4);
+  assert.equal(r.more, true);
+  assert.deepEqual(composeNavProducts([], [], 6), { ids: [], more: false });
+  // the same order as the best sellers: Liateam's best-selling tag before the rest
+  assert.deepEqual(
+    composeNavProducts([], [c(1, { reviews: 9 }), c(2, { bestSelling: true })], 6).ids,
+    [2, 1],
+  );
+});

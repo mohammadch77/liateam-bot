@@ -51,17 +51,23 @@ export const bestsellerRepository = {
   async candidates(
     categories: readonly number[] | null,
     extraIds: readonly number[],
+    /** only this brand's products (the header's brand menu) */
+    brandCode?: number,
   ): Promise<BestsellerCandidate[]> {
     const tags = await canReadTags();
     const tag = (key: string) =>
       tags
         ? `EXISTS (SELECT 1 FROM public.product_tags t WHERE t.product_id = p.id AND t.key = '${key}')`
         : 'false';
-    // a parameter Postgres cannot type must not be sent: «همه» (no categories) only binds the extra ids
-    const inTab = categories
-      ? `p.category && ARRAY(WITH RECURSIVE t(code) AS (SELECT unnest($2::int[])
-           UNION SELECT c.code FROM categories c JOIN t ON c.parent_code = t.code) SELECT code FROM t)`
-      : 'true';
+    // only parameters the statement uses are bound (Postgres must type each one)
+    const params: unknown[] = [extraIds];
+    const add = (v: unknown) => `$${params.push(v)}`;
+    const conditions: string[] = [];
+    if (categories)
+      conditions.push(`p.category && ARRAY(WITH RECURSIVE t(code) AS (SELECT unnest(${add(categories)}::int[])
+           UNION SELECT c.code FROM categories c JOIN t ON c.parent_code = t.code) SELECT code FROM t)`);
+    if (brandCode !== undefined) conditions.push(`p.brand_code = ${add(brandCode)}`);
+    const inTab = conditions.length ? conditions.join(' AND ') : 'true';
     const rows = await query<{
       id: number;
       best_selling: boolean;
@@ -75,7 +81,7 @@ export const bestsellerRepository = {
               coalesce(p.reviews_total, 0) AS reviews, coalesce(p.rating_value, 0) AS rating, p.first_seen_at
          FROM product_catalog p
         WHERE ${VISIBLE} AND p.stock > 0 AND (${inTab} OR p.id = ANY($1::int[]))`,
-      categories ? [extraIds, categories] : [extraIds],
+      params,
     );
     return rows.map((r) => ({
       id: r.id,

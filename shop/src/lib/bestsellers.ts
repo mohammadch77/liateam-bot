@@ -85,3 +85,24 @@ export function composeBestsellers(
     take(c.id, 'fill');
   return out;
 }
+
+// ── header menus (part 4): products of a sub-category or a brand, in the same order as «پرفروش‌ترین‌ها» ──
+
+/** Cards in a menu pane: 6 from 1280 px wide, 4 below (the pane never scrolls sideways). */
+export const NAV_LIMITS = { wide: 6, narrow: 4, wideFrom: 1280 } as const;
+export function navLimit(viewportWidth: number): number {
+  return viewportWidth >= NAV_LIMITS.wideFrom ? NAV_LIMITS.wide : NAV_LIMITS.narrow;
+}
+
+/**
+ * A menu pane's products: the same rule as a best-seller tab (picks → Liateam's best-selling tag → fill-up), at most
+ * `limit`; `more` = there are more products than shown (then the pane shows «مشاهده همه»).
+ */
+export function composeNavProducts(
+  picks: readonly number[],
+  candidates: readonly BestsellerCandidate[],
+  limit: number,
+): { ids: number[]; more: boolean } {
+  const list = composeBestsellers(picks, candidates, { useLiateamTag: true, limit });
+  return { ids: list.map((x) => x.id), more: candidates.length > list.length };
+}

@@ -3,6 +3,7 @@ import { AppError } from '@/lib/errors';
 import {
   BESTSELLER_TABS,
   composeBestsellers,
+  composeNavProducts,
   isTabKey,
   type BestsellerSource,
   type BestsellerTabKey,
@@ -176,3 +177,68 @@ export const bestsellerService = {
     cache.clear();
   },
 };
+
+// ── header menus: a sub-category's or a brand's products (part 4) ──
+
+export type NavProduct = {
+  id: number;
+  href: string;
+  name: string;
+  imageUrl: string | null;
+  priceToman: number;
+  oldPriceToman: number | null;
+  inStock: boolean;
+};
+export type NavProducts = { items: NavProduct[]; more: boolean; allHref: string };
+
+const navCache = new Map<string, { at: number; value: NavProducts | null }>();
+onDataChange(() => navCache.clear());
+
+/**
+ * Products for a menu pane, ordered like «پرفروش‌ترین‌ها» (no per-category picks exist yet: Liateam's best-selling
+ * tag, then the fill-up), only sellable products in stock, at most `limit`; null when the category / brand is
+ * unknown. Cached for a minute per (category | brand, limit) and dropped with the other caches.
+ */
+export async function navProducts(
+  q: { category: number; limit: number } | { brand: number; limit: number },
+): Promise<NavProducts | null> {
+  const key = 'category' in q ? `c${q.category}:${q.limit}` : `b${q.brand}:${q.limit}`;
+  const hit = navCache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.value;
+  let allHref: string | null = null;
+  let candidates;
+  if ('category' in q) {
+    allHref = (await catalogService.categoryRef(q.category))?.href ?? null;
+    candidates = allHref ? await bestsellerRepository.candidates([q.category], []) : [];
+  } else {
+    allHref = (await catalogService.brands()).find((b) => b.code === q.brand)?.href ?? null;
+    candidates = allHref ? await bestsellerRepository.candidates(null, [], q.brand) : [];
+  }
+  let value: NavProducts | null = null;
+  if (allHref) {
+    const { ids, more } = composeNavProducts([], candidates, q.limit);
+    const views = await catalogService.productViews(ids);
+    value = {
+      allHref,
+      more,
+      items: ids.flatMap((id) => {
+        const v = views.get(id);
+        return v
+          ? [
+              {
+                id,
+                href: v.href,
+                name: v.name,
+                imageUrl: v.imageUrl ?? null,
+                priceToman: v.priceToman,
+                oldPriceToman: v.oldPriceToman ?? null,
+                inStock: v.stock !== 'out',
+              },
+            ]
+          : [];
+      }),
+    };
+  }
+  navCache.set(key, { at: Date.now(), value });
+  return value;
+}
