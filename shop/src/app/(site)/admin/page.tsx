@@ -18,6 +18,12 @@ const ACTION_LABEL: Record<string, string> = {
   'affiliate.apply': 'درخواست همکاری در فروش',
   'affiliate.approve': 'تأیید همکاری در فروش',
   'affiliate.reject': 'رد همکاری در فروش',
+  'discount.create': 'ساخت تخفیف',
+  'discount.update': 'ویرایش تخفیف',
+  'discount.enable': 'فعال‌سازی تخفیف',
+  'discount.disable': 'غیرفعال‌سازی تخفیف',
+  'campaign.create': 'ساخت کمپین',
+  'campaign.update': 'ویرایش کمپین',
 };
 const timeFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'short', timeStyle: 'short' });
 
@@ -37,6 +43,10 @@ export default async function AdminPage() {
           <Link href="/admin/reviews">دیدگاه‌های در انتظار تأیید</Link>
           {' · '}
           <Link href="/admin/affiliates">درخواست‌های همکاری در فروش</Link>
+          {' · '}
+          <Link href="/admin/discounts">تخفیف‌ها</Link>
+          {' · '}
+          <Link href="/admin/campaigns">کمپین‌ها</Link>
         </p>
         <dl className={s.list}>
           {events.map((e) => (
