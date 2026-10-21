@@ -24,6 +24,7 @@
     "images:warm": "node scripts/warm-images.mjs",
     "check:prices": "node scripts/check-prices.mjs",
     "check:search": "node scripts/check-search.mjs",
+    "test:unit": "node --test \"tests/unit/*.test.*\"",
     "test:e2e": "node tests/e2e/run.mjs"
   },
   "dependencies": {

@@ -15,6 +15,7 @@ export type ErrorCode =
   | 'ACCOUNT_DISABLED'
   | 'SMS_FAILED'
   | 'CSRF'
+  | 'DISCOUNT_UNSAFE'
   | 'INTERNAL';
 
 const DEFAULTS: Record<ErrorCode, { message: string; status: number }> = {
@@ -34,6 +35,8 @@ const DEFAULTS: Record<ErrorCode, { message: string; status: number }> = {
   ACCOUNT_DISABLED: { message: 'این حساب غیرفعال است. با پشتیبانی تماس بگیرید.', status: 403 },
   SMS_FAILED: { message: 'ارسال پیامک انجام نشد. چند لحظه بعد دوباره تلاش کنید.', status: 502 },
   CSRF: { message: 'درخواست نامعتبر است. صفحه را دوباره باز کنید.', status: 403 },
+  // never with a number: the limit comes from the purchase price
+  DISCOUNT_UNSAFE: { message: 'تخفیف بیش از حد مجاز است.', status: 422 },
   INTERNAL: { message: 'خطای غیرمنتظره‌ای رخ داد. دوباره تلاش کنید.', status: 500 },
 };
 

@@ -229,6 +229,24 @@ export const catalogRepository = {
     return rows.map((r) => r.w);
   },
 
+  /** id and name of every visible product (admin pickers; a few hundred rows). */
+  async productNames(): Promise<Array<{ id: number; name: string }>> {
+    return query<{ id: number; name: string }>(
+      'catalog.product_names',
+      `SELECT p.id, p.name FROM product_catalog p WHERE ${VISIBLE} ORDER BY p.name`,
+    );
+  },
+
+  /** Visible products by id (any order; the caller orders them). */
+  async productsByIds(ids: readonly number[]): Promise<ProductRow[]> {
+    if (!ids.length) return [];
+    return query<ProductRow>(
+      'catalog.products_by_ids',
+      `SELECT ${PRODUCT_COLS} FROM product_catalog p WHERE p.id = ANY($1::int[]) AND ${VISIBLE}`,
+      [ids],
+    );
+  },
+
   async getProduct(id: number): Promise<ProductDetailRow | null> {
     return queryOne<ProductDetailRow>(
       'catalog.get_product',

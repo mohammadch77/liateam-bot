@@ -196,7 +196,17 @@ sudo -u postgres psql lia_sync -f shop-db-004-search.sql
 
 # ۲-ه. خواندن سکشن‌های غنی محصول (مشخصات، نحوه‌ی استفاده، ویدیو، سوالات متداول، نظرات، برندها، اسلاگ انگلیسی)؛ ربات باید یک‌بار با کد جدید sync کرده باشد
 sudo -u postgres psql lia_sync -f shop-db-roles-005-rich-content.sql
+
+# ۲-و تا ۲-ح. گالری، اسلایدر، مشخصات کلیدی (۰۰۶ تا ۰۰۸)
+sudo -u postgres psql lia_sync -f shop-db-roles-006-gallery.sql
+sudo -u postgres psql lia_sync -f shop-db-roles-007-hero.sql
+sudo -u postgres psql lia_sync -f shop-db-roles-008-product-facts.sql
+
+# ۲-ط. قیمت تخفیف‌خورده: تابع shop_offer_prices (قیمت خرید فقط داخل دیتابیس خوانده می‌شود؛ اپ فقط قیمت نهایی را می‌گیرد)
+sudo -u postgres psql lia_sync -f shop-db-roles-009-offer-prices.sql
 ```
+
+تا `009` اجرا نشود، فروشگاه بدون هیچ تخفیفی و با قیمت لیاتیم کار می‌کند و هشدار `discount.offer_prices_unavailable` در لاگ می‌ماند. تنظیم‌ها (درصد): `OUR_BASE_MARGIN_PERCENT` (پیش‌فرض ۴)، `DISCOUNT_MAX_PERCENT` (۳۰)، `DISCOUNT_MIN_MARGIN_PERCENT` (۰).
 
 چرا با کاربر postgres: ساختن نقش و `CREATE EXTENSION` دسترسی مالک دیتابیس می‌خواهد. `004` را می‌شود بی‌خطر دوباره اجرا کرد. تا اجرا نشود، فروشگاه بالا می‌آید ولی جست‌وجو فقط زیررشته‌ی ساده در نام است و یک هشدار `catalog.search_fallback` در لاگ می‌ماند.
 

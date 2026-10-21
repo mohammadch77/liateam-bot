@@ -14,6 +14,7 @@ import {
   type SearchTerms,
 } from '@/server/repositories/catalog.repository';
 import { reviewRepository, type SiteReviewRow } from '@/server/repositories/review.repository';
+import { pricingService, type Offer } from '@/server/services/pricing.service';
 import type { ProductCardData, StockState } from '@/ui';
 
 /** Catalog display policy. */
@@ -29,6 +30,13 @@ export const SORT_OPTIONS: ReadonlyArray<{ value: ProductSort; label: string }> 
   { value: 'newest', label: 'جدیدترین' },
   { value: 'price_asc', label: 'ارزان‌ترین' },
   { value: 'price_desc', label: 'گران‌ترین' },
+];
+
+export type OfferSort = 'discount' | 'cheapest' | 'newest';
+export const OFFER_SORTS: ReadonlyArray<{ value: OfferSort; label: string }> = [
+  { value: 'discount', label: 'بیشترین تخفیف' },
+  { value: 'cheapest', label: 'ارزان‌ترین' },
+  { value: 'newest', label: 'جدیدترین' },
 ];
 
 export type Category = { code: number; name: string; parentCode: number | null; count: number; href: string };
@@ -301,7 +309,9 @@ function stockState(stock: number): StockState {
   return stock < CATALOG_POLICY.limitedStockBelow ? 'limited' : 'in';
 }
 
-function toView(r: ProductRow, names: Map<number, string>): ProductView {
+type Offers = ReadonlyMap<number, Offer>;
+
+function toView(r: ProductRow, names: Map<number, string>, offers: Offers): ProductView {
   const categories = r.category
     .map((code) => ({ code, name: names.get(code) }))
     .filter((c): c is { code: number; name: string } => !!c.name)
@@ -314,8 +324,9 @@ function toView(r: ProductRow, names: Map<number, string>): ProductView {
     // card label: the brand when the bot has read it, otherwise the main category
     brand: r.brand ?? categories[0]?.name ?? null,
     imageUrl: r.image_url,
-    priceToman: r.price,
-    oldPriceToman: null, // the supplier feed has no list price, so no discount is ever shown
+    // our discount (pricing.service): Liateam's price struck through, the discounted one in front
+    priceToman: offers.get(r.id)?.final ?? r.price,
+    oldPriceToman: offers.has(r.id) ? r.price : null,
     stock: stockState(r.stock),
     stockCount: r.stock,
     categories,
@@ -342,7 +353,7 @@ async function listing(
 ): Promise<Listing> {
   const search = (await searchTerms(params.q)) ?? undefined;
   const categories = extra.categories ?? (params.cat ? [params.cat] : undefined);
-  const [{ names }, { rows, total }] = await Promise.all([
+  const [{ names }, { rows, total }, offers] = await Promise.all([
     categoryNames(),
     catalogRepository.listProducts({
       categories,
@@ -353,9 +364,10 @@ async function listing(
       limit: CATALOG_POLICY.pageSize,
       offset: (params.page - 1) * CATALOG_POLICY.pageSize,
     }),
+    pricingService.offers(),
   ]);
   return {
-    items: rows.map((r) => toView(r, names)),
+    items: rows.map((r) => toView(r, names, offers)),
     total,
     page: params.page,
     totalPages: Math.max(1, Math.ceil(total / CATALOG_POLICY.pageSize)),
@@ -430,20 +442,31 @@ async function loadHeroSlides(): Promise<HeroSlide[]> {
 
 export const catalogService = {
   async home() {
-    const [{ list }, newest, inStock, heroSlides] = await Promise.all([
+    const [{ list }, newest, inStock, heroSlides, offers] = await Promise.all([
       categoryNames(),
       catalogRepository.listProducts({ sort: 'newest', limit: 10, offset: 0, inStockOnly: true }),
       catalogRepository.listProducts({ sort: 'price_desc', limit: 10, offset: 0, inStockOnly: true }),
       loadHeroSlides(),
+      pricingService.offers(),
     ]);
     const names = new Map(list.map((c) => [c.code, c.name]));
     const topCategories = list.filter((c) => c.parentCode === null || !names.has(c.parentCode)).slice(0, 8);
-    const covers = await catalogRepository.categoryCovers(topCategories.map((c) => c.code));
+    const [covers, rail, campaign] = await Promise.all([
+      catalogRepository.categoryCovers(topCategories.map((c) => c.code)),
+      this.offers({ sort: 'discount', page: 1, limit: 8 }),
+      pricingService.campaign(),
+    ]);
     return {
+      offers: rail.items,
+      offersCampaign: campaign ? { title: campaign.title, endsAt: campaign.ends_at.toISOString() } : null,
       categories: topCategories.map((c) => ({ ...c, imageUrl: covers.get(c.code) ?? null })),
-      newest: newest.rows.map((r) => toView(r, names)),
-      featured: inStock.rows.map((r) => toView(r, names)),
+      newest: newest.rows.map((r) => toView(r, names, offers)),
+      featured: inStock.rows.map((r) => toView(r, names, offers)),
       featuredHero: inStock.rows.find((r) => r.image_url) ?? null,
+      /** the hero chip's price: discounted like everywhere else */
+      featuredHeroPrice: ((h) => (h ? (offers.get(h.id)?.final ?? h.price) : 0))(
+        inStock.rows.find((r) => r.image_url),
+      ),
       heroSlides,
     };
   },
@@ -493,8 +516,8 @@ export const catalogService = {
   async product(id: number) {
     const row = await catalogRepository.getProduct(id);
     if (!row) return null;
-    const { list, names } = await categoryNames();
-    const product = toView(row, names);
+    const [{ list, names }, offers] = await Promise.all([categoryNames(), pricingService.offers()]);
+    const product = toView(row, names, offers);
     // breadcrumb: root → … → the product's main category (guarded against a cyclic tree)
     const byCode = new Map(list.map((c) => [c.code, c]));
     const trail: Category[] = [];
@@ -525,7 +548,45 @@ export const catalogService = {
       description: descriptionBlocks(row.description),
       content: toContent(row, content, siteReviews),
       trail,
-      related: related.rows.map((r) => toView(r, names)),
+      related: related.rows.map((r) => toView(r, names, offers)),
+    };
+  },
+
+  /**
+   * «تخفیفات ویژه»: every visible product with a discount (passed-through or ours), sorted (largest discount,
+   * cheapest, newest), optionally only one campaign's, one page of it. `limit` overrides the page size (home rail).
+   */
+  async offers(q: { sort: OfferSort; page: number; campaign?: number; limit?: number }) {
+    const [all, { names }, campaigns] = await Promise.all([
+      pricingService.discounted(),
+      categoryNames(),
+      pricingService.campaigns(),
+    ]);
+    const chosen = q.campaign !== undefined ? all.filter((r) => r.campaignId === q.campaign) : all;
+    const off = (r: { final: number; old: number }) => (r.old - r.final) / r.old;
+    const sorted = [...chosen].sort((a, b) =>
+      q.sort === 'cheapest'
+        ? a.final - b.final || a.id - b.id
+        : q.sort === 'newest'
+          ? b.first_seen_at.getTime() - a.first_seen_at.getTime() || b.id - a.id
+          : off(b) - off(a) || a.final - b.final || a.id - b.id,
+    );
+    const size = q.limit ?? CATALOG_POLICY.pageSize;
+    const totalPages = Math.max(1, Math.ceil(sorted.length / size));
+    const page = Math.min(Math.max(1, q.page), totalPages);
+    const ids = sorted.slice((page - 1) * size, page * size).map((r) => r.id);
+    const [rows, offers] = await Promise.all([catalogRepository.productsByIds(ids), pricingService.offers()]);
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    return {
+      items: ids.flatMap((id) => {
+        const r = byId.get(id);
+        return r ? [toView(r, names, offers)] : [];
+      }),
+      total: sorted.length,
+      page,
+      totalPages,
+      /** campaigns that have discounted products now (the filter chips) */
+      campaigns: campaigns.filter((c) => all.some((r) => r.campaignId === c.id)),
     };
   },
 
@@ -548,7 +609,7 @@ export const catalogService = {
   async suggest(q: string): Promise<Suggestions> {
     const terms = await searchTerms(q);
     if (!terms) return { query: q, words: [], products: [], categories: [], total: 0 };
-    const [{ list, names }, { rows, total }] = await Promise.all([
+    const [{ list, names }, { rows, total }, offers] = await Promise.all([
       categoryNames(),
       catalogRepository.listProducts({
         search: terms,
@@ -556,6 +617,7 @@ export const catalogService = {
         limit: SUGGEST_LIMITS.products,
         offset: 0,
       }),
+      pricingService.offers(),
     ]);
     const all = terms.words.flatMap((w) => [w.word, ...w.alts]);
     const categories = list
@@ -574,7 +636,7 @@ export const catalogService = {
       total,
       categories,
       products: rows.map((r) => {
-        const v = toView(r, names);
+        const v = toView(r, names, offers);
         return {
           href: v.href,
           name: v.name,
@@ -585,6 +647,11 @@ export const catalogService = {
         };
       }),
     };
+  },
+
+  /** id → name of every visible product (the admin's product picker). */
+  async productNames(): Promise<Array<{ id: number; name: string }>> {
+    return (await catalogRepository.productNames()).map((p) => ({ id: p.id, name: clean(p.name) }));
   },
 
   async allCategories(): Promise<Category[]> {

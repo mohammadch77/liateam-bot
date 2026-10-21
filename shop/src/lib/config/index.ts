@@ -43,6 +43,14 @@ const schema = z.object({
    */
   REVALIDATE_SECRET: z.string().min(32, 'at least 32 characters, e.g. `openssl rand -hex 32`').optional(),
 
+  // ── Discounts (percent; the arithmetic with the purchase price runs in the database, never here) ──
+  /** Liateam's discount to our account up to this percent is our margin; only the rest passes to the customer. */
+  OUR_BASE_MARGIN_PERCENT: z.coerce.number().min(0).max(50).default(4),
+  /** The customer's total discount (passed-through + ours) never exceeds this. */
+  DISCOUNT_MAX_PERCENT: z.coerce.number().min(0).max(90).default(30),
+  /** No discount takes the price under the purchase price plus this margin. */
+  DISCOUNT_MIN_MARGIN_PERCENT: z.coerce.number().min(0).max(50).default(0),
+
   // ── SMS ──
   SMS_PROVIDER: z.enum(['dev', 'kavenegar']).default('dev'),
   KAVENEGAR_API_KEY: z.string().trim().optional(),
