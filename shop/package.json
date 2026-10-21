@@ -26,7 +26,8 @@
     "check:prices": "node scripts/check-prices.mjs",
     "check:search": "node scripts/check-search.mjs",
     "test:unit": "node --test \"tests/unit/*.test.*\"",
-    "test:e2e": "node tests/e2e/run.mjs"
+    "test:e2e": "node tests/e2e/run.mjs",
+    "perf": "node scripts/perf.mjs"
   },
   "dependencies": {
     "next": "^16.4.0",
@@ -46,6 +47,7 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.4.0",
     "eslint-config-prettier": "^10.1.8",
+    "lighthouse": "^12.8.2",
     "node-pg-migrate": "^9.0.0",
     "prettier": "^3.9.10",
     "typescript": "^6.0.3"
