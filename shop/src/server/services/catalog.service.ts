@@ -1,6 +1,7 @@
 import 'server-only';
 import { cache } from 'react';
 import { z } from 'zod';
+import { BESTSELLER_TABS } from '@/lib/bestsellers';
 import { categoryPath, productPath } from '@/lib/catalog-urls';
 import { logger } from '@/lib/logger';
 import { editDistance, normalizeSearch, searchWords } from '@/lib/search/normalize';
@@ -250,6 +251,8 @@ const listParamsSchema = z.object({
   inStock: z.preprocess(one, z.enum(['1']).optional().catch(undefined)),
   cat: z.preprocess(one, z.coerce.number().int().positive().optional().catch(undefined)),
   q: z.preprocess(one, z.string().trim().max(CATALOG_POLICY.maxQueryLength).optional().catch(undefined)),
+  /** a home «پرفروش‌ترین‌ها» tab: its categories (src/lib/bestsellers.ts) when no single category is chosen */
+  group: z.preprocess(one, z.enum(['skin', 'makeup', 'scent', 'hair']).optional().catch(undefined)),
 });
 export type ListParams = z.infer<typeof listParamsSchema>;
 export type RawSearchParams = Record<string, string | string[] | undefined>;
@@ -352,7 +355,8 @@ async function listing(
   extra: { categories?: number[]; brandCode?: number } = {},
 ): Promise<Listing> {
   const search = (await searchTerms(params.q)) ?? undefined;
-  const categories = extra.categories ?? (params.cat ? [params.cat] : undefined);
+  const group = params.group ? BESTSELLER_TABS.find((t) => t.key === params.group)?.categories : undefined;
+  const categories = extra.categories ?? (params.cat ? [params.cat] : (group ?? undefined)) ?? undefined;
   const [{ names }, { rows, total }, offers] = await Promise.all([
     categoryNames(),
     catalogRepository.listProducts({
@@ -442,9 +446,9 @@ async function loadHeroSlides(): Promise<HeroSlide[]> {
 
 export const catalogService = {
   async home() {
-    const [{ list }, newest, inStock, heroSlides, offers] = await Promise.all([
+    const [{ list }, inStock, heroSlides, offers] = await Promise.all([
       categoryNames(),
-      catalogRepository.listProducts({ sort: 'newest', limit: 10, offset: 0, inStockOnly: true }),
+      // the static hero's product (when Liateam's slides are unavailable)
       catalogRepository.listProducts({ sort: 'price_desc', limit: 10, offset: 0, inStockOnly: true }),
       loadHeroSlides(),
       pricingService.offers(),
@@ -460,8 +464,6 @@ export const catalogService = {
       offers: rail.items,
       offersCampaign: campaign ? { title: campaign.title, endsAt: campaign.ends_at.toISOString() } : null,
       categories: topCategories.map((c) => ({ ...c, imageUrl: covers.get(c.code) ?? null })),
-      newest: newest.rows.map((r) => toView(r, names, offers)),
-      featured: inStock.rows.map((r) => toView(r, names, offers)),
       featuredHero: inStock.rows.find((r) => r.image_url) ?? null,
       /** the hero chip's price: discounted like everywhere else */
       featuredHeroPrice: ((h) => (h ? (offers.get(h.id)?.final ?? h.price) : 0))(

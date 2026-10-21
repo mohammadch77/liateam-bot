@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { BESTSELLER_TABS } from '@/lib/bestsellers';
 import { getConfig } from '@/lib/config';
 import { toAppError } from '@/lib/errors';
 import { formatNumber } from '@/lib/format/number';
@@ -34,12 +35,14 @@ export default async function ShopPage({ searchParams }: Props) {
     );
   }
   const topLevel = data.categories.filter((c) => c.parentCode === null);
+  // «مشاهده همه» of a home «پرفروش‌ترین‌ها» tab: the tab's categories
+  const group = !params.cat && params.group ? BESTSELLER_TABS.find((t) => t.key === params.group) : undefined;
 
   return (
     <Container className={s.page}>
       <Breadcrumb items={[{ label: 'خانه', href: '/' }, { label: 'فروشگاه' }]} />
       <header className={s.head}>
-        <h1 className={s.title}>فروشگاه</h1>
+        <h1 className={s.title}>{group ? `فروشگاه · ${group.label}` : 'فروشگاه'}</h1>
         <span className={s.sub}>{formatNumber(data.listing.total)} محصول</span>
       </header>
 

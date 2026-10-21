@@ -9,6 +9,7 @@ export function listingHref(base: string, params: ListParams, change: Partial<Li
   const sp = new URLSearchParams();
   if (next.q) sp.set('q', next.q);
   if (next.cat) sp.set('cat', String(next.cat));
+  if (next.group && !next.cat) sp.set('group', next.group);
   if (next.inStock === '1') sp.set('inStock', '1');
   if (next.sort && next.sort !== 'relevance') sp.set('sort', next.sort);
   if (next.page && next.page > 1) sp.set('page', String(next.page));

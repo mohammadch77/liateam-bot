@@ -180,3 +180,27 @@
   color: var(--color-primary);
   text-align: center;
 }
+
+/* best-seller picks: number · name · buttons */
+.pickList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.pickList li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-line-row);
+  border-radius: 10px;
+}
+.pickName {
+  flex: 1 1 200px;
+  min-width: 0;
+  font-size: 13.5px;
+}

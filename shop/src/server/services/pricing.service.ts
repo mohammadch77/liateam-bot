@@ -2,6 +2,7 @@ import 'server-only';
 import { getConfig } from '@/lib/config';
 import { logger } from '@/lib/logger';
 import { bestManual, type Discount, type PricedProduct } from '@/lib/pricing/discounts';
+import { onDataChange } from '@/server/cache-events';
 import { catalogRepository } from '@/server/repositories/catalog.repository';
 import {
   discountRepository,
@@ -37,6 +38,8 @@ type State = {
 const MAX_AGE_MS = 30_000;
 let state: State | null = null;
 let loading: Promise<State> | null = null;
+// the bot changed prices / stock (revalidate call): compute again on the next request
+onDataChange(() => (state = null));
 
 export function pricingRules() {
   const c = getConfig();

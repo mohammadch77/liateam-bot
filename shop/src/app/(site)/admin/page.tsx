@@ -29,6 +29,11 @@ const ACTION_LABEL: Record<string, string> = {
   'pack.enable': 'فعال‌سازی پک',
   'pack.disable': 'غیرفعال‌سازی پک',
   'pack.seed': 'ساخت پک‌های اولیه',
+  'bestseller.add': 'افزودن به پرفروش‌ترین‌ها',
+  'bestseller.move': 'جابه‌جایی در پرفروش‌ترین‌ها',
+  'bestseller.enable': 'روشن کردن انتخاب پرفروش',
+  'bestseller.disable': 'خاموش کردن انتخاب پرفروش',
+  'setting.update': 'تغییر تنظیمات',
   'pack_collection.create': 'ساخت مجموعه‌ی پک',
   'pack_collection.update': 'ویرایش مجموعه‌ی پک',
 };
@@ -56,6 +61,8 @@ export default async function AdminPage() {
           <Link href="/admin/campaigns">کمپین‌ها</Link>
           {' · '}
           <Link href="/admin/packs">پک‌ها</Link>
+          {' · '}
+          <Link href="/admin/bestsellers">پرفروش‌ترین‌ها</Link>
         </p>
         <dl className={s.list}>
           {events.map((e) => (

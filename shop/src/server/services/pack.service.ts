@@ -13,6 +13,7 @@ import {
 } from '@/server/repositories/pack.repository';
 import { withTransaction } from '@/server/repositories/transaction';
 import { authorize } from '@/server/auth/guards';
+import { onDataChange } from '@/server/cache-events';
 import type { RequestMeta } from '@/server/http/request';
 import { catalogService, type ProductView } from './catalog.service';
 import { pricingRules } from './pricing.service';
@@ -95,6 +96,7 @@ async function view(collection: CollectionRow, packs: PackRow[], items: PackItem
 }
 
 const cache = new Map<string, { at: number; value: CollectionView | null }>();
+onDataChange(() => cache.clear());
 
 /** A collection's running packs (null when the collection is off or has none). Cached for 30 s. */
 async function liveCollection(slug: string): Promise<CollectionView | null> {

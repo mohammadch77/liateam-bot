@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
+import { dataChanged } from '@/server/cache-events';
 import { z } from 'zod';
 import { getConfig } from '@/lib/config';
 import { logger } from '@/lib/logger';
@@ -52,6 +53,8 @@ export async function POST(req: Request) {
     revalidatePath(path, type);
     done.push(type ? `${path} (${type})` : path);
   }
+  // the shop's own short caches (prices, packs, best sellers) too
+  dataChanged();
   logger.info('revalidate.done', { count: done.length });
   return Response.json({ ok: true, revalidated: done });
 }
