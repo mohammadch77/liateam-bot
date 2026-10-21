@@ -17,6 +17,8 @@ const PAGES = [
   '/brands',
   '/brands/trust-pro',
   '/affiliate',
+  '/offers',
+  '/offers?sort=cheapest',
   '/c/173', // a parent category (redirects to its canonical /c/173-…)
   '/c/173?sort=price_asc&inStock=1&page=1',
   '/p/541', // a product (redirects to /p/541-…)

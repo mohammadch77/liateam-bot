@@ -1,0 +1,154 @@
+/* Home «تخفیفات ویژه» band (Homepage.dc.html «پیشنهاد شگفت‌انگیز»): blush band, head row, scrolling rail. */
+.band {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 28px;
+  padding: 18px 14px;
+  border-radius: var(--radius-xl, 24px);
+  background: linear-gradient(
+    135deg,
+    var(--color-blush) 0%,
+    color-mix(in srgb, var(--color-blush) 55%, #fff) 100%
+  );
+  min-width: 0;
+}
+@media (min-width: 1024px) {
+  .band {
+    margin-top: 40px;
+    padding: 26px 28px;
+    gap: 20px;
+  }
+}
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+.titleBox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 220px;
+}
+.bolt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--color-primary);
+  color: #fff;
+}
+.title {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.5;
+  color: var(--color-ink);
+}
+@media (min-width: 1024px) {
+  .title {
+    font-size: 24px;
+  }
+}
+.sub {
+  font-size: 13px;
+  color: var(--color-ink-2);
+}
+.all {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.countdown {
+  display: inline-flex;
+  gap: 6px;
+  direction: rtl;
+}
+.cdBox {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: var(--color-ink);
+  color: #fff;
+  line-height: 1.2;
+}
+.cdBox b {
+  font-size: 17px;
+  font-weight: 800;
+}
+.cdBox span {
+  font-size: 10.5px;
+  opacity: 0.75;
+}
+
+/* 2.2 cards on phones, then fixed-width cards; scrolls inside itself (never the page) */
+.rail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - 12px) / 2.15);
+  gap: 12px;
+  margin: 0;
+  padding: 2px 2px 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  list-style: none;
+}
+@media (min-width: 768px) {
+  .rail {
+    grid-auto-columns: 210px;
+    gap: 16px;
+  }
+}
+@media (min-width: 1280px) {
+  .rail {
+    grid-auto-columns: calc((100% - 3 * 16px) / 4);
+  }
+}
+@media (min-width: 1440px) {
+  .rail {
+    grid-auto-columns: calc((100% - 4 * 16px) / 5);
+  }
+}
+.slot {
+  min-width: 0;
+  scroll-snap-align: start;
+}
+
+/* nothing discounted yet: the same frame and roughly a card's height */
+.soon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 260px;
+  border: 1px dashed color-mix(in srgb, var(--color-primary) 35%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, #fff 70%, transparent);
+  color: var(--color-ink-2);
+  text-align: center;
+  padding: 16px;
+}
+.soon b {
+  font-size: 18px;
+  color: var(--color-primary);
+}
+.soon span {
+  font-size: 13.5px;
+}

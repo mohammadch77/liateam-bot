@@ -4,6 +4,7 @@ import type { CurrentUser } from '@/server/services/session.service';
 import { toAppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { catalogService } from '@/server/services/catalog.service';
+import { pricingService } from '@/server/services/pricing.service';
 import type { BottomNavItem, FooterProps, HeaderProps, NavItem } from '@/ui';
 
 /**
@@ -59,15 +60,23 @@ export async function headerBrands(): Promise<NavItem[]> {
 
 /** Plain links of the menu bar, after «فروشگاه» and «برندها» (as on Liateam; placeholders until phase 3). */
 const PAGES = [
+  { label: 'تخفیفات ویژه', href: '/offers' },
   { label: 'درباره ما', href: '/about' },
   { label: 'تماس با ما', href: '/contact' },
   { label: 'سوالات متداول', href: '/help/faq' },
 ];
 
+/** The running campaign of the bar above the header (none if the pricing is unavailable). */
+export async function headerCampaign(): Promise<{ text: string; href: string } | null> {
+  const c = await pricingService.campaign();
+  return c ? { text: c.banner_text, href: c.link } : null;
+}
+
 export function headerProps(
   user: CurrentUser | null,
   categories: NavItem[] = [],
   brands: NavItem[] = [],
+  campaign: { text: string; href: string } | null = null,
 ): HeaderProps {
   const c = getConfig();
   return {
@@ -82,6 +91,7 @@ export function headerProps(
     signedIn: user !== null,
     walletToman: null, // wallet arrives in phase 2
     freeShippingFromToman: FREE_SHIPPING_FROM_TOMAN,
+    campaign,
     supportPhone: c.SUPPORT_PHONE,
     links: LINKS,
   };

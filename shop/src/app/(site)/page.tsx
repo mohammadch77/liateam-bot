@@ -9,6 +9,7 @@ import { catalogService } from '@/server/services/catalog.service';
 import { Container, Icon, ProductCard, ProductGrid, Section } from '@/ui';
 import { CatalogUnavailable } from './_catalog/CatalogListing';
 import { HeroSlider } from './HeroSlider';
+import { OffersRail } from './OffersRail';
 import s from './home.module.css';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -93,7 +94,7 @@ export default async function HomePage() {
                 <span className={s.heroChip}>
                   <span className={s.heroChipName}>{hero.name.replace(/\s+/g, ' ')}</span>
                   <b className={s.heroChipPrice}>
-                    {formatToman(hero.price)} <span>تومان</span>
+                    {formatToman(data.featuredHeroPrice)} <span>تومان</span>
                   </b>
                 </span>
               </Link>
@@ -119,6 +120,8 @@ export default async function HomePage() {
             ))}
           </nav>
         )}
+
+        <OffersRail items={data.offers} campaign={data.offersCampaign} />
 
         {data.newest.length > 0 && (
           <Section

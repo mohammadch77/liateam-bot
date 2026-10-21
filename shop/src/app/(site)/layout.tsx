@@ -3,6 +3,7 @@ import {
   bottomNavItems,
   footerProps,
   headerBrands,
+  headerCampaign,
   headerCategories,
   headerProps,
 } from '@/server/site/chrome';
@@ -13,14 +14,15 @@ import { BottomNav, BottomNavSpacer, Footer, Header } from '@/ui';
 export const dynamic = 'force-dynamic';
 
 export default async function SiteLayout({ children }: { children: ReactNode }) {
-  const [user, categories, brands] = await Promise.all([
+  const [user, categories, brands, campaign] = await Promise.all([
     getCurrentUser(),
     headerCategories(),
     headerBrands(),
+    headerCampaign(),
   ]);
   return (
     <>
-      <Header {...headerProps(user, categories, brands)} />
+      <Header {...headerProps(user, categories, brands, campaign)} />
       <main>{children}</main>
       <Footer {...footerProps()} />
       <BottomNavSpacer />

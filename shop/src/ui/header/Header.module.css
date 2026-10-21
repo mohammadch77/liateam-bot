@@ -316,3 +316,24 @@ a.topbarItem:hover {
 .mobileSearchWrap {
   padding: 0 16px 12px;
 }
+
+/* running campaign: one line above everything (desktop and phone) */
+.campaignBar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 6px 16px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+.campaignText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

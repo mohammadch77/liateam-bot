@@ -6,7 +6,7 @@ import { cache, type ReactNode } from 'react';
 import { getConfig } from '@/lib/config';
 import { idFromSlug } from '@/lib/catalog-urls';
 import { toAppError } from '@/lib/errors';
-import { formatTomanText, tomanToRial } from '@/lib/format/money';
+import { discountPercent, formatTomanText, tomanToRial } from '@/lib/format/money';
 import { toFaDigits } from '@/lib/format/number';
 import {
   catalogService,
@@ -15,7 +15,18 @@ import {
 } from '@/server/services/catalog.service';
 import { REVIEW_POLICY } from '@/server/services/review.service';
 import { getCurrentUser } from '@/server/services/session.service';
-import { Badge, Breadcrumb, Button, Container, Icon, Price, ProductCard, ProductGrid, Section } from '@/ui';
+import {
+  Badge,
+  Breadcrumb,
+  Button,
+  Container,
+  Icon,
+  Price,
+  ProductCard,
+  ProductGrid,
+  Saving,
+  Section,
+} from '@/ui';
 import { CatalogUnavailable } from '../../_catalog/CatalogListing';
 import { ActiveTab } from './ActiveTab';
 import { Gallery } from './Gallery';
@@ -253,7 +264,13 @@ export default async function ProductPage({ params, searchParams }: Props) {
             </>
           ) : (
             <>
-              <Price toman={p.priceToman} size="lg" />
+              <Price toman={p.priceToman} oldToman={p.oldPriceToman} size="lg" />
+              {p.oldPriceToman != null && (
+                <span className={s.offBadge}>
+                  {toFaDigits(discountPercent(p.priceToman, p.oldPriceToman))}٪ تخفیف ·{' '}
+                  <Saving toman={p.priceToman} oldToman={p.oldPriceToman} />
+                </span>
+              )}
               {/* cart slot: the cart arrives in phase 2 */}
               <Button size="lg" block icon="add_shopping_cart" disabled aria-describedby="cart-soon">
                 افزودن به سبد
@@ -279,7 +296,11 @@ export default async function ProductPage({ params, searchParams }: Props) {
 
       {/* phones: price + button stay at the bottom while scrolling (above the tab bar) */}
       <div className={s.stickyBuy} aria-hidden="true">
-        {out ? <span className={s.outText}>ناموجود</span> : <Price toman={p.priceToman} />}
+        {out ? (
+          <span className={s.outText}>ناموجود</span>
+        ) : (
+          <Price toman={p.priceToman} oldToman={p.oldPriceToman} />
+        )}
         <Button size="md" icon="add_shopping_cart" disabled tabIndex={-1}>
           افزودن به سبد
         </Button>

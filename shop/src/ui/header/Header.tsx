@@ -41,6 +41,8 @@ export type HeaderProps = {
   /** wallet balance of a signed-in user; null until the wallet exists */
   walletToman: Toman | null;
   freeShippingFromToman: Toman;
+  /** a running campaign: a bar above the header (text from the admin panel, a same-site link) */
+  campaign?: { text: string; href: string } | null;
   supportPhone: string;
   deliverTo?: string;
   links: { cart: string; account: string; wallet: string; login: string; orders: string; favorites: string };
@@ -56,6 +58,13 @@ export function Header(p: HeaderProps) {
   const wallet = p.walletToman;
   return (
     <header className={s.header}>
+      {p.campaign && (
+        <Link href={p.campaign.href} className={s.campaignBar} data-campaign-bar>
+          <Icon name="bolt" size={17} />
+          <span className={s.campaignText}>{p.campaign.text}</span>
+          <Icon name="arrow_back" size={16} />
+        </Link>
+      )}
       <div className={s.desktop}>
         <div className={s.topbar}>
           <Container className={s.topbarInner}>
