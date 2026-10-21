@@ -204,9 +204,17 @@ sudo -u postgres psql lia_sync -f shop-db-roles-008-product-facts.sql
 
 # ۲-ط. قیمت تخفیف‌خورده: تابع shop_offer_prices (قیمت خرید فقط داخل دیتابیس خوانده می‌شود؛ اپ فقط قیمت نهایی را می‌گیرد)
 sudo -u postgres psql lia_sync -f shop-db-roles-009-offer-prices.sql
+
+
+# ۲-ی. قیمت پک‌ها (روتین پوستی و …): تابع shop_pack_price، با همان قاعده‌ی کف قیمت خرید
+sudo -u postgres psql lia_sync -f shop-db-roles-010-pack-prices.sql
 ```
 
-تا `009` اجرا نشود، فروشگاه بدون هیچ تخفیفی و با قیمت لیاتیم کار می‌کند و هشدار `discount.offer_prices_unavailable` در لاگ می‌ماند. تنظیم‌ها (درصد): `OUR_BASE_MARGIN_PERCENT` (پیش‌فرض ۴)، `DISCOUNT_MAX_PERCENT` (۳۰)، `DISCOUNT_MIN_MARGIN_PERCENT` (۰).
+تا `009` اجرا نشود، فروشگاه بدون هیچ تخفیفی و با قیمت لیاتیم کار می‌کند و هشدار `discount.offer_prices_unavailable` در لاگ می‌ماند؛ تا `010` اجرا نشود، پک‌ها «فعلاً در دسترس نیست» نشان داده می‌شوند. تنظیم‌ها (درصد):
+
+- `OUR_BASE_MARGIN_PERCENT` (پیش‌فرض ۴): تخفیف لیاتیم به حساب ما تا این درصد سود ماست؛ فقط بیشتر از آن به مشتری می‌رسد.
+- `DISCOUNT_MAX_PERCENT` (۳۰): سقف کل تخفیف هر محصول.
+- `DISCOUNT_MIN_MARGIN_PERCENT` (پیش‌فرض ۱): هیچ تخفیف یا پکی قیمت را از «قیمت خرید + این درصد» پایین‌تر نمی‌برد، تا قیمت نمایشی هیچ‌وقت خودِ قیمت خرید نباشد. فقط تخفیفی که مدیر روی آن «اجازه‌ی فروش با زیان» را زده از این کف معاف است.
 
 چرا با کاربر postgres: ساختن نقش و `CREATE EXTENSION` دسترسی مالک دیتابیس می‌خواهد. `004` را می‌شود بی‌خطر دوباره اجرا کرد. تا اجرا نشود، فروشگاه بالا می‌آید ولی جست‌وجو فقط زیررشته‌ی ساده در نام است و یک هشدار `catalog.search_fallback` در لاگ می‌ماند.
 

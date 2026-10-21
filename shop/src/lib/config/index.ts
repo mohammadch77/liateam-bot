@@ -48,8 +48,8 @@ const schema = z.object({
   OUR_BASE_MARGIN_PERCENT: z.coerce.number().min(0).max(50).default(4),
   /** The customer's total discount (passed-through + ours) never exceeds this. */
   DISCOUNT_MAX_PERCENT: z.coerce.number().min(0).max(90).default(30),
-  /** No discount takes the price under the purchase price plus this margin. */
-  DISCOUNT_MIN_MARGIN_PERCENT: z.coerce.number().min(0).max(50).default(0),
+  /** No discount (and no pack) takes the price under the purchase price plus this margin. */
+  DISCOUNT_MIN_MARGIN_PERCENT: z.coerce.number().min(0).max(50).default(1),
 
   // ── SMS ──
   SMS_PROVIDER: z.enum(['dev', 'kavenegar']).default('dev'),

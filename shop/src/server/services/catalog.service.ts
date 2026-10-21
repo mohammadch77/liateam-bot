@@ -649,6 +649,16 @@ export const catalogService = {
     };
   },
 
+  /** Visible products by id as cards (discounted prices included); unknown / no longer sold ids are left out. */
+  async productViews(ids: readonly number[]): Promise<Map<number, ProductView>> {
+    const [rows, { names }, offers] = await Promise.all([
+      catalogRepository.productsByIds([...new Set(ids)]),
+      categoryNames(),
+      pricingService.offers(),
+    ]);
+    return new Map(rows.map((r) => [r.id, toView(r, names, offers)]));
+  },
+
   /** id → name of every visible product (the admin's product picker). */
   async productNames(): Promise<Array<{ id: number; name: string }>> {
     return (await catalogRepository.productNames()).map((p) => ({ id: p.id, name: clean(p.name) }));
