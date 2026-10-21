@@ -58,9 +58,13 @@ export async function headerBrands(): Promise<NavItem[]> {
   }
 }
 
-/** Plain links of the menu bar, after «فروشگاه» and «برندها» (as on Liateam; placeholders until phase 3). */
+/**
+ * Plain links of the menu bar after «فروشگاه» and «برندها» (SiteHeader.dc.html order); the same list in the phone
+ * drawer. About / contact / FAQ are placeholders until phase 3.
+ */
 const PAGES = [
   { label: 'تخفیفات ویژه', href: '/offers' },
+  { label: 'همکاری در فروش', href: '/affiliate' },
   { label: 'درباره ما', href: '/about' },
   { label: 'تماس با ما', href: '/contact' },
   { label: 'سوالات متداول', href: '/help/faq' },

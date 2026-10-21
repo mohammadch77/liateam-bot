@@ -7,10 +7,14 @@ import { toAppError } from '@/lib/errors';
 import { formatToman } from '@/lib/format/money';
 import { logger } from '@/lib/logger';
 import { catalogService } from '@/server/services/catalog.service';
+import { bestsellerService } from '@/server/services/bestseller.service';
 import { packService, type CollectionView } from '@/server/services/pack.service';
-import { Container, Icon, ProductCard, ProductGrid, Section } from '@/ui';
+import { Container, Icon } from '@/ui';
 import { CatalogUnavailable } from './_catalog/CatalogListing';
 import { HeroSlider } from './HeroSlider';
+import { Bestsellers, type BestsellerCard } from './Bestsellers';
+import { BrandsRow, type BrandTile } from './BrandsRow';
+import { Magazine } from './Magazine';
 import { OffersRail } from './OffersRail';
 import { SkinRoutine, type RoutinePack } from './SkinRoutine';
 import s from './home.module.css';
@@ -40,6 +44,33 @@ export default async function HomePage() {
     logger.warn('home.routine_unavailable', { err: e });
     return null;
   });
+  // «برندها» and the first «پرفروش‌ترین‌ها» tab; neither fails the home page
+  const brands: BrandTile[] = (await catalogService.brands().catch(() => [])).map((b) => ({
+    code: b.code,
+    name: b.name,
+    href: b.href,
+    logoUrl: b.logoUrl,
+  }));
+  const bestsellerTabs = bestsellerService.tabs.map((t) => ({
+    key: t.key,
+    label: t.label,
+    href: t.key === 'all' ? '/shop' : `/shop?group=${t.key}`,
+  }));
+  const bestsellersFirst: BestsellerCard[] = (
+    await bestsellerService.tab('all').catch((e) => {
+      logger.warn('home.bestsellers_unavailable', { err: e });
+      return [];
+    })
+  ).map((p) => ({
+    id: p.id,
+    href: p.href,
+    name: p.name,
+    brand: p.brand ?? null,
+    imageUrl: p.imageUrl ?? null,
+    priceToman: p.priceToman,
+    oldPriceToman: p.oldPriceToman ?? null,
+    stock: p.stock,
+  }));
   const routinePacks: RoutinePack[] = (routine?.packs ?? []).map((p) => ({
     key: p.key,
     variantTitle: p.variantTitle,
@@ -154,38 +185,15 @@ export default async function HomePage() {
 
         <OffersRail items={data.offers} campaign={data.offersCampaign} />
 
-        {data.newest.length > 0 && (
-          <Section
-            id="newest"
-            title="جدیدترین‌ها"
-            action={{ href: '/search?sort=newest', label: 'مشاهده همه' }}
-          >
-            <ProductGrid>
-              {data.newest.map((p, i) => (
-                <ProductCard key={p.id} product={p} priority={i < 2} />
-              ))}
-            </ProductGrid>
-          </Section>
-        )}
+        <BrandsRow brands={brands} />
 
-        {data.featured.length > 0 && (
-          <Section
-            id="featured"
-            title="منتخب‌ها"
-            action={{ href: '/search?sort=price_desc', label: 'مشاهده همه' }}
-          >
-            <ProductGrid>
-              {data.featured.map((p) => (
-                <ProductCard key={p.id} product={p} />
-              ))}
-            </ProductGrid>
-          </Section>
-        )}
+        <Bestsellers tabs={bestsellerTabs} initial={bestsellersFirst} />
 
-        {/* placed here for now; the final order of the home sections comes with part 3 */}
         {routine && routinePacks.length > 0 && <SkinRoutine title={routine.title} packs={routinePacks} />}
 
-        <section className={s.affiliate} aria-labelledby="affiliate-band-title">
+        <Magazine />
+
+        <section className={s.affiliate} aria-labelledby="affiliate-band-title" data-home-section="affiliate">
           <div className={s.affiliateText}>
             <span className={s.kicker}>
               <span className={s.kickerDot} aria-hidden="true" />
@@ -198,24 +206,10 @@ export default async function HomePage() {
               محصولات اصل را به مخاطبانت معرفی کن؛ موجودی، بسته‌بندی و ارسال با ما.
             </p>
             <Link href="/affiliate?from=home" className={s.ctaPrimary}>
-              درخواست همکاری
+              ثبت درخواست همکاری
               <Icon name="arrow_back" size={20} />
             </Link>
           </div>
-          <ul className={s.affiliatePoints}>
-            <li>
-              <Icon name="verified" size={22} className={s.trustIcon} />
-              کالای اصل، مستقیم از تأمین‌کننده
-            </li>
-            <li>
-              <Icon name="local_shipping" size={22} className={s.trustIcon} />
-              بدون انبار؛ ارسال با ما
-            </li>
-            <li>
-              <Icon name="account_balance_wallet" size={22} className={s.trustIcon} />
-              درآمد از هر فروش
-            </li>
-          </ul>
         </section>
       </Container>
     </div>
