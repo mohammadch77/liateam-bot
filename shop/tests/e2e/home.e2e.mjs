@@ -97,7 +97,11 @@ try {
   const brandHref = await brandLinks.first().getAttribute('href');
   await brandLinks.first().click();
   await page.waitForURL((u) => u.pathname === brandHref, { timeout: 30000 });
-  await page.locator('main article').first().waitFor({ timeout: 30000 }).catch(() => {});
+  await page
+    .locator('main article')
+    .first()
+    .waitFor({ timeout: 30000 })
+    .catch(() => {});
   check(
     '2c brand logo → its brand page with its products',
     (await page.locator('main article').count()) > 0,

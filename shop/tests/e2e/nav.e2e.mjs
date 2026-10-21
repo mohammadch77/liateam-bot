@@ -36,9 +36,17 @@ try {
   await go('/');
   const items = (await bar.locator('a:visible').allInnerTexts()).map((t) => t.trim()).filter(Boolean);
   check(
-    '1a bar: فروشگاه, برندها, تخفیفات ویژه, درباره ما, تماس با ما, سوالات متداول (in this order)',
-    JSON.stringify(items.slice(0, 6)) ===
-      JSON.stringify(['فروشگاه', 'برندها', 'تخفیفات ویژه', 'درباره ما', 'تماس با ما', 'سوالات متداول']),
+    '1a bar: فروشگاه, برندها, تخفیفات ویژه, همکاری در فروش, درباره ما, تماس با ما, سوالات متداول (in this order)',
+    JSON.stringify(items.slice(0, 7)) ===
+      JSON.stringify([
+        'فروشگاه',
+        'برندها',
+        'تخفیفات ویژه',
+        'همکاری در فروش',
+        'درباره ما',
+        'تماس با ما',
+        'سوالات متداول',
+      ]),
     items.join(' | '),
   );
   for (const [label, path] of [

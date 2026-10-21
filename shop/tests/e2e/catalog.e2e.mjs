@@ -209,8 +209,11 @@ check(
 await go('/');
 const srcs = await page.locator('main img').evaluateAll((imgs) => imgs.map((i) => i.currentSrc || i.src));
 check(
-  'images served by /_next/image (no hotlink to s3.liateam.ir)',
-  srcs.length > 0 && srcs.every((s) => s.includes('/_next/image') && !s.startsWith('https://s3.')),
+  'images served by /_next/image or our brand-logo route (no hotlink to s3.liateam.ir)',
+  srcs.length > 0 &&
+    srcs.every(
+      (s) => (s.includes('/_next/image') || s.includes('/api/brand-logo/')) && !s.startsWith('https://s3.'),
+    ),
   `${srcs.length} images`,
 );
 
