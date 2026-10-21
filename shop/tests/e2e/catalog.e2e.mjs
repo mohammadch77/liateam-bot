@@ -208,11 +208,19 @@ check(
 // ── images come through our optimiser, never from the supplier ──
 await go('/');
 const srcs = await page.locator('main img').evaluateAll((imgs) => imgs.map((i) => i.currentSrc || i.src));
+// brand logos: only our own route on this site (same origin, path /api/brand-logo/<code>), no other host
+const ownLogo = (src) => {
+  const u = new URL(src, BASE);
+  return u.origin === new URL(BASE).origin && /^\/api\/brand-logo\/\d+$/.test(u.pathname);
+};
 check(
-  'images served by /_next/image or our brand-logo route (no hotlink to s3.liateam.ir)',
+  'images served by /_next/image or our own /api/brand-logo/ route (no hotlink to s3.liateam.ir)',
   srcs.length > 0 &&
     srcs.every(
-      (s) => (s.includes('/_next/image') || s.includes('/api/brand-logo/')) && !s.startsWith('https://s3.'),
+      (s) =>
+        ((new URL(s, BASE).origin === new URL(BASE).origin && new URL(s, BASE).pathname === '/_next/image') ||
+          ownLogo(s)) &&
+        !s.startsWith('https://s3.'),
     ),
   `${srcs.length} images`,
 );
