@@ -1,0 +1,14 @@
+# Hourly image-cache warm-up (liateam-shop-images-warm.service): pictures the sync bot added or changed are
+# resized before visitors ask for them. Cheap when nothing is new (cached pictures return at once).
+
+[Unit]
+Description=Liateam shop (staging) — warm the image cache every hour
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=1h
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
