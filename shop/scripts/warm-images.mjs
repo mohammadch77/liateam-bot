@@ -17,7 +17,7 @@ for (const f of ['.env.local', '.env'])
 // 390 (and their 2× 640 / 828), gallery and promo tiles 320 / 640; hero banners also at the wide sizes.
 const WIDTHS = [160, 240, 320, 390, 640, 828];
 const HERO_WIDTHS = [640, 828, 1080, 1440, 1920];
-const HERO_QUALITY = 80;
+const HERO_QUALITY = 75; // the only quality next.config allows (the slider's 80 is rounded to it)
 const QUALITY = 75;
 const CONCURRENCY = 2;
 
