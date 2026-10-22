@@ -1033,3 +1033,38 @@
   font-size: 12.5px;
   font-weight: 700;
 }
+
+/* video facade: a picture and a play button until the visitor asks for the player (no third-party load before) */
+.videoFacade {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: radial-gradient(90% 80% at 50% 40%, #fff 0%, var(--color-stage-mid) 100%);
+  cursor: pointer;
+}
+.videoPoster {
+  object-fit: contain;
+  padding: 6%;
+  mix-blend-mode: multiply;
+}
+.videoPlay {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: 0 10px 30px -10px rgb(30 27 36 / 45%);
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+.videoFacade:hover .videoPlay,
+.videoFacade:focus-visible .videoPlay {
+  transform: scale(1.06);
+}

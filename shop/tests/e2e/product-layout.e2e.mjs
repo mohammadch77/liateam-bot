@@ -122,11 +122,15 @@ try {
         (await d.getByText(/نمایش همه‌ی ۵۳ پرسش/).count()) === 1,
         `${faqShown} visible`,
       );
+      // the player loads only when asked for (facade): nothing from ArvanCloud before the click
+      const playerBefore = await d.locator('figure[data-media=video] iframe').count();
+      await d.locator('figure[data-media=video] button').click();
       check(
-        '2c rich: video beside the specs (ArvanCloud player, sandboxed)',
-        (await d
-          .locator('figure[data-media=video] iframe[src^="https://player.arvancloud.ir/"][sandbox]')
-          .count()) === 1,
+        '2c rich: video beside the specs — a play button first, then the ArvanCloud player, sandboxed',
+        playerBefore === 0 &&
+          (await d
+            .locator('figure[data-media=video] iframe[src^="https://player.arvancloud.ir/"][sandbox]')
+            .count()) === 1,
       );
       const heads = await d.evaluate(() => {
         const t = (q) => document.querySelector(q)?.getBoundingClientRect();
@@ -280,6 +284,7 @@ try {
   await m
     .waitForFunction(() => document.getElementById('video')?.open === true, null, { timeout: 15000 })
     .catch(() => {});
+  await m.locator('#video button').click();
   const mv = await m.evaluate(() => ({
     title: document.querySelector('#video > summary h2')?.textContent,
     open: document.getElementById('video')?.open,

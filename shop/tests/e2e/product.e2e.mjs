@@ -66,6 +66,12 @@ check(
   '1d FAQ: first question first, opens on click',
   (await faq.locator('summary').textContent()).trim() === dbFaq && (await faq.getAttribute('open')) !== null,
 );
+// facade: no player before the click
+check(
+  '1e0 video: a play button, no third-party player loaded yet',
+  (await page.locator('figure[data-media=video] iframe').count()) === 0,
+);
+await page.locator('figure[data-media=video] button').click();
 const iframe = page.locator('figure[data-media=video] iframe');
 const src = (await iframe.getAttribute('src')) ?? '';
 const sandbox = (await iframe.getAttribute('sandbox')) ?? '';

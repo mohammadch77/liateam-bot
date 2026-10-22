@@ -30,6 +30,7 @@ import {
 import { CatalogUnavailable } from '../../_catalog/CatalogListing';
 import { ActiveTab } from './ActiveTab';
 import { Gallery } from './Gallery';
+import { VideoFacade } from './VideoFacade';
 import { OpenSectionOnHash } from './OpenSectionOnHash';
 import { ReviewForm } from './ReviewForm';
 import s from './product.module.css';
@@ -354,15 +355,11 @@ export default async function ProductPage({ params, searchParams }: Props) {
           {c.videoEmbedUrl ? (
             <ProductSection id="video" title="ویدیو معرفی محصول">
               <figure className={s.media} data-media="video">
-                {/* only Liateam's ArvanCloud player (checked on the server); sandboxed, no top navigation */}
-                <iframe
+                {/* Liateam's ArvanCloud player only, sandboxed; loaded when the visitor presses play */}
+                <VideoFacade
                   src={c.videoEmbedUrl}
                   title={`ویدیوی ${p.name}`}
-                  loading="lazy"
-                  sandbox="allow-scripts allow-same-origin allow-presentation"
-                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  allowFullScreen
+                  poster={c.images[1]?.url ?? c.images[0]?.url ?? null}
                 />
               </figure>
             </ProductSection>
