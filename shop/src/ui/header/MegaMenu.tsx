@@ -25,11 +25,14 @@ function NavMenu({
   label,
   href,
   panelLabel,
+  links,
   children,
 }: {
   label: string;
   href: string;
   panelLabel: string;
+  /** plain links kept in the page's HTML before the first open (crawlers, no JavaScript): no panes, no pictures */
+  links: readonly NavItem[];
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -124,7 +127,17 @@ function NavMenu({
         }}
       >
         {/* the panel's content is built on the first open, not with every page (smaller page, less start-up work) */}
-        {built && <MenuOpen.Provider value={open}>{children}</MenuOpen.Provider>}
+        {built ? (
+          <MenuOpen.Provider value={open}>{children}</MenuOpen.Provider>
+        ) : (
+          <ul className={s.seoLinks}>
+            {links.map((l) => (
+              <li key={l.href}>
+                <Link href={l.href}>{l.label}</Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
@@ -150,7 +163,7 @@ export function MegaMenu({
     );
   }
   return (
-    <NavMenu label={label} href={href} panelLabel={`دسته‌بندی‌های ${label}`}>
+    <NavMenu label={label} href={href} panelLabel={`دسته‌بندی‌های ${label}`} links={items}>
       <CategoryPanel items={items} allHref={allHref} />
     </NavMenu>
   );
@@ -272,7 +285,7 @@ export function BrandMenu({ items, href }: { items: readonly NavItem[]; href: st
     );
   }
   return (
-    <NavMenu label="برندها" href={href} panelLabel="فهرست برندها">
+    <NavMenu label="برندها" href={href} panelLabel="فهرست برندها" links={items}>
       <BrandPanel items={items} href={href} />
     </NavMenu>
   );

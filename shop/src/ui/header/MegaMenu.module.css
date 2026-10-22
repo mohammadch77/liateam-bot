@@ -434,3 +434,14 @@
   height: calc(100% - 90px);
   object-fit: contain;
 }
+
+/* before the first open the (hidden) panel only holds the top-level links: in the HTML for crawlers, nothing more */
+.seoLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 16px 60px;
+  list-style: none;
+}
