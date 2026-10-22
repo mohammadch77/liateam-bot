@@ -33,6 +33,8 @@ function NavMenu({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [built, setBuilt] = useState(false);
+  if (open && !built) setBuilt(true); // adjusted during render: the first open builds the content
   const pinned = useRef(false); // opened by a click: hover-out must not close it
   const closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const root = useRef<HTMLDivElement>(null);
@@ -121,7 +123,8 @@ function NavMenu({
           if ((e.target as Element).closest('a')) close(); // a followed link (also to the current page)
         }}
       >
-        <MenuOpen.Provider value={open}>{children}</MenuOpen.Provider>
+        {/* the panel's content is built on the first open, not with every page (smaller page, less start-up work) */}
+        {built && <MenuOpen.Provider value={open}>{children}</MenuOpen.Provider>}
       </div>
     </div>
   );

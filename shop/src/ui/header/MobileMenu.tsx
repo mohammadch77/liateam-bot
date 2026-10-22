@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useId, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { formatNumber } from '@/lib/format/number';
 import { Icon } from '../icon/Icon';
 import type { NavItem } from './Header';
@@ -33,10 +34,17 @@ export function MobileMenu({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
+  // the drawer's content (the whole category tree and the brands) is built on the first open, not with every page:
+  // a large part of the page's elements and of its start-up work on phones
+  const [built, setBuilt] = useState(false);
   const titleId = useId();
   const pathname = usePathname();
 
   useEffect(() => dialog.current?.close(), [pathname]);
+  useEffect(() => {
+    document.documentElement.classList.toggle('drawer-open', open);
+    return () => document.documentElement.classList.remove('drawer-open');
+  }, [open]);
 
   if (!items.length) {
     return (
@@ -54,7 +62,10 @@ export function MobileMenu({
         aria-label="منو"
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => dialog.current?.showModal()}
+        onClick={() => {
+          if (!built) flushSync(() => setBuilt(true));
+          dialog.current?.showModal();
+        }}
       >
         <Icon name="menu" size={24} />
       </button>
@@ -69,110 +80,114 @@ export function MobileMenu({
           if (e.target === e.currentTarget || (e.target as Element).closest('a')) dialog.current?.close();
         }}
       >
-        <div className={s.sheet}>
-          <div className={s.head}>
-            <span id={titleId} className={s.title}>
-              {brandName}
-              <span className={s.dot}>.</span>
-            </span>
-            <button
-              type="button"
-              className={s.close}
-              aria-label="بستن منو"
-              onClick={() => dialog.current?.close()}
-            >
-              <Icon name="close" size={24} />
-            </button>
-          </div>
-          <nav aria-label="منوی اصلی" className={s.body}>
-            <span className={s.section}>فروشگاه</span>
-            <ul className={s.list}>
-              <li>
-                <Link href={shopHref} className={s.row}>
-                  <Icon name="shopping_bag" size={20} className={s.muted} />
-                  <span className={s.label}>همه‌ی محصولات</span>
-                  <Icon name="chevron_left" size={20} className={s.muted} />
-                </Link>
-              </li>
-              {items.map((c) => {
-                const children = c.children ?? [];
-                if (!children.length) {
-                  return (
-                    <li key={c.href}>
-                      <Link href={c.href} className={s.row}>
-                        <span className={s.label}>{c.label}</span>
-                        <Icon name="chevron_left" size={20} className={s.muted} />
-                      </Link>
-                    </li>
-                  );
-                }
-                return (
-                  <li key={c.href}>
-                    <details name="mobile-categories" className={s.group}>
-                      <summary className={s.row}>
-                        <span className={s.label}>{c.label}</span>
-                        <Icon name="keyboard_arrow_down" size={22} className={s.arrow} />
-                      </summary>
-                      <ul className={s.children}>
-                        <li>
-                          <Link href={c.href} className={s.allOf}>
-                            همه محصولات {c.label}
-                            {c.count != null && <span className={s.count}>{formatNumber(c.count)}</span>}
-                          </Link>
-                        </li>
-                        {children.map((ch) => (
-                          <li key={ch.href}>
-                            <Link href={ch.href} className={s.child}>
-                              {ch.label}
-                              {ch.count != null && <span className={s.count}>{formatNumber(ch.count)}</span>}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    </details>
-                  </li>
-                );
-              })}
-            </ul>
-            <ul className={s.list}>
-              <li>
-                <details name="mobile-categories" className={s.group}>
-                  <summary className={s.row}>
-                    <span className={s.label}>برندها</span>
-                    <Icon name="keyboard_arrow_down" size={22} className={s.arrow} />
-                  </summary>
-                  <ul className={s.children}>
-                    <li>
-                      <Link href={brandsHref} className={s.allOf}>
-                        همه‌ی برندها
-                      </Link>
-                    </li>
-                    {brands.map((b) => (
-                      <li key={b.href}>
-                        <Link href={b.href} className={s.child}>
-                          {b.label}
-                          {b.count != null && <span className={s.count}>{formatNumber(b.count)}</span>}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              </li>
-              {pages.map((x) => (
-                <li key={x.href}>
-                  <Link href={x.href} className={s.row}>
-                    <span className={s.label}>{x.label}</span>
+        {built && (
+          <div className={s.sheet}>
+            <div className={s.head}>
+              <span id={titleId} className={s.title}>
+                {brandName}
+                <span className={s.dot}>.</span>
+              </span>
+              <button
+                type="button"
+                className={s.close}
+                aria-label="بستن منو"
+                onClick={() => dialog.current?.close()}
+              >
+                <Icon name="close" size={24} />
+              </button>
+            </div>
+            <nav aria-label="منوی اصلی" className={s.body}>
+              <span className={s.section}>فروشگاه</span>
+              <ul className={s.list}>
+                <li>
+                  <Link href={shopHref} className={s.row}>
+                    <Icon name="shopping_bag" size={20} className={s.muted} />
+                    <span className={s.label}>همه‌ی محصولات</span>
                     <Icon name="chevron_left" size={20} className={s.muted} />
                   </Link>
                 </li>
-              ))}
-            </ul>
-            <Link href={allHref} className={s.allCats}>
-              <Icon name="grid_view" size={20} />
-              همه‌ی دسته‌بندی‌ها
-            </Link>
-          </nav>
-        </div>
+                {items.map((c) => {
+                  const children = c.children ?? [];
+                  if (!children.length) {
+                    return (
+                      <li key={c.href}>
+                        <Link href={c.href} className={s.row}>
+                          <span className={s.label}>{c.label}</span>
+                          <Icon name="chevron_left" size={20} className={s.muted} />
+                        </Link>
+                      </li>
+                    );
+                  }
+                  return (
+                    <li key={c.href}>
+                      <details name="mobile-categories" className={s.group}>
+                        <summary className={s.row}>
+                          <span className={s.label}>{c.label}</span>
+                          <Icon name="keyboard_arrow_down" size={22} className={s.arrow} />
+                        </summary>
+                        <ul className={s.children}>
+                          <li>
+                            <Link href={c.href} className={s.allOf}>
+                              همه محصولات {c.label}
+                              {c.count != null && <span className={s.count}>{formatNumber(c.count)}</span>}
+                            </Link>
+                          </li>
+                          {children.map((ch) => (
+                            <li key={ch.href}>
+                              <Link href={ch.href} className={s.child}>
+                                {ch.label}
+                                {ch.count != null && (
+                                  <span className={s.count}>{formatNumber(ch.count)}</span>
+                                )}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    </li>
+                  );
+                })}
+              </ul>
+              <ul className={s.list}>
+                <li>
+                  <details name="mobile-categories" className={s.group}>
+                    <summary className={s.row}>
+                      <span className={s.label}>برندها</span>
+                      <Icon name="keyboard_arrow_down" size={22} className={s.arrow} />
+                    </summary>
+                    <ul className={s.children}>
+                      <li>
+                        <Link href={brandsHref} className={s.allOf}>
+                          همه‌ی برندها
+                        </Link>
+                      </li>
+                      {brands.map((b) => (
+                        <li key={b.href}>
+                          <Link href={b.href} className={s.child}>
+                            {b.label}
+                            {b.count != null && <span className={s.count}>{formatNumber(b.count)}</span>}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                </li>
+                {pages.map((x) => (
+                  <li key={x.href}>
+                    <Link href={x.href} className={s.row}>
+                      <span className={s.label}>{x.label}</span>
+                      <Icon name="chevron_left" size={20} className={s.muted} />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <Link href={allHref} className={s.allCats}>
+                <Icon name="grid_view" size={20} />
+                همه‌ی دسته‌بندی‌ها
+              </Link>
+            </nav>
+          </div>
+        )}
       </dialog>
     </>
   );

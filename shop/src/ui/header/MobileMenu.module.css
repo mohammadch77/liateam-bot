@@ -37,7 +37,9 @@
     transform: translateX(100%);
   }
 }
-:global(html:has(dialog[open])) {
+/* the page does not scroll behind the open drawer: a class set while it is open (an html:has(dialog[open]) rule made
+   the browser re-check the whole page's style on every change, a large start-up cost on phones) */
+:global(html.drawer-open) {
   overflow: hidden;
 }
 
