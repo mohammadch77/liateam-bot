@@ -2,6 +2,7 @@ import { getImageProps } from 'next/image';
 import Link from 'next/link';
 import type { HeroSlide } from '@/server/services/catalog.service';
 import { HeroCarousel } from './HeroCarousel';
+import { HeroDeferredPicture } from './HeroDeferredPicture';
 import s from './hero.module.css';
 
 // Liateam's banners: 1920×800 wide (tablet and up), 750×1000 tall (phones). Text is part of the photo.
@@ -38,10 +39,22 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
             style={slide.color ? { backgroundColor: slide.color } : undefined}
           >
             <Link href={slide.href} className={s.link} data-hero-link>
-              <picture className={slide.portrait ? s.picture : `${s.picture} ${s.wideOnly}`}>
-                <source media="(min-width: 640px)" srcSet={wide.srcSet} sizes={SIZES} />
-                <img {...tall} alt={slide.label} className={s.image} />
-              </picture>
+              {i === 0 ? (
+                // the first slide is the page's largest picture (LCP): plain server HTML, requested at high priority
+                <picture className={slide.portrait ? s.picture : `${s.picture} ${s.wideOnly}`}>
+                  <source media="(min-width: 640px)" srcSet={wide.srcSet} sizes={SIZES} />
+                  <img {...tall} alt={slide.label} className={s.image} />
+                </picture>
+              ) : (
+                <HeroDeferredPicture
+                  className={slide.portrait ? s.picture : `${s.picture} ${s.wideOnly}`}
+                  wideSrcSet={wide.srcSet}
+                  sizes={SIZES}
+                  img={tall}
+                  imgClassName={s.image}
+                  alt={slide.label}
+                />
+              )}
             </Link>
           </li>
         );
