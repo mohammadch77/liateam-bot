@@ -26,8 +26,8 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
           ...common,
           src: slide.portrait ?? slide.image,
           ...(slide.portrait ? TALL : WIDE),
-          priority: i === 0,
-          loading: i === 0 ? undefined : 'lazy',
+          fetchPriority: i === 0 ? 'high' : undefined,
+          loading: i === 0 ? 'eager' : 'lazy',
         }).props;
         return (
           <li
