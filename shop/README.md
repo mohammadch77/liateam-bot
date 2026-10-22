@@ -316,7 +316,7 @@ cd /opt/liateam-shop/staging/app/shop
 sudo -u liateam-shop bash -c 'set -a; . /opt/liateam-shop/env/staging.env; set +a; npm run images:warm'
 ```
 
-چرا: عکس‌های تأمین‌کننده PNGهای ۱ تا ۶ مگابایتی‌اند. اولین درخواست هر اندازه را سرور ما دانلود و کوچک می‌کند و ممکن است برای اولین بازدیدکننده کند باشد. این اسکریپت همه را از قبل در کش می‌گذارد و تکرارش بی‌خطر است (عکسِ کش‌شده فوراً رد می‌شود). worker هر `intervalHours` ساعت sync می‌کند، پس برای محصولات تازه بعد از هر sync یک‌بار اجرایش کنید.
+چرا: عکس‌های تأمین‌کننده PNGهای ۱ تا ۶ مگابایتی‌اند. اولین درخواست هر اندازه را سرور ما دانلود و کوچک می‌کند (روی سیستم توسعه ۳ تا ۴ ثانیه برای هر عکس) و بعد از کش در چند میلی‌ثانیه برمی‌گردد. این اسکریپت همه‌ی اندازه‌هایی که صفحه‌ها واقعاً می‌خواهند (کارت، گالری، منو، پک و بنرهای اسلایدر) را از قبل در کش می‌گذارد و تکرارش بی‌خطر است. بعد از نصب و بعد از هر sync که عکسی را عوض کرده اجرایش کنید (مثلاً با یک cron ساعتی که بی‌هزینه است چون عکسِ کش‌شده فوراً رد می‌شود). کش عکس‌ها در `.next/cache/images` است: در دیپلوی پاکش نکنید (`npm run build` آن را نگه می‌دارد).
 
 ### ۱۰. پیامک واقعی **[وقتی کلید کاوه‌نگار آمد]**
 
@@ -350,6 +350,28 @@ sudo journalctl -u liateam-shop-staging --since "-10min" -p warning
 | ۳     | فروشگاه: `git pull` ← `npm ci` ← `migrate:up` ← `build` ← `restart`             |
 | ۴     | `/health`، `check:prices`، `check:search`، لاگ                                  |
 | ۵     | `images:warm`                                                                   |
+
+### سرعت: Nginx و CDN **[پیشنهاد؛ در کد حل‌شدنی نیست]**
+
+اندازه‌گیری: `npm run perf -- https://staging.<دامنه>` (Lighthouse، میانه‌ی ۳ اجرا، موبایل و دسکتاپ) و `npm run test:e2e -- budget` (بودجه‌ی JS، وزن، CLS، نبودن درخواست محصول هنگام بارگذاری). بعد از نصب staging همین دو را روی آدرس واقعی اجرا کنید؛ عددهای سیستم توسعه (مخصوصاً موبایل) نوسان زیادی دارند.
+
+**Nginx:**
+
+- `listen 443 ssl http2;` (و اگر نسخه‌ی nginx اجازه می‌دهد `http3`)، `keepalive_timeout 65;`.
+- فشرده‌سازی: Next خودش gzip می‌کند؛ اگر ماژول Brotli نصب است در nginx `brotli on; brotli_types text/css application/javascript application/json image/svg+xml;` و در `next.config.ts` گزینه‌ی `compress: false` تا دو بار فشرده نشود.
+- `/_next/static/`: فایل‌ها نام هش‌دار دارند؛ `expires 1y; add_header Cache-Control "public, max-age=31536000, immutable";` (Next همین هدر را می‌فرستد؛ در nginx فقط حذفش نکنید).
+- `/_next/image`: `proxy_cache` با کلید کامل آدرس (`$request_uri`) و `proxy_cache_valid 200 7d;` تا عکس‌های بهینه‌شده حتی به Next هم نرسند؛ `proxy_cache_use_stale updating;`.
+- صفحه‌ها (HTML): کش نکنید؛ برای هر کاربر رندر می‌شوند (وضعیت ورود در هدر).
+
+**CDN (آروان‌کلاد یا Cloudflare):**
+
+- `/_next/static/*`: کش طولانی (۱ سال)، با احترام به هدر immutable.
+- `/_next/image*`: کش ۷ روز، با query string در کلید کش (اندازه و کیفیت در آن است).
+- `/api/nav/products*`: کش کوتاه (۶۰ ثانیه، همان `Cache-Control: public, max-age=60`).
+- صفحه‌ها، `/api/*` دیگر، `/admin`, `/account`, `/login`: بدون کش (Bypass)؛ کوکی دارند یا شخصی‌اند.
+- HTTP/3 و Brotli را در پنل CDN روشن کنید.
+
+**سرور:** برای کاربر ایرانی، سرور داخل ایران (یا CDN با نقطه‌ی حضور داخل ایران مثل آروان) زمان پاسخ اول را از چند صد میلی‌ثانیه به چند ده میلی‌ثانیه می‌رساند؛ مهم‌ترین عامل LCP موبایل روی ۴G بعد از کد همین است.
 
 ### Production **[در تحویل نهایی]**
 
