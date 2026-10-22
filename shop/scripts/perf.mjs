@@ -3,6 +3,7 @@
 //   npm run perf                                  http://127.0.0.1:3850, 3 runs
 //   npm run perf -- http://127.0.0.1:3852 --runs 5 --only mobile --out perf-after.json
 //   npm run perf -- https://staging.example.ir     (the same against a real address)
+//   npm run perf -- http://127.0.0.1:3852 --pages /,/shop,/c/173,p426,p160 --runs 5   (pN = product N)
 // Chrome: Playwright's (installed once at the repo root for the sync bot), or CHROME_PATH.
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
@@ -24,14 +25,14 @@ const only = opt('only', 'both');
 const out = opt('out', null);
 
 // three product pages: the richest (video, many reviews), a typical one, a low-data one — by their English slugs
-async function productPaths() {
+async function productPaths(ids = [426, 160, 520]) {
   for (const f of ['.env.local', '.env']) if (fs.existsSync(path.join(root, f))) process.loadEnvFile(path.join(root, f));
   if (!process.env.DATABASE_URL) return ['/p/541'];
   const c = new pg.Client({ connectionString: process.env.DATABASE_URL });
   await c.connect();
   const { rows } = await c.query(
     `SELECT '/p/' || slug_en AS p FROM product_catalog WHERE id = ANY($1) AND slug_en IS NOT NULL ORDER BY array_position($1, id)`,
-    [[426, 160, 520]],
+    [ids],
   );
   await c.end();
   return rows.map((r) => r.p);
@@ -39,7 +40,12 @@ async function productPaths() {
 
 const require = createRequire(new URL('../../package.json', import.meta.url));
 const chromePath = process.env.CHROME_PATH || require('playwright').chromium.executablePath();
-const pages = ['/', '/shop', '/c/173', ...(await productPaths()), '/offers', '/brands'];
+const only_pages = opt('pages', null);
+const pages = only_pages
+  ? await Promise.all(
+      only_pages.split(',').map(async (x) => (/^p\d+$/.test(x) ? (await productPaths([Number(x.slice(1))]))[0] : x)),
+    )
+  : ['/', '/shop', '/c/173', ...(await productPaths()), '/offers', '/brands'];
 const forms = only === 'both' ? ['mobile', 'desktop'] : [only];
 
 const chrome = await chromeLauncher.launch({ chromePath, chromeFlags: ['--headless=new', '--no-sandbox'] });
@@ -71,6 +77,13 @@ try {
           requests: items.length,
           jsKb: items.filter((x) => x.resourceType === 'Script').reduce((n, x) => n + (x.transferSize ?? 0), 0) / 1024,
           lcpElement: a['largest-contentful-paint-element']?.details?.items?.[0]?.items?.[0]?.node?.snippet?.slice(0, 80) ?? '',
+          // LCP breakdown: TTFB · load delay · load duration · render delay (ms)
+          ...Object.fromEntries(
+            (a['largest-contentful-paint-element']?.details?.items?.[1]?.items ?? []).map((x) => [
+              { TTFB: 'pTtfb', 'Load Delay': 'pDelay', 'Load Time': 'pLoad', 'Render Delay': 'pRender' }[x.phase] ?? x.phase,
+              x.timing,
+            ]),
+          ),
         });
       }
       const m = (k) => median(samples.map((x) => x[k]));
@@ -86,11 +99,12 @@ try {
         kb: Math.round(m('kb')),
         requests: m('requests'),
         jsKb: Math.round(m('jsKb')),
+        breakdown: ['pTtfb', 'pDelay', 'pLoad', 'pRender'].map((k) => Math.round(m(k) ?? 0)).join('/'),
         lcpElement: samples[0].lcpElement,
       };
       results.push(row);
       console.log(
-        `${form.padEnd(7)} ${row.page.padEnd(34)} score ${String(row.score).padStart(3)}  LCP ${String(row.lcp).padStart(5)}ms  CLS ${row.cls.toFixed(3)}  TBT ${String(row.tbt).padStart(4)}ms  FCP ${String(row.fcp).padStart(5)}ms  TTFB ${String(row.ttfb).padStart(4)}ms  ${String(row.kb).padStart(5)}KB  ${String(row.requests).padStart(3)} req  JS ${String(row.jsKb).padStart(4)}KB`,
+        `${form.padEnd(7)} ${row.page.padEnd(34)} score ${String(row.score).padStart(3)}  LCP ${String(row.lcp).padStart(5)}ms  CLS ${row.cls.toFixed(3)}  TBT ${String(row.tbt).padStart(4)}ms  FCP ${String(row.fcp).padStart(5)}ms  TTFB ${String(row.ttfb).padStart(4)}ms  ${String(row.kb).padStart(5)}KB  ${String(row.requests).padStart(3)} req  JS ${String(row.jsKb).padStart(4)}KB  LCP=${row.breakdown}`,
       );
     }
   }
