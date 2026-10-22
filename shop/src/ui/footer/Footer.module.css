@@ -1,5 +1,8 @@
 .footer {
   font-family: var(--font-sans);
+  /* below the first screen on every page: no layout until it nears the screen (see the home page's home.module.css) */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
 }
 
 /* Trust strip: 2-column grid on phones (4 items), 5 across on desktop. */

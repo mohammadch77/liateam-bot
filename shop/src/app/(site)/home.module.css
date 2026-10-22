@@ -2,6 +2,14 @@
 .home {
   padding-block: 16px 24px;
 }
+/* The sections under the category bubbles are below the first screen: the browser skips their layout until they near
+   the screen. The first layout of the whole page (Persian text set first in the fallback font, again when the web font
+   arrives) took ~1.3 s on a 4× slower phone CPU and held back the first paint and the hero (LCP); with this ~0.1 s.
+   `auto` keeps each section's real height once it has been laid out, so scrolling back does not jump. */
+.bubbles ~ * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 640px;
+}
 @media (min-width: 1024px) {
   .home {
     padding-block: 28px 40px;

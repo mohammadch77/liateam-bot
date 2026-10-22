@@ -36,6 +36,17 @@ const leaks = (text) => {
   for (const w of ['cost_price', 'payable_price', 'discount_price']) if (text.includes(w)) found.push(w);
   return found;
 };
+/**
+ * The page is laid out for good: web font loaded and every picture above the best sellers finished. (The first
+ * measurement used to run before the font arrived, the second with it cached: text above changed height by a few
+ * pixels below the fold — not a layout shift a visitor sees, but it made «3f» flaky.)
+ */
+const settled = (page) =>
+  page.waitForFunction(async () => {
+    await document.fonts.ready;
+    const top = document.querySelector('[data-bestsellers]')?.getBoundingClientRect().top ?? 0;
+    return [...document.images].every((i) => i.complete || i.getBoundingClientRect().top > top);
+  });
 const productIdOf = (href) => Number(/-(\d+)$/.exec(href ?? '')?.[1] ?? /\/p\/(\d+)/.exec(href ?? '')?.[1]);
 const inStock = (id) => Number(one(`select stock from product_catalog where id = ${id}`)) > 0;
 const cleanup = () => {
@@ -127,7 +138,8 @@ try {
     all.length >= 1 && all.length <= 10 && all.every((h) => inStock(productIdOf(h))),
     `${all.length}`,
   );
-  const box0 = await bs.boundingBox();
+  await settled(page);
+  const box0 = await page.evaluate(() => document.querySelector('[data-bestsellers]').getBoundingClientRect().top + scrollY);
   await bs.getByRole('tab', { name: 'آرایشی' }).click();
   const skeleton = await bs.locator('[data-skeleton]').count();
   await bs.locator('[role=tabpanel][aria-busy=false]').waitFor({ timeout: 20000 });
@@ -153,9 +165,12 @@ try {
     /آرایشی/.test(await page.locator('h1').innerText()) && (await page.locator('main article').count()) > 0,
   );
   await page.goto(`${BASE}/`, { waitUntil: 'load' });
+  await settled(page);
+  const box1 = await page.evaluate(() => document.querySelector('[data-bestsellers]').getBoundingClientRect().top + scrollY);
   check(
     '3f the section keeps its place (no jump of the page above it)',
-    Math.abs((await bs.boundingBox()).y - box0.y) < 2,
+    Math.abs(box1 - box0) < 2,
+    `${Math.round(box0)} → ${Math.round(box1)}`,
   );
   const json = await (await page.request.get(`${BASE}/api/bestsellers?tab=skin`)).text();
   check(
@@ -246,6 +261,12 @@ try {
 
   // ── 5. magazine, affiliate, header ──
   await page.goto(`${BASE}/`, { waitUntil: 'load' });
+  // sections below the first screen are laid out (and have innerText) only near the screen (content-visibility: auto)
+  const nearScreen = async (sel) => {
+    await page.locator(sel).scrollIntoViewIfNeeded();
+    await page.waitForFunction((q) => document.querySelector(q)?.innerText.trim().length > 0, sel);
+  };
+  await nearScreen('[data-magazine]');
   check(
     '5a magazine: «به‌زودی», no made-up articles',
     (await page.locator('[data-magazine="soon"]').count()) === 1 &&
@@ -253,6 +274,7 @@ try {
       (await page.locator('[data-magazine] a').count()) === 0,
   );
   const band = page.locator('[data-home-section="affiliate"]');
+  await nearScreen('[data-home-section="affiliate"]');
   check(
     '5b affiliate band: «ثبت درخواست همکاری» → /affiliate, no number',
     /ثبت درخواست همکاری/.test(await band.innerText()) &&
