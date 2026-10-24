@@ -162,9 +162,12 @@ try {
     (await bs.locator('a', { hasText: 'مشاهده همه' }).getAttribute('href')) === '/shop?group=makeup',
   );
   await page.goto(`${BASE}/shop?group=makeup`, { waitUntil: 'load' });
+  const shopTitle = await page.locator('h1').innerText();
+  const shopCards = await page.locator('main article').count();
   check(
     '3e /shop?group=makeup lists makeup',
-    /آرایشی/.test(await page.locator('h1').innerText()) && (await page.locator('main article').count()) > 0,
+    /آرایشی/.test(shopTitle) && shopCards > 0,
+    `${shopTitle} · ${shopCards} cards`,
   );
   await page.goto(`${BASE}/`, { waitUntil: 'load' });
   await settled(page);

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { cache, type ReactNode } from 'react';
 import { getConfig } from '@/lib/config';
+import { jsonLd as toJsonLd } from '@/lib/json-ld';
 import { idFromSlug } from '@/lib/catalog-urls';
 import { toAppError } from '@/lib/errors';
 import { discountPercent, formatTomanText, tomanToRial } from '@/lib/format/money';
@@ -163,7 +164,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
 
   return (
     <Container className={s.page}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: toJsonLd(jsonLd) }} />
       <Breadcrumb
         items={[
           { label: 'خانه', href: '/' },

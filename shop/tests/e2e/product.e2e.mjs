@@ -3,7 +3,18 @@
 // reviews (masked names, «هنوز نظری…»), a site review saved as pending (not shown until approved, XSS stripped,
 // limits), slug_fa / old links → 301 to slug_en, no horizontal scroll from 390 to 1920, no cost on the page.
 // Writes only its own review rows (a fresh user every run) and removes them at the end.
-import { BASE, SCHEMA, check, chromium, finish, requireLocalApp, shot, signIn, sql } from './_harness.mjs';
+import {
+  BASE,
+  SCHEMA,
+  check,
+  chromium,
+  finish,
+  requireLocalApp,
+  shot,
+  signIn,
+  sql,
+  toLatin,
+} from './_harness.mjs';
 
 requireLocalApp();
 const VISIBLE = `p.is_sellable and p.price > 0 and p.missing_since is null and p.slug_en is not null`;
@@ -38,6 +49,33 @@ const tabs = () => page.locator('nav[aria-label="بخش‌های صفحه‌ی �
 
 // ── 1. all sections, in Liateam's order ──
 await go(`/p/${slugOf(full)}`);
+
+// JSON-LD: valid JSON (no raw «<» that could end the block), the product's name, the shown price (schema.org: rial)
+const ldText = await page.locator('script[type="application/ld+json"]').first().textContent();
+let ld = null;
+try {
+  ld = JSON.parse(ldText ?? '');
+} catch {}
+const shownToman = Number(
+  toLatin(
+    (
+      (await page
+        .locator('main article')
+        .getByText(/^قیمت /)
+        .first()
+        .textContent()) ?? ''
+    ).split('،')[0],
+  ),
+);
+check(
+  '1j JSON-LD parses, no raw < > &, name and price as on the page',
+  ld?.['@type'] === 'Product' &&
+    !/[<>&]/.test(ldText ?? '') &&
+    ld.name === one(`select name from product_catalog where id = ${full}`) &&
+    ld.offers?.priceCurrency === 'IRR' &&
+    Number(ld.offers?.price) === shownToman * 10,
+  `${ld?.name} · ${ld?.offers?.price} rial vs ${shownToman} toman`,
+);
 const t1 = await tabs();
 check(
   '1a tabs: intro, specs, video (this product has one), how-to-use, FAQ, reviews',

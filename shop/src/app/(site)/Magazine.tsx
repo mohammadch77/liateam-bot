@@ -1,8 +1,9 @@
+import { getConfig } from '@/lib/config';
 import { Icon } from '@/ui';
 import s from './home-sections.module.css';
 
 /**
- * Home «مجله آوینا» (Homepage.dc.html): the design's frame of three article cards. There are no articles yet (no
+ * Home «مجله <brand>» (Homepage.dc.html; the name from BRAND_NAME): the design's frame of three article cards. There are no articles yet (no
  * content system): the section says «به‌زودی» instead of made-up cards. The switch `magazine.enabled` in
  * site_settings is where the real articles will plug in later.
  */
@@ -16,7 +17,7 @@ export function Magazine() {
     >
       <div className={s.head}>
         <h2 id="magazine-title" className={s.title}>
-          مجله آوینا
+          {`مجله ${getConfig().BRAND_NAME}`}
         </h2>
       </div>
       <div className={s.magazine}>
