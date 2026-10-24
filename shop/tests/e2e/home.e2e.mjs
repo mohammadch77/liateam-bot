@@ -162,6 +162,12 @@ try {
     (await bs.locator('a', { hasText: 'مشاهده همه' }).getAttribute('href')) === '/shop?group=makeup',
   );
   await page.goto(`${BASE}/shop?group=makeup`, { waitUntil: 'load' });
+  // the listing streams in after the page shell (loading.tsx): wait for the first card, then count
+  await page
+    .locator('main article')
+    .first()
+    .waitFor({ timeout: 15000 })
+    .catch(() => {});
   const shopTitle = await page.locator('h1').innerText();
   const shopCards = await page.locator('main article').count();
   check(

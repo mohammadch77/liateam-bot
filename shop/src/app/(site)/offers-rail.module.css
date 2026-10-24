@@ -96,40 +96,6 @@
   opacity: 0.75;
 }
 
-/* 2.2 cards on phones, then fixed-width cards; scrolls inside itself (never the page) */
-.rail {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: calc((100% - 12px) / 2.15);
-  gap: 12px;
-  margin: 0;
-  padding: 2px 2px 8px;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: thin;
-  list-style: none;
-}
-@media (min-width: 768px) {
-  .rail {
-    grid-auto-columns: 210px;
-    gap: 16px;
-  }
-}
-@media (min-width: 1280px) {
-  .rail {
-    grid-auto-columns: calc((100% - 3 * 16px) / 4);
-  }
-}
-@media (min-width: 1440px) {
-  .rail {
-    grid-auto-columns: calc((100% - 4 * 16px) / 5);
-  }
-}
-.slot {
-  min-width: 0;
-  scroll-snap-align: start;
-}
-
 /* nothing discounted yet: the same frame and roughly a card's height */
 .soon {
   display: flex;

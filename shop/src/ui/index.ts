@@ -30,4 +30,5 @@ export {
 export { Breadcrumb, type Crumb } from './breadcrumb/Breadcrumb';
 export { Pagination, pageWindow } from './pagination/Pagination';
 export { Skeleton } from './skeleton/Skeleton';
+export { Carousel, type CarouselSize } from './carousel/Carousel';
 export { Alert, EmptyState } from './feedback/Feedback';

@@ -24,6 +24,7 @@ import {
   Icon,
   Pagination,
   Price,
+  Carousel,
   ProductCard,
   ProductCardSkeleton,
   ProductGrid,
@@ -385,6 +386,14 @@ export default function StyleguidePage() {
               ))}
             </ProductGrid>
           </Section>
+
+          <Panel title="اسکرول افقی (Carousel)" id="carousel">
+            <Carousel label="نمونه‌ی اسکرول افقی">
+              {[...cards, ...cards].map((c, i) => (
+                <ProductCard key={`${c.label}-${i}`} product={c.product} />
+              ))}
+            </Carousel>
+          </Panel>
 
           <div className={s.twoCol}>
             <Panel title="مسیر و صفحه‌بندی" id="nav">

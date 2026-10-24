@@ -1,0 +1,150 @@
+/*
+ * The one horizontal scroller. Item widths are CSS only (variables per size), so the server HTML already reserves
+ * every item's space; JavaScript never changes layout. Touch: the browser's own scrolling with snap points.
+ */
+.root {
+  position: relative;
+  min-width: 0;
+  --carousel-gap: 12px;
+  --carousel-item: calc((100% - 2 * var(--carousel-gap)) / 2.3); /* ≈ 2.3 cards: the third peeks out */
+}
+@media (min-width: 768px) {
+  .root {
+    --carousel-gap: 16px;
+    --carousel-item: calc((100% - 3 * var(--carousel-gap)) / 3.4);
+  }
+}
+@media (min-width: 1024px) {
+  .root {
+    --carousel-item: calc((100% - 3 * var(--carousel-gap)) / 4);
+  }
+}
+@media (min-width: 1280px) {
+  .root {
+    --carousel-item: calc((100% - 4 * var(--carousel-gap)) / 5);
+  }
+}
+
+/* other presets */
+.brand {
+  --carousel-item: calc((100% - 2 * var(--carousel-gap)) / 2.6);
+}
+.article {
+  --carousel-item: calc((100% - var(--carousel-gap)) / 1.25);
+}
+@media (min-width: 768px) {
+  .article {
+    --carousel-item: calc((100% - 2 * var(--carousel-gap)) / 2.3);
+  }
+}
+@media (min-width: 1024px) {
+  .brand {
+    --carousel-item: calc((100% - 6 * var(--carousel-gap)) / 7);
+  }
+  .article {
+    --carousel-item: calc((100% - 2 * var(--carousel-gap)) / 3);
+  }
+}
+.compact {
+  --carousel-item: 132px;
+}
+
+.track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--carousel-item);
+  gap: var(--carousel-gap);
+  margin: 0;
+  padding: 2px 2px 10px;
+  list-style: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain; /* a swipe at the end never moves the page or triggers back-navigation */
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none; /* long press on a card: no callout that shifts the page */
+}
+.track::-webkit-scrollbar {
+  display: none;
+}
+.track:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+.item {
+  min-width: 0;
+  display: flex; /* a card stretches to the row's height: all cards one size */
+  scroll-snap-align: start;
+}
+.item > * {
+  flex: 1;
+  min-width: 0;
+}
+
+/* mouse drag: no snapping while the hand moves it, no text selection */
+.dragging .track {
+  scroll-snap-type: none;
+  cursor: grabbing;
+  user-select: none;
+}
+.dragging .track a {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .track {
+    scroll-behavior: smooth;
+  }
+  .dragging .track {
+    scroll-behavior: auto;
+  }
+}
+
+/* previous / next: only where there is a precise pointer; hidden at the ends (the hidden attribute) */
+.arrow {
+  display: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .track {
+    cursor: grab;
+  }
+  .arrow {
+    position: absolute;
+    top: calc(var(--carousel-item-media, 38%));
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    margin-top: -22px;
+    border: 1px solid var(--color-line);
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--color-white) 94%, transparent);
+    color: var(--color-ink);
+    box-shadow: var(--shadow-md);
+    cursor: pointer;
+    transition:
+      background var(--motion-fast) ease,
+      color var(--motion-fast) ease;
+  }
+  .arrow:hover {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-white);
+  }
+  .arrow:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  .arrow[hidden] {
+    display: none;
+  }
+  .prev {
+    inset-inline-start: -10px;
+  }
+  .next {
+    inset-inline-end: -10px;
+  }
+}

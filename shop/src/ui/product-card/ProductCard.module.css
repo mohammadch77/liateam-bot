@@ -10,16 +10,29 @@
   border-radius: var(--radius-md);
   overflow: hidden;
   color: var(--color-ink);
+  -webkit-tap-highlight-color: transparent;
   transition:
     box-shadow var(--motion-base) ease,
     transform var(--motion-base) ease,
     border-color var(--motion-base) ease;
 }
-.card:hover,
-.card:focus-within {
-  box-shadow: var(--shadow-md);
-  border-color: var(--color-line-card-hover);
-  transform: translateY(-2px);
+/* lift on hover only where there is a real hover: on touch a long press must not move the card (no «dancing») */
+@media (hover: hover) {
+  .card:hover,
+  .card:focus-within {
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-line-card-hover);
+    transform: translateY(-2px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+  .card:hover,
+  .card:focus-within {
+    transform: none;
+  }
 }
 
 /* Image stage: warm radial gradient + oval pedestal with a soft contact shadow. */
@@ -228,8 +241,10 @@
   color: var(--color-ink-2);
   transition: transform var(--motion-fast) ease;
 }
-.favButton:hover {
-  transform: scale(1.07);
+@media (hover: hover) {
+  .favButton:hover {
+    transform: scale(1.07);
+  }
 }
 .favButton:active {
   transform: scale(0.94);
@@ -271,20 +286,28 @@
   .body {
     padding: 10px 10px 12px;
   }
+  /* the button sits in the footer's top corner (beside the struck-out price), the price runs along the bottom:
+     a 7-digit price + «تومان» never collides with it, and the card stays short (no extra row for the button) */
   .footer {
-    flex-wrap: wrap; /* a long price pushes the button to its own line instead of out of the card */
-    gap: 8px 6px;
+    position: relative;
+    align-items: flex-end;
+    min-height: 70px; /* button 6–46px from the top; the price row (≈22px) starts below it */
     --price-md-amount: 14.5px;
     --price-md-unit: 10px;
     --price-md-old: 11px;
   }
   .action {
-    margin-inline-start: auto; /* wrapped button sits at the end (left in RTL) */
+    position: absolute;
+    top: 6px;
+    inset-inline-end: 0; /* left in RTL */
   }
   /* out of stock: «ناموجود» above a full-width «خبرم کن» */
   .footer:has(.notify) {
     flex-direction: column;
     align-items: stretch;
+  }
+  .footer:has(.notify) .action {
+    position: static;
   }
   .notify {
     justify-content: center;

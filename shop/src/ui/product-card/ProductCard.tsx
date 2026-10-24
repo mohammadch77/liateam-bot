@@ -56,6 +56,7 @@ export function ProductCard({ product: p, action, favorite, priority }: ProductC
               sizes="(min-width: 1440px) 240px, (min-width: 1024px) 22vw, (min-width: 768px) 30vw, 46vw"
               className={s.image}
               priority={priority}
+              draggable={false}
             />
           </span>
         ) : (

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { ProductView } from '@/server/services/catalog.service';
-import { Icon, ProductCard } from '@/ui';
+import { Carousel, Icon, ProductCard } from '@/ui';
 import { Countdown } from './Countdown';
 import s from './offers-rail.module.css';
 
@@ -41,13 +41,11 @@ export function OffersRail({
         </Link>
       </div>
       {items.length > 0 ? (
-        <ul className={s.rail} aria-label="محصولات تخفیف‌دار">
+        <Carousel label="محصولات تخفیف‌دار">
           {items.map((p) => (
-            <li key={p.id} className={s.slot}>
-              <ProductCard product={p} />
-            </li>
+            <ProductCard key={p.id} product={p} />
           ))}
-        </ul>
+        </Carousel>
       ) : (
         <div className={s.soon}>
           <Icon name="bolt" size={34} />
