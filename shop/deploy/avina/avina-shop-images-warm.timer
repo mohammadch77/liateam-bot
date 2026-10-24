@@ -1,0 +1,11 @@
+# Hourly image-cache warm-up for the Avina shop, 07:00–22:00 Tehran only (the script also skips 23:00–07:00).
+
+[Unit]
+Description=Avina shop — warm the image cache hourly, 07:00–22:00 Tehran
+
+[Timer]
+OnCalendar=*-*-* 07..22:05:00 Asia/Tehran
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

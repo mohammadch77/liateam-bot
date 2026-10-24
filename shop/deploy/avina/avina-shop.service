@@ -1,0 +1,40 @@
+# Avina shop on a shared server (template). /opt/avina-shop holds the built app (a copy of the repository's shop/
+# made by build-on-server.sh) and its .env; nothing else on the server is used or changed.
+# Install (README «نصب روی سرور اشتراکی»):
+#   sudo cp avina-shop.service /etc/systemd/system/ && sudo systemctl daemon-reload
+#   sudo systemctl enable --now avina-shop
+# Undo: sudo systemctl disable --now avina-shop && sudo rm /etc/systemd/system/avina-shop.service && sudo systemctl daemon-reload
+
+[Unit]
+Description=Avina shop (Next.js) on 127.0.0.1:3861
+After=network.target postgresql.service
+Wants=network.target
+# a configuration error exits with 1 and a clear message: do not loop on it
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=avina
+Group=avina
+WorkingDirectory=/opt/avina-shop
+EnvironmentFile=/opt/avina-shop/.env
+Environment=NODE_ENV=production
+Environment=PORT=3861
+ExecStart=/opt/avina-shop/node_modules/.bin/next start -H 127.0.0.1 -p 3861
+Restart=on-failure
+RestartSec=5
+
+# shared server: hard limits so the shop can never starve the other sites
+MemoryMax=768M
+CPUQuota=80%
+TasksMax=256
+
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/avina-shop
+
+[Install]
+WantedBy=multi-user.target

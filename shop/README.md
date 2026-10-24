@@ -542,6 +542,91 @@ cd shop && sudo -u liateam-shop npm ci && sudo -u liateam-shop npm run build && 
 sudo -u postgres pg_dump -n shop -Fc lia_sync > shop-$(date +%F).dump
 ```
 
+## نصب روی سرور اشتراکی (Ubuntu 24.04، Node 20)
+
+برای سروری که سایت‌های دیگر هم رویش اجرا می‌شوند (حدود ۳٫۸ گیگابایت رم بدون swap). قالب‌ها در `deploy/avina/` هستند و هیچ مقدار واقعی، راز یا IP ندارند.
+
+| فایل                                     | کجا روی سرور                                                        |
+| ---------------------------------------- | ------------------------------------------------------------------- |
+| `avina-shop.service`                     | `/etc/systemd/system/`؛ پورت `127.0.0.1:3861`، رم ≤ ۷۶۸M، CPU ≤ ۸۰٪ |
+| `avina-shop-images-warm.{service,timer}` | `/etc/systemd/system/`؛ ساعت ۷ تا ۲۲ تهران، رم ≤ ۲۵۶M               |
+| `build-on-server.sh`                     | از همان clone اجرا می‌شود؛ بیلد در قفس منابع                        |
+| `nginx-avina-staging.conf`               | یک فایل جدید در `/etc/nginx/sites-available/`                       |
+| `avina-shop.env.example`                 | الگوی `/opt/avina-shop/.env`                                        |
+
+**پوشه‌ها:** `/opt/avina-shop-src` (git clone مخزن، فقط کد) و `/opt/avina-shop` (اپ اجراشده: کپی `shop/`، `.env`، `node_modules`، `.next`، و `.cache` برای npm). کاربر سیستمی `avina` بدون shell و بدون پوشه‌ی خانه.
+
+### قواعد ایمنی
+
+- **فقط افزودن:** هیچ فایل، سرویس یا تنظیم موجود سرور ویرایش، restart یا reload نمی‌شود، جز `nginx reload` بعد از `nginx -t` موفق. هر چیزی که ساخته می‌شود اسم خودش را دارد (`avina-*`).
+- **پشتیبان پیش از هر مرحله‌ای که چیزی را عوض می‌کند** (اسکیمای دیتابیس فروشگاه: «پشتیبان‌گیری و بازگشت»).
+- **منابع محدود:** سرویس ۷۶۸M و ۸۰٪ CPU؛ بیلد در `systemd-run --scope` با ۱۸۰۰M و یک CPU، `nice 19` و `ionice -c3`، و پیش از شروع اگر `MemAvailable` (از `/proc/meminfo`) کمتر از ۲۰۰۰M یا دیسک آزاد کمتر از ۳G باشد متوقف می‌شود. بیلد را در ساعت کم‌بازدید سایت‌های دیگر اجرا کنید.
+- **nginx:** همیشه `sudo nginx -t` و فقط اگر موفق بود `sudo systemctl reload nginx` (هرگز restart).
+- **گواهی:** فقط `certbot certonly --webroot` (certbot هیچ فایل nginx را ویرایش نمی‌کند).
+- **هر مرحله راه بازگشت دارد** (ستون آخر).
+
+### مراحل
+
+| #   | کار                       | دستور                                                                                                                                                                                                                                                                        | بازگشت                                                                                                                      |
+| --- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| ۱   | کاربر سیستمی و پوشه‌ها    | `sudo useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin avina` · `sudo mkdir -p /opt/avina-shop /opt/avina-shop-src` · `sudo chown avina:avina /opt/avina-shop` · `sudo chmod 750 /opt/avina-shop`                                         | `sudo userdel avina` · `sudo rm -rf /opt/avina-shop /opt/avina-shop-src`                                                    |
+| ۲   | کد                        | `sudo git clone -b <شاخه> <آدرس مخزن> /opt/avina-shop-src`                                                                                                                                                                                                                   | حذف پوشه                                                                                                                    |
+| ۳   | دیتابیس: نقش‌ها و grantها | قدم ۲ «استقرار» (`shop-db-roles.sql` تا `011`) با کاربر postgres، روی دیتابیس همین سرور                                                                                                                                                                                      | فایل‌ها فقط نقش و دسترسی می‌سازند؛ `DROP ROLE` نقش‌های ساخته‌شده                                                            |
+| ۴   | env                       | `sudo install -o avina -g avina -m 600 /opt/avina-shop-src/shop/deploy/avina/avina-shop.env.example /opt/avina-shop/.env` و پر کردن آن (`sudo -u avina nano …`)                                                                                                              | حذف فایل                                                                                                                    |
+| ۵   | بیلد                      | `sudo /opt/avina-shop-src/shop/deploy/avina/build-on-server.sh` (کد را به `/opt/avina-shop` می‌برد، `npm ci` و `build`؛ با `--prune` وابستگی‌های توسعه را هم برمی‌دارد؛ مایگریشن **نه**)                                                                                     | «بازگشت نسخه» پایین                                                                                                         |
+| ۵-ب | مایگریشن (یک‌بار-مصرف)    | `read -rs MPW; sudo -u avina env MIGRATION_DATABASE_URL="postgres://<نقش migrator>:$MPW@127.0.0.1:5432/<دیتابیس>" HOME=/opt/avina-shop/.cache bash -c 'cd /opt/avina-shop && set -a && . ./.env && set +a && npm run migrate:up'; unset MPW` (پایین: «مایگریشن یک‌بار-مصرف») | `npm run migrate:down` با همان شکل دستور، و بکاپ                                                                            |
+| ۶   | سرویس                     | `sudo cp /opt/avina-shop-src/shop/deploy/avina/avina-shop.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now avina-shop` · `curl -s http://127.0.0.1:3861/health`                                                                   | `sudo systemctl disable --now avina-shop && sudo rm /etc/systemd/system/avina-shop.service && sudo systemctl daemon-reload` |
+| ۷   | nginx، فقط پورت ۸۰        | پایین («nginx و گواهی»)                                                                                                                                                                                                                                                      | `sudo rm /etc/nginx/sites-enabled/<نام>` ← `nginx -t` ← reload                                                              |
+| ۸   | گواهی                     | `sudo certbot certonly --webroot -w /var/www/<نام>-acme -d <دامنه>`                                                                                                                                                                                                          | `sudo certbot delete --cert-name <دامنه>`                                                                                   |
+| ۹   | nginx کامل                | پایین                                                                                                                                                                                                                                                                        | برگشت به فایل مرحله‌ی ۷ یا حذف لینک ← `nginx -t` ← reload                                                                   |
+| ۱۰  | گرم‌کردن عکس              | `sudo cp …/avina-shop-images-warm.{service,timer} /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now avina-shop-images-warm.timer`                                                                                                          | `sudo systemctl disable --now avina-shop-images-warm.timer` و حذف دو فایل                                                   |
+| ۱۱  | پک‌ها و مدیر (یک‌بار)     | `cd /opt/avina-shop && sudo -u avina env HOME=/opt/avina-shop/.cache bash -c 'set -a; . ./.env; set +a; npm run seed:packs && npm run grant-role -- 09xxxxxxxxx admin'`                                                                                                      | پک‌ها از پنل خاموش می‌شوند                                                                                                  |
+
+**nginx و گواهی** (`<دامنه>` و `<نام>` را جایگزین کنید، مثلاً `staging.example.com` و `avina-staging`):
+
+```bash
+T=/opt/avina-shop-src/shop/deploy/avina/nginx-avina-staging.conf
+D=staging.example.com; N=avina-staging
+sudo mkdir -p /var/www/$N-acme
+sudo htpasswd -c /etc/nginx/$N.htpasswd client                  # رمز را جدا به کارفرما بدهید
+# مرحله‌ی ۷: فقط بخش پورت ۸۰ (پیش از گواهی)
+sed -n '/# BEGIN-HTTP/,/# END-HTTP/p' $T | sed -e "s/__DOMAIN__/$D/g" -e "s/__NAME__/$N/g" | sudo tee /etc/nginx/sites-available/$N >/dev/null
+sudo ln -s /etc/nginx/sites-available/$N /etc/nginx/sites-enabled/$N
+sudo nginx -t && sudo systemctl reload nginx
+# مرحله‌ی ۸: گواهی
+sudo certbot certonly --webroot -w /var/www/$N-acme -d $D
+# مرحله‌ی ۹: فایل کامل
+sed -e "s/__DOMAIN__/$D/g" -e "s/__NAME__/$N/g" $T | sudo tee /etc/nginx/sites-available/$N >/dev/null
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+تمدید گواهی را تایمر خود certbot انجام می‌دهد (روش webroot؛ پوشه‌ی `/var/www/<نام>-acme` باید بماند). nginx این سایت `robots.txt` مسدودکننده و `X-Robots-Tag: noindex, nofollow` دارد و همه‌جا جز `/robots.txt` و چالش Let's Encrypt رمز می‌خواهد.
+
+### مایگریشن یک‌بار-مصرف
+
+مایگریشن جزو بیلد نیست و رمز مالک اسکیما در `.env` سرویس نوشته نمی‌شود: فقط در همان یک دستور، از طریق متغیر محیطی، داده می‌شود (`read -rs` آن را از صفحه‌کلید می‌گیرد و در history نمی‌ماند). باقی تنظیم‌ها (`APP_ENV`، `DB_SCHEMA`) از `.env` خوانده می‌شوند:
+
+```bash
+read -rs MPW; sudo -u avina env MIGRATION_DATABASE_URL="postgres://<نقش migrator>:$MPW@127.0.0.1:5432/<دیتابیس>" HOME=/opt/avina-shop/.cache bash -c 'cd /opt/avina-shop && set -a && . ./.env && set +a && npm run migrate:up'; unset MPW
+```
+
+- **نقش:** همان نقش migrator فایل `shop-db-roles-002-migrator.sql` (`lia_shop_staging_migrator` / `lia_shop_migrator`)، **نه** مالک کل دیتابیس. دلیل: دسترسی خودکار نقش اپ به جدول‌های تازه با `ALTER DEFAULT PRIVILEGES FOR ROLE <migrator>` تعریف شده است؛ جدولی که نقش دیگری (مثلاً مالک دیتابیس) بسازد مال آن نقش می‌شود و نقش اپ به آن دسترسی نمی‌گیرد، پس فروشگاه بعد از مایگریشن خطای دسترسی می‌دهد.
+- **ترتیب:** بیلد ← بکاپ اسکیما ← این دستور ← `restart`. اگر انتشار مایگریشن تازه ندارد، `npm run migrate:status` (به همین شکل) هیچ ردیف `… pending` نشان نمی‌دهد و این قدم لازم نیست.
+- **بازگشت:** همین دستور با `migrate:down` (یک مایگریشن؛ `-- 2` یعنی دو تا)، و در صورت نیاز بکاپ.
+
+### دیپلوی بعدی و بازگشت نسخه
+
+```bash
+cd /opt/avina-shop-src && sudo git fetch && sudo git checkout <commit یا شاخه> && sudo git pull --ff-only   # pull فقط روی شاخه
+sudo pg_dump …                                   # بکاپ اسکیمای فروشگاه («پشتیبان‌گیری و بازگشت»)
+sudo /opt/avina-shop-src/shop/deploy/avina/build-on-server.sh
+read -rs MPW; sudo -u avina env MIGRATION_DATABASE_URL="postgres://<نقش migrator>:$MPW@127.0.0.1:5432/<دیتابیس>" HOME=/opt/avina-shop/.cache bash -c 'cd /opt/avina-shop && set -a && . ./.env && set +a && npm run migrate:up'; unset MPW
+sudo systemctl restart avina-shop && curl -s http://127.0.0.1:3861/health
+sudo systemctl start avina-shop-images-warm
+```
+
+**بازگشت:** `sudo git -C /opt/avina-shop-src checkout <commit قبلی>`، دوباره `build-on-server.sh` و `sudo systemctl restart avina-shop`. اگر نسخه‌ی جدید مایگریشن تازه داشت، پیش از checkout با همان نسخه‌ی جدید `migrate:down` (دستور «مایگریشن یک‌بار-مصرف» با `migrate:down`) و در صورت نیاز بکاپ را برگردانید. اسکریپت بیلد هیچ سرویسی را restart نمی‌کند؛ نسخه‌ی قبلی تا `restart` در حال اجرا می‌ماند، ولی پوشه‌ی `.next` را بیلد جدید جایگزین کرده است، پس restart بعد از بیلد ناموفق را انجام ندهید و اول بیلد را درست کنید.
+
 ## مایگریشن دیتابیس
 
 ابزار: node-pg-migrate با فایل‌های SQL خام در `migrations/` (هر فایل: `-- Up Migration` و `-- Down Migration`، هر کدام در یک تراکنش).
