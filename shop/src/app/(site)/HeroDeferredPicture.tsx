@@ -23,8 +23,11 @@ export function HeroDeferredPicture({ className, wideSrcSet, sizes, img, imgClas
   const [show, setShow] = useState(false);
   useEffect(() => {
     const go = () => setShow(true);
-    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
-    const start = () => (w.requestIdleCallback ? w.requestIdleCallback(go, { timeout: 4000 }) : setTimeout(go, 1500));
+    const w = window as Window & {
+      requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number;
+    };
+    const start = () =>
+      w.requestIdleCallback ? w.requestIdleCallback(go, { timeout: 4000 }) : setTimeout(go, 1500);
     if (document.readyState === 'complete') start();
     else window.addEventListener('load', start, { once: true });
     return () => window.removeEventListener('load', start);
@@ -36,9 +39,5 @@ export function HeroDeferredPicture({ className, wideSrcSet, sizes, img, imgClas
       <img {...img} alt={alt} className={imgClassName} loading="lazy" />
     </>
   );
-  return (
-    <picture className={className}>
-      {show ? picture : <noscript>{picture}</noscript>}
-    </picture>
-  );
+  return <picture className={className}>{show ? picture : <noscript>{picture}</noscript>}</picture>;
 }

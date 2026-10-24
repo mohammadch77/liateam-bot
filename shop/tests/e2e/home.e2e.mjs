@@ -139,7 +139,9 @@ try {
     `${all.length}`,
   );
   await settled(page);
-  const box0 = await page.evaluate(() => document.querySelector('[data-bestsellers]').getBoundingClientRect().top + scrollY);
+  const box0 = await page.evaluate(
+    () => document.querySelector('[data-bestsellers]').getBoundingClientRect().top + scrollY,
+  );
   await bs.getByRole('tab', { name: 'آرایشی' }).click();
   const skeleton = await bs.locator('[data-skeleton]').count();
   await bs.locator('[role=tabpanel][aria-busy=false]').waitFor({ timeout: 20000 });
@@ -166,7 +168,9 @@ try {
   );
   await page.goto(`${BASE}/`, { waitUntil: 'load' });
   await settled(page);
-  const box1 = await page.evaluate(() => document.querySelector('[data-bestsellers]').getBoundingClientRect().top + scrollY);
+  const box1 = await page.evaluate(
+    () => document.querySelector('[data-bestsellers]').getBoundingClientRect().top + scrollY,
+  );
   check(
     '3f the section keeps its place (no jump of the page above it)',
     Math.abs(box1 - box0) < 2,

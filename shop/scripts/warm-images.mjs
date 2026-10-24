@@ -29,9 +29,15 @@ const QUIET_HOURS = [23, 7]; // Tehran time: from 23:00 to 07:00
 
 const args = process.argv.slice(2);
 const anyTime = args.includes('--any-time');
-const hour = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Asia/Tehran' }).format(new Date()));
+const hour = Number(
+  new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Asia/Tehran' }).format(
+    new Date(),
+  ),
+);
 if (!anyTime && (hour >= QUIET_HOURS[0] || hour < QUIET_HOURS[1])) {
-  console.log(`[images:warm] ${hour}:00 Tehran is in the quiet window ${QUIET_HOURS[0]}–${QUIET_HOURS[1]}: skipped`);
+  console.log(
+    `[images:warm] ${hour}:00 Tehran is in the quiet window ${QUIET_HOURS[0]}–${QUIET_HOURS[1]}: skipped`,
+  );
   process.exit(0);
 }
 
@@ -64,7 +70,8 @@ let done = 0;
 let resized = 0;
 let failed = 0;
 const started = Date.now();
-const pause = () => new Promise((r) => setTimeout(r, PAUSE_MS[0] + Math.random() * (PAUSE_MS[1] - PAUSE_MS[0])));
+const pause = () =>
+  new Promise((r) => setTimeout(r, PAUSE_MS[0] + Math.random() * (PAUSE_MS[1] - PAUSE_MS[0])));
 
 /** 'hit' (already cached), 'resized' (the shop made it now) or 'failed' */
 async function warm(job) {

@@ -7,7 +7,11 @@ const slug = sql(`select slug_en from product_catalog where id = 426`);
 const pages = ['/', '/shop', '/brands', `/p/${slug}`];
 
 const linksIn = (html, prefix) =>
-  new Set([...html.matchAll(new RegExp(`<a[^>]*href="(${prefix}[^"#?]+)"`, 'g'))].map((m) => decodeURIComponent(m[1])));
+  new Set(
+    [...html.matchAll(new RegExp(`<a[^>]*href="(${prefix}[^"#?]+)"`, 'g'))].map((m) =>
+      decodeURIComponent(m[1]),
+    ),
+  );
 
 let first = null;
 for (const path of pages) {

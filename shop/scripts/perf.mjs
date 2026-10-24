@@ -26,7 +26,8 @@ const out = opt('out', null);
 
 // three product pages: the richest (video, many reviews), a typical one, a low-data one — by their English slugs
 async function productPaths(ids = [426, 160, 520]) {
-  for (const f of ['.env.local', '.env']) if (fs.existsSync(path.join(root, f))) process.loadEnvFile(path.join(root, f));
+  for (const f of ['.env.local', '.env'])
+    if (fs.existsSync(path.join(root, f))) process.loadEnvFile(path.join(root, f));
   if (!process.env.DATABASE_URL) return ['/p/541'];
   const c = new pg.Client({ connectionString: process.env.DATABASE_URL });
   await c.connect();
@@ -43,7 +44,9 @@ const chromePath = process.env.CHROME_PATH || require('playwright').chromium.exe
 const only_pages = opt('pages', null);
 const pages = only_pages
   ? await Promise.all(
-      only_pages.split(',').map(async (x) => (/^p\d+$/.test(x) ? (await productPaths([Number(x.slice(1))]))[0] : x)),
+      only_pages
+        .split(',')
+        .map(async (x) => (/^p\d+$/.test(x) ? (await productPaths([Number(x.slice(1))]))[0] : x)),
     )
   : ['/', '/shop', '/c/173', ...(await productPaths()), '/offers', '/brands'];
 const forms = only === 'both' ? ['mobile', 'desktop'] : [only];
@@ -75,12 +78,20 @@ try {
           ttfb: a['server-response-time']?.numericValue ?? 0,
           kb: (a['total-byte-weight'].numericValue ?? 0) / 1024,
           requests: items.length,
-          jsKb: items.filter((x) => x.resourceType === 'Script').reduce((n, x) => n + (x.transferSize ?? 0), 0) / 1024,
-          lcpElement: a['largest-contentful-paint-element']?.details?.items?.[0]?.items?.[0]?.node?.snippet?.slice(0, 80) ?? '',
+          jsKb:
+            items.filter((x) => x.resourceType === 'Script').reduce((n, x) => n + (x.transferSize ?? 0), 0) /
+            1024,
+          lcpElement:
+            a['largest-contentful-paint-element']?.details?.items?.[0]?.items?.[0]?.node?.snippet?.slice(
+              0,
+              80,
+            ) ?? '',
           // LCP breakdown: TTFB · load delay · load duration · render delay (ms)
           ...Object.fromEntries(
             (a['largest-contentful-paint-element']?.details?.items?.[1]?.items ?? []).map((x) => [
-              { TTFB: 'pTtfb', 'Load Delay': 'pDelay', 'Load Time': 'pLoad', 'Render Delay': 'pRender' }[x.phase] ?? x.phase,
+              { TTFB: 'pTtfb', 'Load Delay': 'pDelay', 'Load Time': 'pLoad', 'Render Delay': 'pRender' }[
+                x.phase
+              ] ?? x.phase,
               x.timing,
             ]),
           ),
@@ -111,4 +122,5 @@ try {
 } finally {
   await chrome.kill();
 }
-if (out) fs.writeFileSync(out, JSON.stringify({ base, runs, at: new Date().toISOString(), results }, null, 2));
+if (out)
+  fs.writeFileSync(out, JSON.stringify({ base, runs, at: new Date().toISOString(), results }, null, 2));
