@@ -1,14 +1,13 @@
-# Hourly image-cache warm-up (liateam-shop-images-warm.service): pictures the sync bot added or changed are
-# resized before visitors ask for them. Cheap when nothing is new (cached pictures return at once).
+# Hourly image-cache warm-up (liateam-shop-images-warm.service), 07:00–22:00 Tehran time only: pictures the sync bot
+# added or changed are resized before visitors ask for them. Cheap when nothing is new (cached pictures return at once).
+# The script itself also skips 23:00–07:00 (Tehran) and resizes at most 300 pictures per run, 1–3 s apart.
 
 [Unit]
-Description=Liateam shop (staging) — warm the image cache every hour
+Description=Liateam shop (staging) — warm the image cache hourly, 07:00–22:00 Tehran
 
 [Timer]
-OnBootSec=10min
-OnUnitActiveSec=1h
+OnCalendar=*-*-* 07..22:05:00 Asia/Tehran
 RandomizedDelaySec=5min
-Persistent=true
 
 [Install]
 WantedBy=timers.target

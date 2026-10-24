@@ -1,6 +1,6 @@
 # Fills the image cache (/_next/image) for every picture the pages use: new product photos after a sync, the hero
 # banners, after a deploy. Idempotent: pictures already cached return at once, so running it often is cheap.
-# Started by liateam-shop-images-warm.timer (hourly) and once by hand after each deploy:
+# Started by liateam-shop-images-warm.timer (hourly, 07:00–22:00 Tehran) and once by hand after each deploy:
 #   sudo systemctl start liateam-shop-images-warm
 # Install (staging; for production copy with -prod paths and env):
 #   sudo cp deploy/liateam-shop-images-warm.{service,timer} /etc/systemd/system/
@@ -20,7 +20,7 @@ EnvironmentFile=/opt/liateam-shop/env/staging.env
 Environment=HOME=/opt/liateam-shop
 # the script only calls the running shop over HTTP (127.0.0.1); the shop writes the cache, not this unit
 ExecStart=/usr/bin/env npm run images:warm
-# the resizing itself runs in the shop; the script asks two pictures at a time, so visitors keep priority
+# the resizing itself runs in the shop; the script asks one picture at a time, 1–3 s apart, at most 300 per run
 Nice=19
 IOSchedulingClass=idle
 TimeoutStartSec=1h

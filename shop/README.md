@@ -69,6 +69,8 @@ npm run dev                     # http://127.0.0.1:3850
 npm run check                   # typecheck + lint + prettier
 ```
 
+**فونت:** `src/app/fonts/Vazirmatn-Variable.woff2` زیرمجموعه‌ی Vazirmatn است (فقط حروفی که فروشگاه نشان می‌دهد، همه‌ی وزن‌ها؛ ۶۸ به‌جای ۱۰۸ کیلوبایت) و مجوزش (SIL OFL 1.1) کنارش در `OFL.txt` است. `npm run font:check` همه‌ی متن‌های دیتابیس و رابط را با فونت مقایسه می‌کند و هر حرفی که در فونت نیست فهرست می‌کند (اگر حرفی در Vazirmatn کامل هست ولی در زیرمجموعه نیست، خروجی ۱). برای افزودن حرف: `UNICODES` در `scripts/subset-font.py` و `python scripts/subset-font.py` (نیاز: `pip install fonttools brotli`).
+
 ## تست‌ها
 
 | دستور                               | چه چیزی را می‌سنجد                                               | نیاز                          |
@@ -318,13 +320,15 @@ sudo -u liateam-shop bash -c 'set -a; . /opt/liateam-shop/env/staging.env; set +
 
 چرا: عکس‌های تأمین‌کننده PNGهای ۱ تا ۶ مگابایتی‌اند. اولین درخواست هر اندازه را سرور ما دانلود و کوچک می‌کند (روی سیستم توسعه ۳ تا ۴ ثانیه برای هر عکس) و بعد از کش در چند میلی‌ثانیه برمی‌گردد. این اسکریپت همه‌ی اندازه‌هایی که صفحه‌ها واقعاً می‌خواهند (کارت، گالری، منو، پک و بنرهای اسلایدر) را از قبل در کش می‌گذارد و تکرارش بی‌خطر است. بعد از نصب و بعد از هر sync که عکسی را عوض کرده اجرایش کنید (مثلاً با یک cron ساعتی که بی‌هزینه است چون عکسِ کش‌شده فوراً رد می‌شود). کش عکس‌ها در `.next/cache/images` است: در دیپلوی پاکش نکنید (`npm run build` آن را نگه می‌دارد).
 
-**خودکار (پیشنهادی):** تایمر systemd که هر ساعت همین اسکریپت را اجرا می‌کند (دو عکس هم‌زمان، تا بازدیدکننده‌ها اولویت داشته باشند) (عکس‌های تازه‌ی ربات چند دقیقه بعد از sync گرم می‌شوند) و یک‌بار هم بعد از هر دیپلوی دستی:
+**خودکار (پیشنهادی):** تایمر systemd که از ساعت ۷ تا ۲۲ (به وقت تهران) هر ساعت همین اسکریپت را اجرا می‌کند و یک‌بار هم بعد از هر دیپلوی دستی. اسکریپت با سرور مشترک ملایم است: هر بار یک عکس، بعد از هر عکسی که سرور کوچکش کرده ۱ تا ۳ ثانیه مکث (عکس‌هایی که از قبل در کش هستند مکث ندارند)، در هر اجرا حداکثر ۳۰۰ عکس (`IMAGES_WARM_MAX`) و بقیه برای اجرای بعدی. بین ساعت ۲۳ تا ۷ اجرا نمی‌شود، مگر دستی با `-- --any-time`:
 
 ```bash
 sudo cp /opt/liateam-shop/staging/app/shop/deploy/liateam-shop-images-warm.{service,timer} /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now liateam-shop-images-warm.timer
 # بعد از هر دیپلوی:
 sudo systemctl start liateam-shop-images-warm
+# (ساعت ۲۳ تا ۷ این دستور کاری نمی‌کند؛ اگر لازم بود، دستی و بدون محدودیت ساعت:)
+# sudo -u liateam-shop bash -c 'cd /opt/liateam-shop/staging/app/shop && set -a && . /opt/liateam-shop/env/staging.env && npm run images:warm -- --any-time'
 ```
 
 ### ۱۰. پیامک واقعی **[وقتی کلید کاوه‌نگار آمد]**
