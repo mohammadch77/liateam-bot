@@ -23,6 +23,7 @@
     "grant-role": "node scripts/grant-role.mjs",
     "seed:packs": "node scripts/seed-packs.mjs",
     "images:warm": "node scripts/warm-images.mjs",
+    "font:check": "node scripts/font-check.mjs",
     "check:prices": "node scripts/check-prices.mjs",
     "check:search": "node scripts/check-search.mjs",
     "test:unit": "node --test \"tests/unit/*.test.*\"",
