@@ -10,6 +10,43 @@
   content-visibility: auto;
   contain-intrinsic-size: auto 640px;
 }
+/* each section's placeholder height ≈ its real height (measured, 390 and 1440 wide), so the page length and the
+   scrollbar barely change as sections are laid out (CLS measured 0.0004 phone / 0 desktop, also while scrolling) */
+.bubbles ~ [data-offers] {
+  contain-intrinsic-size: auto 420px;
+}
+.bubbles ~ [data-home-section='brands'] {
+  contain-intrinsic-size: auto 155px;
+}
+.bubbles ~ [data-bestsellers] {
+  contain-intrinsic-size: auto 1760px;
+}
+.bubbles ~ [data-routine] {
+  contain-intrinsic-size: auto 700px;
+}
+.bubbles ~ [data-home-section='magazine'] {
+  contain-intrinsic-size: auto 390px;
+}
+.bubbles ~ [data-home-section='affiliate'] {
+  contain-intrinsic-size: auto 275px;
+}
+@media (min-width: 1024px) {
+  .bubbles ~ [data-offers] {
+    contain-intrinsic-size: auto 395px;
+  }
+  .bubbles ~ [data-home-section='brands'] {
+    contain-intrinsic-size: auto 165px;
+  }
+  .bubbles ~ [data-bestsellers] {
+    contain-intrinsic-size: auto 955px;
+  }
+  .bubbles ~ [data-routine] {
+    contain-intrinsic-size: auto 400px;
+  }
+  .bubbles ~ [data-home-section='magazine'] {
+    contain-intrinsic-size: auto 445px;
+  }
+}
 @media (min-width: 1024px) {
   .home {
     padding-block: 28px 40px;
