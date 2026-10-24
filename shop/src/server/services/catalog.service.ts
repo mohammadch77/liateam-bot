@@ -666,6 +666,24 @@ export const catalogService = {
     return (await catalogRepository.productNames()).map((p) => ({ id: p.id, name: clean(p.name) }));
   },
 
+  /** The public pages a sitemap lists: home, shop, offers, brands, every category, brand and product. */
+  async sitemapEntries(): Promise<Array<{ path: string; lastModified?: Date }>> {
+    const [products, { list }, brands] = await Promise.all([
+      catalogRepository.sitemapProducts(),
+      categoryNames(),
+      brandList(),
+    ]);
+    return [
+      ...['/', '/shop', '/offers', '/brands', '/categories'].map((path) => ({ path })),
+      ...list.map((c) => ({ path: c.href })),
+      ...brands.map((b) => ({ path: b.href })),
+      ...products.map((p) => ({
+        path: productPath(p.id, clean(p.name), p.slug_en),
+        lastModified: p.updated_at,
+      })),
+    ];
+  },
+
   async allCategories(): Promise<Category[]> {
     return (await categoryNames()).list;
   },

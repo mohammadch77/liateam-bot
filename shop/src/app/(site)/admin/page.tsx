@@ -63,6 +63,8 @@ export default async function AdminPage() {
           <Link href="/admin/packs">پک‌ها</Link>
           {' · '}
           <Link href="/admin/bestsellers">پرفروش‌ترین‌ها</Link>
+          {' · '}
+          <Link href="/admin/settings">تنظیمات</Link>
         </p>
         <dl className={s.list}>
           {events.map((e) => (

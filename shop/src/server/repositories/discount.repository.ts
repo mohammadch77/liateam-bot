@@ -106,6 +106,28 @@ async function hasOfferFunction(): Promise<boolean> {
   return ok;
 }
 
+/** Whether deploy/…-012 (the discount mode) is installed; until then step 9's function (mode «excess» only). */
+let modeReady: { ok: boolean; at: number } | null = null;
+async function hasModeFunction(): Promise<boolean> {
+  if (modeReady && (modeReady.ok || Date.now() - modeReady.at < 5 * 60_000)) return modeReady.ok;
+  const sig =
+    'public.shop_offer_prices_mode(integer[],numeric[],bigint[],boolean[],text,numeric,numeric,numeric)';
+  const row = await queryOne<{ ok: boolean }>(
+    'discount.mode_function_ready',
+    `SELECT to_regprocedure('${sig}') IS NOT NULL AND has_function_privilege('${sig}', 'EXECUTE') AS ok`,
+  );
+  const ok = !!row?.ok;
+  if (!ok && !modeReady)
+    logger.warn('discount.mode_function_unavailable', {
+      reason: 'run deploy/shop-db-roles-012-offer-prices-mode.sql (until then: the «excess» formula)',
+    });
+  modeReady = { ok, at: Date.now() };
+  return ok;
+}
+
+/** How Liateam's discount reaches the customer (admin setting): the one liateam.ir shows, or the excess formula. */
+export type DiscountMode = 'liateam' | 'excess';
+
 export const discountRepository = {
   /** Discounts that may still run (switched on, not ended); the service checks start/end against the clock. */
   async live(): Promise<DiscountRow[]> {
@@ -255,23 +277,29 @@ export const discountRepository = {
   async offerPrices(
     items: ReadonlyArray<{ id: number; percent: number; amount: number; allowLoss: boolean }>,
     rules: { baseMargin: number; cap: number; minMargin: number },
+    mode: DiscountMode,
   ): Promise<Map<number, { final: number; clamped: boolean }> | null> {
     if (!(await hasOfferFunction())) return null;
     if (!items.length) return new Map();
-    const rows = await query<{ id: number; final_toman: string; clamped: boolean }>(
-      'discount.offer_prices',
-      `SELECT id, final_toman, clamped
-         FROM public.shop_offer_prices($1::int[], $2::numeric[], $3::bigint[], $4::boolean[], $5, $6, $7)`,
-      [
-        items.map((i) => i.id),
-        items.map((i) => i.percent),
-        items.map((i) => Math.round(i.amount)),
-        items.map((i) => i.allowLoss),
-        rules.baseMargin,
-        rules.cap,
-        rules.minMargin,
-      ],
-    );
+    const args = [
+      items.map((i) => i.id),
+      items.map((i) => i.percent),
+      items.map((i) => Math.round(i.amount)),
+      items.map((i) => i.allowLoss),
+    ];
+    const rows = (await hasModeFunction())
+      ? await query<{ id: number; final_toman: string; clamped: boolean }>(
+          'discount.offer_prices_mode',
+          `SELECT id, final_toman, clamped
+             FROM public.shop_offer_prices_mode($1::int[], $2::numeric[], $3::bigint[], $4::boolean[], $5, $6, $7, $8)`,
+          [...args, mode, rules.baseMargin, rules.cap, rules.minMargin],
+        )
+      : await query<{ id: number; final_toman: string; clamped: boolean }>(
+          'discount.offer_prices',
+          `SELECT id, final_toman, clamped
+             FROM public.shop_offer_prices($1::int[], $2::numeric[], $3::bigint[], $4::boolean[], $5, $6, $7)`,
+          [...args, rules.baseMargin, rules.cap, rules.minMargin],
+        );
     return new Map(rows.map((r) => [r.id, { final: Number(r.final_toman), clamped: r.clamped }]));
   },
 };

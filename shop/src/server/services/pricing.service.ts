@@ -1,4 +1,5 @@
 import 'server-only';
+import { siteSettingsService } from './site-settings.service';
 import { getConfig } from '@/lib/config';
 import { logger } from '@/lib/logger';
 import { bestManual, type Discount, type PricedProduct } from '@/lib/pricing/discounts';
@@ -108,6 +109,7 @@ async function load(): Promise<State> {
       allowLoss: manual.allowLoss,
     })),
     pricingRules(),
+    await siteSettingsService.discountMode(),
   );
   const offers = new Map<number, Offer>();
   let unpriced = 0;

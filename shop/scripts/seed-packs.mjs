@@ -1,5 +1,5 @@
 // First «روتین پوستی» packs: one per skin type (oily, dry, combination, sensitive), five steps each (cleanser, toner,
-// serum, cream, sunscreen), 10% off. Products are picked by a written rule (below) — a starting point the admin
+// serum, cream, sunscreen), no discount (the pack costs the sum of its products; only the admin gives one). Products are picked by a written rule (below) — a starting point the admin
 // confirms or changes in /admin/packs. Does nothing when the collection already exists (never overwrites edits).
 //   npm run seed:packs            (prints the choices)
 //   npm run seed:packs -- --dry   (only prints, writes nothing)
@@ -114,7 +114,7 @@ try {
     const pack = await client.query(
       `INSERT INTO packs (collection_id, variant_key, variant_title, title, description, discount_kind, discount_value,
                           active, sort_order)
-       VALUES ($1, $2, $3, $4, $5, 'percent', 10, true, $6) RETURNING id`,
+       VALUES ($1, $2, $3, $4, $5, 'percent', 0, true, $6) RETURNING id`,
       [
         collectionId,
         skin.key,
@@ -136,7 +136,7 @@ try {
     [String(collectionId), JSON.stringify({ slug: COLLECTION.slug, packs: plan.length })],
   );
   await client.query('COMMIT');
-  console.log(`\n«${COLLECTION.title}» created with ${plan.length} packs (10% off).`);
+  console.log(`\n«${COLLECTION.title}» created with ${plan.length} packs (no discount).`);
 } catch (e) {
   await client.query('ROLLBACK').catch(() => {});
   throw e;

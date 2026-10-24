@@ -2,12 +2,14 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { idFromSlug, productPath } from '@/lib/catalog-urls';
 import { SEARCH_HEADER } from '@/lib/internal-headers';
 import { catalogRepository } from '@/server/repositories/catalog.repository';
+import { indexingBlocked } from '@/server/seo-policy';
 
 /**
  * 1. Product addresses: any non-canonical form of /p/… (the old Persian /p/123-نام links, /p/123, an outdated
  *    English slug) gets a 301 to the canonical English slug, so old links and their search ranking carry over.
  *    Next's permanentRedirect() would send 308; the layout's canonical check stays as the fallback (308) for
  *    when this lookup fails.
+ * 3. While search engines are kept out (src/server/seo-policy.ts), every response carries X-Robots-Tag: noindex.
  * 2. Layouts cannot read the query string, but the canonical-URL redirect in /c/[slug] and /p/[slug] layouts must
  *    keep it (an old link with ?sort=…&page=2 should land on the same filtered view). This passes it along in an
  *    internal request header. Any client-sent value of that header is overwritten.
@@ -24,7 +26,10 @@ export async function proxy(request: NextRequest) {
   }
   const headers = new Headers(request.headers);
   headers.set(SEARCH_HEADER, search);
-  return NextResponse.next({ request: { headers } });
+  const response = NextResponse.next({ request: { headers } });
+  // search engines kept out (outside production always; in production the admin's switch): on every response
+  if (await indexingBlocked()) response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  return response;
 }
 
 /** Canonical (percent-encoded) path of the product in `segment`, or null (unknown id, database error). */
@@ -46,7 +51,8 @@ async function canonicalProduct(segment: string): Promise<string | null> {
   return path;
 }
 
-export const config = { matcher: ['/c/:path*', '/p/:path*'] };
+// every page and API route; static assets (hashed files, optimised images, the icon) skip the proxy
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'] };
 
 const decoded = (path: string) => {
   try {

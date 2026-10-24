@@ -59,7 +59,7 @@ export default async function AdminPacksPage({
         title: '',
         description: '',
         discountKind: 'percent',
-        discountValue: '',
+        discountValue: '0', // no discount until the admin gives one: the pack costs the sum of its products
         active: true,
         allowLoss: false,
         startsAt: '',

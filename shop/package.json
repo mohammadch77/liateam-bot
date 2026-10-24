@@ -22,6 +22,7 @@
     "check:responsive": "node scripts/check-responsive.mjs",
     "grant-role": "node scripts/grant-role.mjs",
     "seed:packs": "node scripts/seed-packs.mjs",
+    "packs:reset-discount": "node scripts/packs-reset-discount.mjs",
     "images:warm": "node scripts/warm-images.mjs",
     "font:check": "node scripts/font-check.mjs",
     "check:prices": "node scripts/check-prices.mjs",

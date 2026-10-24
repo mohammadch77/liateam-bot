@@ -187,8 +187,8 @@ const packSchema = z
       .max(PACK_POLICY.maxSteps),
   })
   .superRefine((p, ctx) => {
-    if (p.discountKind === 'percent' && (p.discountValue < 1 || p.discountValue > 90))
-      ctx.addIssue({ code: 'custom', message: 'درصد تخفیف پک باید بین ۱ تا ۹۰ باشد' });
+    if (p.discountKind === 'percent' && (p.discountValue < 0 || p.discountValue > 90))
+      ctx.addIssue({ code: 'custom', message: 'درصد تخفیف پک باید بین ۰ (بدون تخفیف) تا ۹۰ باشد' });
     if (p.discountKind === 'fixed_price' && p.discountValue < 1000)
       ctx.addIssue({ code: 'custom', message: 'قیمت ثابت پک باید از ۱٬۰۰۰ تومان بیشتر باشد' });
     if (p.endsAt && p.startsAt && p.endsAt <= p.startsAt)

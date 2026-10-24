@@ -121,7 +121,7 @@ export function PackForm({
           </select>
         </label>
         <label className={a.field}>
-          <span>مقدار (درصد یا تومان)</span>
+          <span>مقدار (درصد یا تومان؛ ۰ = بدون تخفیف، قیمت پک = جمع محصولات)</span>
           <input
             name="discountValue"
             defaultValue={draft.discountValue}

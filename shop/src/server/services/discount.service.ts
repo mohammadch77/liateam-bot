@@ -1,4 +1,5 @@
 import 'server-only';
+import { siteSettingsService } from './site-settings.service';
 import { z } from 'zod';
 import { AppError } from '@/lib/errors';
 import { bestManual, covers, type Discount } from '@/lib/pricing/discounts';
@@ -146,7 +147,11 @@ async function check(input: DiscountInput): Promise<DiscountPreview & { unsafe: 
     .map((r) => ({ r, p: { id: r.id, price: r.price, categories: up(r.category), brandCode: r.brand_code } }))
     .filter(({ p }) => covers(d, p));
   const items = affected.map(({ p }) => ({ id: p.id, ...bestManual(p, [d], new Date(1)) }));
-  const prices = await discountRepository.offerPrices(items, pricingRules());
+  const prices = await discountRepository.offerPrices(
+    items,
+    pricingRules(),
+    await siteSettingsService.discountMode(),
+  );
   if (!prices) throw new AppError('INTERNAL', { message: 'محاسبه‌ی قیمت تخفیف هنوز روی سرور نصب نشده است.' });
   const sampleIds = affected.slice(0, DISCOUNT_POLICY.previewSamples).map(({ r }) => r.id);
   const names = new Map((await catalogRepository.productsByIds(sampleIds)).map((r) => [r.id, r.name]));

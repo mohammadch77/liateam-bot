@@ -25,6 +25,7 @@ const ALL = [
   'seo-links',
   'carousel',
   'viewports',
+  'pricing',
 ];
 const wanted = process.argv.slice(2);
 const unknown = wanted.filter((n) => !ALL.includes(n));

@@ -293,6 +293,16 @@ export const catalogRepository = {
   },
 
   /** Old address → canonical one: the English slug and name of a visible product (cheap, for the redirect). */
+  /** Every visible product's address parts and last change (sitemap). */
+  async sitemapProducts(): Promise<
+    Array<{ id: number; name: string; slug_en: string | null; updated_at: Date }>
+  > {
+    return query<{ id: number; name: string; slug_en: string | null; updated_at: Date }>(
+      'catalog.sitemap_products',
+      `SELECT p.id, p.name, p.slug_en, p.updated_at FROM product_catalog p WHERE ${VISIBLE} ORDER BY p.id`,
+    );
+  },
+
   async getProductSlug(id: number): Promise<{ name: string; slug_en: string | null } | null> {
     return queryOne<{ name: string; slug_en: string | null }>(
       'catalog.product_slug',

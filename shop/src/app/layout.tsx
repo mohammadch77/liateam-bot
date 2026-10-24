@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import type { ReactNode } from 'react';
+import { indexingBlocked } from '@/server/seo-policy';
 import { color, cssVariables } from '@/ui/tokens';
 import '@/ui/global.css';
 
@@ -13,10 +14,14 @@ const vazirmatn = localFont({
   fallback: ['Tahoma', 'sans-serif'],
 });
 
-export const metadata: Metadata = {
-  title: 'فروشگاه',
-  robots: { index: false, follow: false }, // until launch
-};
+/** Search engines: kept out outside production and while the admin's «جلوگیری از ایندکس شدن» is on (default). */
+export async function generateMetadata(): Promise<Metadata> {
+  const blocked = await indexingBlocked();
+  return {
+    title: 'فروشگاه',
+    robots: blocked ? { index: false, follow: false } : { index: true, follow: true },
+  };
+}
 
 export const viewport: Viewport = {
   width: 'device-width',
