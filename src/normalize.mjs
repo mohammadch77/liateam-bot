@@ -23,6 +23,26 @@ export function imageOf(raw) {
 }
 const FIELD_LABEL = { name: 'نام', price: 'قیمت', cost_price: 'قیمت تمام‌شده (payable_price)', stock: 'موجودی' };
 
+// Liateam's own discounts in pricing.discounts that only concern us as a partner (our purchase price): never the
+// customer's discount.
+const PARTNER_DISCOUNTS = new Set(['base_retail', 'extra_retail_percent']);
+/**
+ * The discount liateam.ir itself shows the customer (e.g. type «discount_product», «زمانی کوتاه برای انتخابی خاص»
+ * 15%): the sum of the shown (can_show) discounts in pricing.discounts that are not partner discounts, in percent,
+ * 0–90. 0 when Liateam shows none. pricing.price stays the price before this discount.
+ */
+export function consumerDiscountOf(raw) {
+  const list = raw?.pricing?.discounts;
+  if (!Array.isArray(list)) return 0;
+  let sum = 0;
+  for (const d of list) {
+    if (!d || PARTNER_DISCOUNTS.has(d.type) || d.can_show !== true || d.used_in_calc === false) continue;
+    const pct = Number(d.percent);
+    if (Number.isFinite(pct) && pct > 0) sum += pct;
+  }
+  return Math.min(90, Math.round(sum * 100) / 100);
+}
+
 const get = (obj, path) => path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
 
 /** Returns { value, path } for the first candidate path whose key exists, or null. */
@@ -72,6 +92,7 @@ export function normalize(raw, ctx = {}) {
       name,
       price: toToman(fields.price), // selling price = Liateam's consumer price, TOMAN
       cost_price: toToman(fields.cost_price), // payable_price: our purchase cost, TOMAN, internal only
+      consumer_discount_percent: consumerDiscountOf(raw), // the discount liateam.ir shows the customer, 0 = none
       stock: toInt(fields.stock),
       category,
       is_available: raw.inventory?.is_available ?? null,

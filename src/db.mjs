@@ -34,6 +34,9 @@ CREATE TABLE IF NOT EXISTS sync_runs (
   message     TEXT
 );
 ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS is_sellable BOOLEAN NOT NULL DEFAULT true;
+-- the discount liateam.ir shows the customer (percent; 0 = none). Not part of change detection: filling it or a
+-- change of it writes no change event and no price-history row (the shop computes its price from it at request time).
+ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS consumer_discount_percent NUMERIC(5,2) NOT NULL DEFAULT 0;
 ALTER TABLE sync_runs ADD COLUMN IF NOT EXISTS duration_ms INTEGER;
 ALTER TABLE sync_runs ADD COLUMN IF NOT EXISTS sellable INTEGER;
 ALTER TABLE sync_runs ADD COLUMN IF NOT EXISTS failure_kind TEXT;   -- auth | structure | coverage | database | error
@@ -227,7 +230,7 @@ SELECT p.id, p.uuid, p.name, p.price, p.cost_price, p.stock, p.category, p.is_av
        p.description, p.brand,
        p.brand_code, p.slug_en, p.slug_fa, p.summary, p.features, p.how_to_use, p.video_url, p.video_embed_url,
        p.rating_value, p.reviews_total, p.origin_country, p.gallery_count,
-       p.measurement_value, p.measurement_unit, p.color, p.expire_months
+       p.measurement_value, p.measurement_unit, p.color, p.expire_months, p.consumer_discount_percent
   FROM supplier_products p;
 
 -- Alert lines of each run (also in logs/alerts.log); read by the dashboard.
@@ -569,10 +572,12 @@ export async function upsertProducts(db, products, inTransaction = null) {
   try {
     for (const p of products) {
       const { rows } = await db.query(
-        `INSERT INTO supplier_products (id, uuid, name, price, cost_price, stock, category, is_available, is_sellable, image_url)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+        `INSERT INTO supplier_products (id, uuid, name, price, cost_price, stock, category, is_available, is_sellable, image_url,
+                                        consumer_discount_percent)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
          ON CONFLICT (id) DO UPDATE SET
            uuid=EXCLUDED.uuid, name=EXCLUDED.name, price=EXCLUDED.price, cost_price=EXCLUDED.cost_price,
+           consumer_discount_percent=EXCLUDED.consumer_discount_percent,
            stock=EXCLUDED.stock, category=EXCLUDED.category, is_available=EXCLUDED.is_available, is_sellable=EXCLUDED.is_sellable,
            image_url=COALESCE(EXCLUDED.image_url, supplier_products.image_url),
            last_seen_at=now(), missing_since=NULL,
@@ -580,7 +585,8 @@ export async function upsertProducts(db, products, inTransaction = null) {
                                 IS DISTINCT FROM (EXCLUDED.price, EXCLUDED.cost_price, EXCLUDED.stock)
                              THEN now() ELSE supplier_products.updated_at END
          RETURNING (xmax = 0) AS inserted, updated_at = now() AS changed`,
-        [p.id, p.uuid, p.name, p.price, p.cost_price, p.stock, p.category, p.is_available, p.is_sellable, p.image_url ?? null],
+        [p.id, p.uuid, p.name, p.price, p.cost_price, p.stock, p.category, p.is_available, p.is_sellable, p.image_url ?? null,
+         p.consumer_discount_percent ?? 0],
       );
       if (rows[0].inserted || rows[0].changed) {
         await db.query(
