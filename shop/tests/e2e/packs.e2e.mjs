@@ -89,6 +89,9 @@ try {
   const anon = await (await ctxFor(3)).newPage();
   await anon.goto(`${BASE}/`, { waitUntil: 'load' });
   const section = anon.locator('[data-routine]');
+  // below the first screen the section is laid out only near the screen (content-visibility: auto)
+  await section.scrollIntoViewIfNeeded();
+  await anon.waitForFunction(() => document.querySelector('[data-routine]')?.innerText.trim().length > 0);
   const chips = await section.locator('[role=radio]').allInnerTexts();
   check(
     '3a home «روتین پوستی»: skin-type chips from the running packs',
