@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Builds the Avina shop on a shared server inside a resource cage, so the other sites on the machine keep running.
-#   sudo /opt/avina-shop-src/shop/deploy/avina/build-on-server.sh            build only
-#   sudo /opt/avina-shop-src/shop/deploy/avina/build-on-server.sh --prune    … then drop devDependencies
+#   sudo /opt/liateam-bot/app/shop/deploy/avina/build-on-server.sh            build only
+#   sudo /opt/liateam-bot/app/shop/deploy/avina/build-on-server.sh --prune    … then drop devDependencies
 #
 # What it does (and nothing else):
 #   1. refuses to start when MemAvailable (/proc/meminfo, not «free») or free disk is under the safe minimum;
-#   2. copies the repository's shop/ (from the git clone in SRC) into APP, keeping APP's .env and image cache;
+#   2. copies the repository's shop/ (from SRC, the checkout) into APP, keeping APP's .env and image cache;
 #   3. npm ci + npm run build as the avina user, in a systemd scope capped at 1800 MB / one CPU,
 #      with the lowest CPU and I/O priority and a 1500 MB Node heap;
 #   4. cleans the npm cache (and with --prune removes devDependencies).
@@ -15,7 +15,7 @@
 # Needs root (systemd-run --scope and runuser); the build itself runs as the avina user.
 set -euo pipefail
 
-SRC=${SRC:-/opt/avina-shop-src}      # git clone of the repository
+SRC=${SRC:-/opt/liateam-bot/app}     # the repository's checkout (its shop/ is copied)
 APP=${APP:-/opt/avina-shop}          # the running app (WorkingDirectory of avina-shop.service)
 RUN_AS=${RUN_AS:-avina}
 MIN_FREE_MB=${MIN_FREE_MB:-2000}     # MemAvailable before the build
@@ -26,7 +26,7 @@ PRUNE=0
 fail() { echo "build-on-server: $*" >&2; exit 1; }
 
 [[ $EUID -eq 0 ]] || fail "run with sudo (systemd-run --scope and runuser need root)"
-[[ -d "$SRC/shop" ]] || fail "$SRC/shop not found (git clone the repository to $SRC first)"
+[[ -d "$SRC/shop" ]] || fail "$SRC/shop not found (set SRC to the repository's checkout)"
 [[ -f "$APP/.env" ]] || fail "$APP/.env not found (copy deploy/avina/avina-shop.env.example and fill it in)"
 id "$RUN_AS" >/dev/null 2>&1 || fail "user $RUN_AS does not exist"
 
