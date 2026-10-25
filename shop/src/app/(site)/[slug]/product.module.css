@@ -1073,3 +1073,21 @@
   min-height: 100vh;
   min-height: 100dvh;
 }
+
+/* phones and tablets: price and «افزودن به سبد» live in the sticky bar; the buy box keeps only the facts (the
+   price stays readable to screen readers, the sticky bar is hidden from them) */
+@media (max-width: 1023px) {
+  .buyMain {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+@media (min-width: 1024px) {
+  .buyMain {
+    display: contents;
+  }
+}

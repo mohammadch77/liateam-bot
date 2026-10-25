@@ -5,7 +5,7 @@ import { Icon } from '../icon/Icon';
 import { cx } from '../cx';
 import s from './Carousel.module.css';
 
-export type CarouselSize = 'card' | 'brand' | 'article' | 'compact';
+export type CarouselSize = 'card' | 'brand' | 'article' | 'compact' | 'grid4';
 
 type CarouselProps = {
   /** accessible name of the list, e.g. «محصولات تخفیف‌دار» */

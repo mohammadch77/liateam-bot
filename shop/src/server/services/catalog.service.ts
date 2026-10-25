@@ -3,6 +3,7 @@ import { cache } from 'react';
 import { z } from 'zod';
 import { BESTSELLER_TABS } from '@/lib/bestsellers';
 import { categoryPath, productPath } from '@/lib/catalog-urls';
+import { toAppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { editDistance, normalizeSearch, searchWords } from '@/lib/search/normalize';
 import {
@@ -444,6 +445,51 @@ async function loadHeroSlides(): Promise<HeroSlide[]> {
   }
 }
 
+export const RELATED_LIMIT = 4;
+
+/**
+ * «محصولات مرتبط»: up to four products in stock — the same category first, then the same brand, then the
+ * best-selling ones — never the product itself and never twice.
+ */
+async function relatedProducts(
+  id: number,
+  category: number | null,
+  brand: number | null,
+): Promise<ProductRow[]> {
+  const out: ProductRow[] = [];
+  const seen = new Set([id]);
+  const take = (rows: readonly ProductRow[]) => {
+    for (const r of rows) {
+      if (out.length >= RELATED_LIMIT) return;
+      if (seen.has(r.id) || r.stock <= 0) continue;
+      seen.add(r.id);
+      out.push(r);
+    }
+  };
+  const base = {
+    excludeId: id,
+    inStockOnly: true,
+    sort: 'relevance' as const,
+    limit: RELATED_LIMIT + 4,
+    offset: 0,
+  };
+  if (category !== null)
+    take((await catalogRepository.listProducts({ ...base, categories: [category] })).rows);
+  if (out.length < RELATED_LIMIT && brand !== null)
+    take((await catalogRepository.listProducts({ ...base, brandCode: brand })).rows);
+  if (out.length < RELATED_LIMIT) {
+    // imported here: the best-seller service itself builds on this one
+    const { bestsellerService } = await import('./bestseller.service');
+    const best = (await bestsellerService.tab('all')).map((b) => b.id).filter((x) => !seen.has(x));
+    if (best.length) {
+      const rows = await catalogRepository.productsByIds(best.slice(0, RELATED_LIMIT + 4));
+      const order = new Map(best.map((x, i) => [x, i]));
+      take([...rows].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)));
+    }
+  }
+  return out;
+}
+
 export const catalogService = {
   async home() {
     const [{ list }, inStock, heroSlides, offers] = await Promise.all([
@@ -527,16 +573,10 @@ export const catalogService = {
       trail.unshift(c);
       c = c.parentCode !== null ? byCode.get(c.parentCode) : undefined;
     }
-    const related = product.categories[0]
-      ? await catalogRepository.listProducts({
-          categories: [product.categories[0].code],
-          excludeId: id,
-          inStockOnly: true,
-          sort: 'relevance',
-          limit: 5,
-          offset: 0,
-        })
-      : { rows: [] };
+    const related = await relatedProducts(id, product.categories[0]?.code ?? null, row.brand_code).catch((e) => {
+      logger.warn('catalog.related_unavailable', { code: toAppError(e).code });
+      return [] as ProductRow[];
+    });
     const [content, siteReviews, brands] = await Promise.all([
       catalogRepository.getProductContent(id),
       reviewRepository.approvedFor(id, PRODUCT_REVIEWS_SHOWN),
@@ -550,7 +590,7 @@ export const catalogService = {
       description: descriptionBlocks(row.description),
       content: toContent(row, content, siteReviews),
       trail,
-      related: related.rows.map((r) => toView(r, names, offers)),
+      related: related.map((r) => toView(r, names, offers)),
     };
   },
 

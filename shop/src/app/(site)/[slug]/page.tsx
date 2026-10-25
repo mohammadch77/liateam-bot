@@ -24,7 +24,7 @@ import {
   Icon,
   Price,
   ProductCard,
-  ProductGrid,
+  Carousel,
   Saving,
   Section,
 } from '@/ui';
@@ -257,31 +257,34 @@ export default async function ProductPage({ params, searchParams }: Props) {
         </div>
 
         <aside className={s.buyBox} aria-label="خرید">
-          {out ? (
-            <>
-              <p className={s.outText}>این کالا در حال حاضر موجود نیست.</p>
-              <Button variant="outline" icon="notifications" disabled block>
-                خبرم کن (به‌زودی)
-              </Button>
-            </>
-          ) : (
-            <>
-              <Price toman={p.priceToman} oldToman={p.oldPriceToman} size="lg" />
-              {p.oldPriceToman != null && (
-                <span className={s.offBadge}>
-                  {toFaDigits(discountPercent(p.priceToman, p.oldPriceToman))}٪ تخفیف ·{' '}
-                  <Saving toman={p.priceToman} oldToman={p.oldPriceToman} />
+          {/* below 1024px the sticky bar at the bottom carries price and button: this block is for screen readers only */}
+          <div className={s.buyMain}>
+            {out ? (
+              <>
+                <p className={s.outText}>این کالا در حال حاضر موجود نیست.</p>
+                <Button variant="outline" icon="notifications" disabled block>
+                  خبرم کن (به‌زودی)
+                </Button>
+              </>
+            ) : (
+              <>
+                <Price toman={p.priceToman} oldToman={p.oldPriceToman} size="lg" />
+                {p.oldPriceToman != null && (
+                  <span className={s.offBadge}>
+                    {toFaDigits(discountPercent(p.priceToman, p.oldPriceToman))}٪ تخفیف ·{' '}
+                    <Saving toman={p.priceToman} oldToman={p.oldPriceToman} />
+                  </span>
+                )}
+                {/* cart slot: the cart arrives in phase 2 */}
+                <Button size="lg" block icon="add_shopping_cart" disabled aria-describedby="cart-soon">
+                  افزودن به سبد
+                </Button>
+                <span id="cart-soon" className={s.soon}>
+                  خرید آنلاین به‌زودی فعال می‌شود.
                 </span>
-              )}
-              {/* cart slot: the cart arrives in phase 2 */}
-              <Button size="lg" block icon="add_shopping_cart" disabled aria-describedby="cart-soon">
-                افزودن به سبد
-              </Button>
-              <span id="cart-soon" className={s.soon}>
-                خرید آنلاین به‌زودی فعال می‌شود.
-              </span>
-            </>
-          )}
+              </>
+            )}
+          </div>
           <ul className={s.facts}>
             <li>
               <Icon name="verified" size={19} className={s.factIcon} />
@@ -445,11 +448,11 @@ export default async function ProductPage({ params, searchParams }: Props) {
           title="محصولات مرتبط"
           action={main ? { href: main.href, label: 'مشاهده همه' } : undefined}
         >
-          <ProductGrid>
+          <Carousel label="محصولات مرتبط" size="grid4">
             {related.map((r) => (
               <ProductCard key={r.id} product={r} />
             ))}
-          </ProductGrid>
+          </Carousel>
         </Section>
       )}
     </Container>

@@ -46,6 +46,21 @@
   --carousel-item: 132px;
 }
 
+/* grid4 (related products): a carousel on phones and tablets, a fixed grid of 4 equal cards from 1024px */
+@media (min-width: 1024px) {
+  .grid4 .track {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: visible;
+    scroll-snap-type: none;
+    cursor: auto;
+  }
+  .grid4 .arrow {
+    display: none !important;
+  }
+}
+
 /* brands: a carousel only on phones; tablet 4 equal columns, desktop one row of 7 (more brands wrap) */
 @media (min-width: 768px) {
   .brand .track {
