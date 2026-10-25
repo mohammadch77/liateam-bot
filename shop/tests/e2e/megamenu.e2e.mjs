@@ -123,7 +123,13 @@ const drawer = m.getByRole('dialog');
 check('drawer opens', await drawer.isVisible());
 const mroots = (
   await drawer.locator('nav > a, nav > ul:first-of-type > li > :is(a, button)').allInnerTexts()
-).map((t) => t.split('\n').map((x) => x.trim()).filter(Boolean)[0] ?? '');
+).map(
+  (t) =>
+    t
+      .split('\n')
+      .map((x) => x.trim())
+      .filter(Boolean)[0] ?? '',
+);
 check(
   'drawer: «همه‌ی محصولات», then the categories in Liateam order',
   mroots[0] === 'همه‌ی محصولات' && JSON.stringify(mroots.slice(1)) === JSON.stringify(LIATEAM),

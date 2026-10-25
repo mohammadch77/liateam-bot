@@ -108,7 +108,9 @@ try {
   const box = await drawer.boundingBox();
   check('2b full height', Math.round(box.height) === 667, String(Math.round(box.height)));
   const locked = await m
-    .waitForFunction(() => document.documentElement.classList.contains('drawer-open'), null, { timeout: 3000 })
+    .waitForFunction(() => document.documentElement.classList.contains('drawer-open'), null, {
+      timeout: 3000,
+    })
     .then(() => true)
     .catch(() => false);
   check('2c the page behind is locked', locked);

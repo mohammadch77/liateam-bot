@@ -71,12 +71,10 @@ try {
       JSON.stringify(rm.map((r) => `${r.w}×${r.h}`)),
     );
     // clipped for the eye, kept for screen readers: the block itself is 1px (its contents keep their own size)
-    const block = await m
-      .locator('aside[aria-label="خرید"] [class*=buyMain]')
-      .evaluate((el) => {
-        const r = el.getBoundingClientRect();
-        return { w: Math.round(r.width), h: Math.round(r.height), clip: getComputedStyle(el).clipPath };
-      });
+    const block = await m.locator('aside[aria-label="خرید"] [class*=buyMain]').evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { w: Math.round(r.width), h: Math.round(r.height), clip: getComputedStyle(el).clipPath };
+    });
     check(
       `2b ${w}: no second price / button under the specs (visually hidden, still read out)`,
       block.w <= 1 && block.h <= 1 && block.clip !== 'none',

@@ -215,7 +215,11 @@ try {
   );
   await drawer.locator('[data-menu-brands]').click();
   const dBrands = await drawer.locator('nav a').count(); // «همه‌ی برندها» + each brand
-  check('6b drawer «برندها» opens the brand list as its own level', dBrands === brands.length + 1, `${dBrands} links`);
+  check(
+    '6b drawer «برندها» opens the brand list as its own level',
+    dBrands === brands.length + 1,
+    `${dBrands} links`,
+  );
   await shot(m, 'drawer-390.png');
   await m.keyboard.press('Escape');
   await m.close();
