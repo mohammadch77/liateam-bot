@@ -1,10 +1,11 @@
 import { getConfig } from '@/lib/config';
-import { Icon } from '@/ui';
+import { Carousel, Icon } from '@/ui';
 import s from './home-sections.module.css';
 
 /**
  * Home «مجله <brand>» (Homepage.dc.html; the name from BRAND_NAME): the design's frame of three article cards. There are no articles yet (no
- * content system): the section says «به‌زودی» instead of made-up cards. The switch `magazine.enabled` in
+ * content system): the section says «به‌زودی» instead of made-up cards; the slots sit in the shared Carousel (swipe,
+ * drag, arrows) so real articles drop in without a layout change. The switch `magazine.enabled` in
  * site_settings is where the real articles will plug in later.
  */
 export function Magazine() {
@@ -20,7 +21,7 @@ export function Magazine() {
           {`مجله ${getConfig().BRAND_NAME}`}
         </h2>
       </div>
-      <div className={s.magazine}>
+      <Carousel label={`مقاله‌های مجله ${getConfig().BRAND_NAME}`} size="article">
         {['راهنمای خرید', 'روتین پوستی', 'عطر'].map((tag, i) => (
           <div key={tag} className={s.magazineSlot} aria-hidden={i > 0 ? 'true' : undefined}>
             <span className={s.magazineImage}>
@@ -38,7 +39,7 @@ export function Magazine() {
             )}
           </div>
         ))}
-      </div>
+      </Carousel>
     </section>
   );
 }

@@ -154,7 +154,7 @@ export function bottomNavItems(user: CurrentUser | null): BottomNavItem[] {
   return [
     { icon: 'home', label: 'خانه', href: '/' },
     { icon: 'grid_view', label: 'دسته‌ها', href: '/categories' },
-    { icon: 'search', label: 'جست‌وجو', href: '/search' },
+    { icon: 'search', label: 'جست‌وجو', href: '/search', openSearch: true },
     { icon: 'shopping_bag', label: 'سبد', href: LINKS.cart },
     { icon: 'person', label: user ? 'حساب' : 'ورود', href: user ? LINKS.account : LINKS.login },
   ];

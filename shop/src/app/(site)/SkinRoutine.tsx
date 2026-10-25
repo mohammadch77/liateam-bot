@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRef, useState, type KeyboardEvent } from 'react';
 import { formatToman } from '@/lib/format/money';
 import { toFaDigits } from '@/lib/format/number';
 import { Icon } from '@/ui';
@@ -26,102 +26,141 @@ export type RoutinePack = {
   }>;
 };
 
+/** The cart arrives in phase 2: the same placeholder as the product page's add-to-cart button. */
+const SOON = 'به‌زودی فعال می‌شود';
+
 /**
- * Home «روتین پوستی» (Homepage.dc.html): skin-type chips, the five steps of the chosen pack, the items' total struck
- * through, the pack price and the saving, «مشاهده محصولات» → the pack page (the cart comes in phase 2). Every pack
- * is already in the page, so switching skin type is instant; the step boxes have a fixed height (no layout shift).
+ * Home «روتین پوستی» (Homepage.dc.html): one tab per skin type (a segmented control that scrolls on phones) and one
+ * compact card — the five steps as short rows (small image, step, name, price; a «به‌زودی» step dimmed), the pack
+ * price (the items' sum unless the admin gave the pack a discount) and two actions: «افزودن پک به سبد خرید» (adds
+ * every available item; a placeholder like the product page's button until the cart exists) and «مشاهده محصولات».
+ * Every pack is in the page, so switching is instant; rows have a fixed height (no layout shift).
  */
 export function SkinRoutine({ title, packs }: { title: string; packs: RoutinePack[] }) {
   const [key, setKey] = useState(packs[0]?.key);
+  const tabs = useRef<Array<HTMLButtonElement | null>>([]);
   const pack = packs.find((p) => p.key === key) ?? packs[0];
   if (!pack) return null;
+  const index = packs.indexOf(pack);
+  const ok = pack.steps.filter((x) => x.status === 'ok').length;
+
+  // tabs pattern: ←/→ (RTL: ← is the next tab), Home/End
+  const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const step = e.key === 'ArrowLeft' ? 1 : e.key === 'ArrowRight' ? -1 : 0;
+    const from = tabs.current.findIndex((t) => t === document.activeElement);
+    const at = from >= 0 ? from : index;
+    let next = step ? (at + step + packs.length) % packs.length : -1;
+    if (e.key === 'Home') next = 0;
+    if (e.key === 'End') next = packs.length - 1;
+    if (next < 0) return;
+    e.preventDefault();
+    setKey(packs[next]!.key);
+    tabs.current[next]?.focus();
+  };
+
   return (
     <section className={s.section} aria-labelledby="routine-title" data-routine={pack.key}>
       <div className={s.head}>
-        <div>
-          <h2 id="routine-title" className={s.title}>
-            {title} شما
-          </h2>
-          <p className={s.sub}>
-            {toFaDigits(pack.steps.length)} قدم، به ترتیب مصرف؛ نوع پوستتان را انتخاب کنید.
-          </p>
-        </div>
-        <div className={s.chips} role="radiogroup" aria-label="نوع پوست">
-          {packs.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              role="radio"
-              aria-checked={p.key === pack.key}
-              className={s.chip}
-              onClick={() => setKey(p.key)}
-            >
-              {p.variantTitle}
-            </button>
-          ))}
-        </div>
+        <h2 id="routine-title" className={s.title}>
+          {title} شما
+        </h2>
+        <p className={s.sub}>
+          نوع پوستتان را انتخاب کنید؛ {toFaDigits(pack.steps.length)} قدم به ترتیب مصرف.
+        </p>
       </div>
 
-      <div className={s.body}>
+      <div className={s.tabs} role="tablist" aria-label="نوع پوست" onKeyDown={onKey}>
+        {packs.map((p, i) => (
+          <button
+            key={p.key}
+            ref={(el) => {
+              tabs.current[i] = el;
+            }}
+            type="button"
+            role="tab"
+            id={`routine-tab-${p.key}`}
+            aria-controls="routine-panel"
+            aria-selected={p.key === pack.key}
+            tabIndex={p.key === pack.key ? 0 : -1}
+            className={s.tab}
+            onClick={() => setKey(p.key)}
+          >
+            {p.variantTitle}
+          </button>
+        ))}
+      </div>
+
+      <div className={s.card} role="tabpanel" id="routine-panel" aria-labelledby={`routine-tab-${pack.key}`}>
         <ol className={s.steps} aria-label={pack.title}>
           {pack.steps.map((st, i) => (
             <li key={i} className={s.step} data-status={st.status}>
-              <span className={s.stepNo}>
-                {toFaDigits(i + 1)}. {st.label}
+              <span className={s.thumb} aria-hidden="true">
+                {st.product?.imageUrl ? (
+                  <Image src={st.product.imageUrl} alt="" fill sizes="56px" draggable={false} />
+                ) : (
+                  <Icon name="spa" size={22} />
+                )}
+                <span className={s.stepNo}>{toFaDigits(i + 1)}</span>
               </span>
-              {st.product ? (
-                <Link href={st.product.href} className={s.product}>
-                  <span className={s.thumb}>
-                    {st.product.imageUrl ? (
-                      <Image src={st.product.imageUrl} alt="" fill sizes="96px" />
-                    ) : (
-                      <Icon name="spa" size={30} />
-                    )}
-                  </span>
-                  {st.product.brand && <span className={s.brand}>{st.product.brand}</span>}
-                  <span className={s.name}>{st.product.name}</span>
-                  <span className={s.price}>
-                    {st.status === 'ok' && st.price !== null ? (
-                      <>
-                        <b className="tnum">{formatToman(st.price)}</b> تومان
-                      </>
-                    ) : (
-                      <span className={s.out}>ناموجود</span>
-                    )}
-                  </span>
-                </Link>
-              ) : (
-                <span className={s.soon}>
-                  <Icon name="spa" size={28} />
-                  به‌زودی
-                </span>
-              )}
+              <span className={s.stepText}>
+                <span className={s.stepLabel}>{st.label}</span>
+                {st.product ? (
+                  <Link href={st.product.href} className={s.name}>
+                    {st.product.name}
+                  </Link>
+                ) : (
+                  <span className={s.soon}>به‌زودی</span>
+                )}
+              </span>
+              <span className={s.price}>
+                {st.status === 'ok' && st.price !== null ? (
+                  <>
+                    <b className="tnum">{formatToman(st.price)}</b>
+                    <span className={s.unit}>تومان</span>
+                  </>
+                ) : st.status === 'out' ? (
+                  <span className={s.out}>ناموجود</span>
+                ) : null}
+              </span>
             </li>
           ))}
         </ol>
 
         <aside className={s.summary} aria-label={`قیمت ${pack.title}`}>
-          <span className={s.sumLabel}>{pack.title}</span>
-          {pack.available && pack.final !== null ? (
-            <>
-              <b className={s.sumLead}>
-                همه‌ی {toFaDigits(pack.steps.filter((x) => x.status === 'ok').length)} محصول
-                {pack.saving > 0 && <> با {toFaDigits(pack.saving)}٪ صرفه‌جویی</>}
-              </b>
-              <div className={s.prices}>
-                {pack.final < pack.total && <del className="tnum">{formatToman(pack.total)} تومان</del>}
-                <b className={`${s.final} tnum`}>
-                  {formatToman(pack.final)} <span>تومان</span>
-                </b>
-              </div>
-            </>
-          ) : (
-            <b className={s.sumLead}>فعلاً در دسترس نیست</b>
-          )}
-          <Link href={pack.href} className={s.cta}>
-            مشاهده محصولات
-            <Icon name="arrow_back" size={18} />
-          </Link>
+          <div className={s.total}>
+            {pack.available && pack.final !== null ? (
+              <>
+                <span className={s.totalLabel}>
+                  قیمت پک ({toFaDigits(ok)} محصول)
+                  {pack.saving > 0 && <span className={s.saving}>{toFaDigits(pack.saving)}٪ تخفیف</span>}
+                </span>
+                <span className={s.prices}>
+                  {pack.final < pack.total && <del className="tnum">{formatToman(pack.total)}</del>}
+                  <b className="tnum">{formatToman(pack.final)}</b>
+                  <span className={s.unit}>تومان</span>
+                </span>
+              </>
+            ) : (
+              <span className={s.totalLabel}>فعلاً در دسترس نیست</span>
+            )}
+          </div>
+          <div className={s.actions}>
+            <button
+              type="button"
+              className={s.add}
+              aria-disabled="true"
+              title={SOON}
+              aria-label={`افزودن پک به سبد خرید (${SOON})`}
+              data-routine-add
+            >
+              <Icon name="add_shopping_cart" size={20} />
+              افزودن پک به سبد خرید
+            </button>
+            <Link href={pack.href} className={s.view}>
+              مشاهده محصولات
+              <Icon name="arrow_back" size={18} />
+            </Link>
+          </div>
         </aside>
       </div>
     </section>

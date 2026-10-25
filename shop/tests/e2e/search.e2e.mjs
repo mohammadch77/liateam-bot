@@ -26,7 +26,11 @@ await box.click();
 
 // gradual typing updates suggestions; debounce keeps requests few
 await box.pressSequentially('ری', { delay: 60 });
-await p.waitForTimeout(500);
+// the first query of a fresh server takes longer than the debounce: wait for the answer, not a fixed time
+await options
+  .first()
+  .waitFor({ timeout: 5000 })
+  .catch(() => {});
 const after2 = await opts();
 await box.pressSequentially('مل', { delay: 60 });
 const t0 = Date.now();
@@ -158,9 +162,22 @@ const m = await b.newPage({
   hasTouch: true,
 });
 await m.goto(BASE + '/', { waitUntil: 'load' });
-const mbox = m.locator('header [class*=mobile] input[role=combobox]');
+check(
+  'mobile home: no search row in the header (the banner gets the room)',
+  await m.locator('header [class*=mobileSearchWrap]').isHidden(),
+);
+await m.locator('nav[aria-label="ناوبری اصلی"] [data-open-search]').click();
+const overlay = m.locator('[data-search-overlay]');
+await overlay.waitFor({ state: 'visible' });
+check(
+  'mobile home: the tab bar «جست‌وجو» opens the full-screen search with the field focused',
+  m.url() === BASE + '/' &&
+    (await m.evaluate(() => document.activeElement?.closest('[data-search-overlay]') !== null)),
+  m.url(),
+);
+const mbox = overlay.locator('input[role=combobox]');
 await mbox.fill('بادی');
-await m.locator('header [class*=mobile] [role=option]').first().waitFor();
+await overlay.locator('[role=option]').first().waitFor();
 await m.waitForTimeout(500);
 check(
   'mobile: no horizontal scroll with suggestions open',
@@ -176,12 +193,25 @@ if (SHOTS) {
     .catch(() => {});
   await shot(m, 'suggest-mobile.png');
 }
+await m.keyboard.press('Escape'); // first Esc: the suggestion list
+check('mobile: the first Esc closes the suggestions only', await overlay.isVisible());
+await m.keyboard.press('Escape');
+check('mobile: the second Esc closes the search', await overlay.isHidden());
+await m.goto(BASE + '/shop', { waitUntil: 'load' });
+check(
+  'mobile: other pages keep the search row',
+  await m.locator('header [class*=mobileSearchWrap]').isVisible(),
+);
 await m.close();
 
 for (const w of [390, 768, 1024, 1280, 1440, 1920]) {
   const q = await b.newPage({ viewport: { width: w, height: 900 } });
-  await q.goto(BASE + '/', { waitUntil: 'load' });
-  const inp = q.locator(`header [class*=${w >= 1024 ? 'desktop' : 'mobile'}] input[role=combobox]`);
+  await q.goto(BASE + '/shop', { waitUntil: 'load' });
+  const inp = q.locator(
+    w >= 1024
+      ? 'header [class*=desktop] input[role=combobox]'
+      : 'header [class*=mobileSearchWrap] input[role=combobox]',
+  );
   await inp.fill('سرم');
   await q.waitForTimeout(800);
   const over = await q.evaluate(() => document.documentElement.scrollWidth - innerWidth);

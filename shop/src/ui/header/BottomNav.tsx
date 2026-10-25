@@ -9,6 +9,8 @@ export type BottomNavItem = {
   href: string;
   current?: boolean;
   count?: number;
+  /** opens the full-screen search (SearchOverlay) instead of following the link, when JavaScript runs */
+  openSearch?: boolean;
 };
 
 /** Mobile tab bar «ناوبری اصلی» (Homepage mobile frame); hidden from 1024px where the header has everything. */
@@ -22,6 +24,7 @@ export function BottomNav({ items }: { items: readonly BottomNavItem[] }) {
           className={s.item}
           aria-current={t.current ? 'page' : undefined}
           aria-label={t.count ? `${t.label}، ${formatNumber(t.count)} کالا` : undefined}
+          data-open-search={t.openSearch ? '' : undefined}
         >
           <Icon name={t.icon} size={25} filled={t.current} />
           {t.label}

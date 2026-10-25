@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRef, useState } from 'react';
-import { Icon, ProductCard, Skeleton, type ProductCardData } from '@/ui';
+import { Carousel, Icon, ProductCard, Skeleton, type ProductCardData } from '@/ui';
 import s from './home-sections.module.css';
 
 export type BestsellerCard = ProductCardData & { id: number };
@@ -10,7 +10,7 @@ type Tab = { key: string; label: string; href: string };
 
 /**
  * Home «پرفروش‌ترین‌ها» (Homepage.dc.html): tabs (همه / مراقبت پوست / آرایشی / عطر و بدن / مو و دهان), up to 10
- * cards, «مشاهده همه» → the shop filtered to the tab's categories. The first tab comes with the page; another tab is
+ * cards in the shared Carousel, «مشاهده همه» → the shop filtered to the tab's categories. The first tab comes with the page; another tab is
  * loaded when first opened (/api/bestsellers), showing skeleton cards of the same size meanwhile (no layout shift).
  */
 export function Bestsellers({ tabs, initial }: { tabs: Tab[]; initial: BestsellerCard[] }) {
@@ -59,21 +59,28 @@ export function Bestsellers({ tabs, initial }: { tabs: Tab[]; initial: Bestselle
           </button>
         ))}
       </div>
-      <div className={s.grid} role="tabpanel" aria-label={tab.label} aria-busy={!items && !failed}>
+      <div role="tabpanel" aria-label={tab.label} aria-busy={!items && !failed} data-bestsellers-panel>
         {items ? (
           items.length ? (
-            items.map((p) => <ProductCard key={p.id} product={p} />)
+            // a new list per tab (key): the carousel starts at the beginning with fresh end markers
+            <Carousel key={active} label={`پرفروش‌ترین‌ها: ${tab.label}`}>
+              {items.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </Carousel>
           ) : (
             <p className={s.empty}>فعلاً محصولی در این دسته موجود نیست.</p>
           )
         ) : failed ? (
           <p className={s.empty}>بارگذاری نشد؛ دوباره روی تب بزنید.</p>
         ) : (
-          Array.from({ length: 10 }, (_, i) => (
-            <div key={i} className={s.skeletonCard} data-skeleton>
-              <Skeleton height="100%" />
-            </div>
-          ))
+          <Carousel key={`${active}-loading`} label="در حال بارگذاری">
+            {Array.from({ length: 6 }, (_, i) => (
+              <div key={i} className={s.skeletonCard} data-skeleton>
+                <Skeleton height="100%" />
+              </div>
+            ))}
+          </Carousel>
         )}
       </div>
     </section>

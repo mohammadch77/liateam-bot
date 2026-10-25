@@ -6,6 +6,7 @@ import { Container } from '../layout/Layout';
 import { BrandMenu, MegaMenu } from './MegaMenu';
 import { MobileMenu } from './MobileMenu';
 import { SearchBox } from './SearchBox';
+import { SearchOverlay } from './SearchOverlay';
 import s from './Header.module.css';
 
 export type Brand = { name: string; latin: string; homeHref?: string };
@@ -202,6 +203,7 @@ export function Header(p: HeaderProps) {
         <div className={s.mobileSearchWrap}>
           <SearchBox action={p.searchAction} query={p.searchQuery} compact />
         </div>
+        <SearchOverlay action={p.searchAction} query={p.searchQuery} />
       </div>
     </header>
   );

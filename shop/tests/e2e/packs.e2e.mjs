@@ -92,7 +92,7 @@ try {
   // below the first screen the section is laid out only near the screen (content-visibility: auto)
   await section.scrollIntoViewIfNeeded();
   await anon.waitForFunction(() => document.querySelector('[data-routine]')?.innerText.trim().length > 0);
-  const chips = await section.locator('[role=radio]').allInnerTexts();
+  const chips = await section.locator('[role=tab]').allInnerTexts();
   check(
     '3a home «روتین پوستی»: skin-type chips from the running packs',
     ['پوست چرب', 'پوست خشک', 'پوست مختلط', 'پوست حساس'].every((t) => chips.includes(t)),
@@ -101,7 +101,7 @@ try {
   const before = await section.boundingBox();
   const oilyNames = await section.locator('li').allInnerTexts();
   check('3b five steps shown', (await section.locator('li').count()) === 5);
-  await section.getByRole('radio', { name: 'پوست خشک' }).click();
+  await section.getByRole('tab', { name: 'پوست خشک' }).click();
   await anon.waitForFunction(() => document.querySelector('[data-routine]')?.dataset.routine === 'dry');
   const after = await section.boundingBox();
   const dryNames = await section.locator('li').allInnerTexts();

@@ -316,6 +316,10 @@ a.topbarItem:hover {
 .mobileSearchWrap {
   padding: 0 16px 12px;
 }
+/* the home page on phones: no search row (its room goes to the banner); the tab bar's search opens the overlay */
+body:has([data-home-page]) .mobileSearchWrap {
+  display: none;
+}
 
 /* running campaign: one line above everything (desktop and phone) */
 .campaignBar {

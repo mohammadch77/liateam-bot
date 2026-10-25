@@ -96,7 +96,7 @@ export default async function HomePage() {
   }));
 
   return (
-    <div className={s.home}>
+    <div className={s.home} data-home-page>
       <Container>
         {data.heroSlides.length > 0 ? (
           <>

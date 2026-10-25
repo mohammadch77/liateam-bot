@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Icon } from '@/ui';
+import { Carousel, Icon } from '@/ui';
 import s from './home-sections.module.css';
 
 export type BrandTile = { code: number; name: string; href: string; logoUrl: string | null };
@@ -19,6 +19,7 @@ function Logo({ b }: { b: BrandTile }) {
       alt={b.name}
       className={s.brandLogo}
       loading="lazy"
+      draggable={false}
       onError={() => setBroken(true)}
     />
   );
@@ -26,7 +27,7 @@ function Logo({ b }: { b: BrandTile }) {
 
 /**
  * Home «برندها» (Homepage.dc.html): a row of brand logos, each to its brand page (its products, as on Liateam),
- * «همه‌ی برندها» → /brands. Scrolls sideways on phones.
+ * «همه‌ی برندها» → /brands. Phones: the shared Carousel; tablet 4 columns; desktop one row of 7 equal tiles.
  */
 export function BrandsRow({ brands }: { brands: BrandTile[] }) {
   return (
@@ -40,15 +41,13 @@ export function BrandsRow({ brands }: { brands: BrandTile[] }) {
           <Icon name="arrow_back" size={18} />
         </Link>
       </div>
-      <ul className={s.brands}>
+      <Carousel label="برندها" size="brand">
         {brands.map((b) => (
-          <li key={b.code}>
-            <Link href={b.href} className={s.brand} aria-label={b.name} data-brand={b.code}>
-              <Logo b={b} />
-            </Link>
-          </li>
+          <Link key={b.code} href={b.href} className={s.brand} aria-label={b.name} data-brand={b.code}>
+            <Logo b={b} />
+          </Link>
         ))}
-      </ul>
+      </Carousel>
     </section>
   );
 }

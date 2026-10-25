@@ -2,6 +2,12 @@
 .home {
   padding-block: 16px 24px;
 }
+/* phones: the edge-to-edge banner sits right under the header (and so ends above the tab bar) */
+@media (max-width: 639px) {
+  .home:has([data-hero-link]) {
+    padding-top: 0;
+  }
+}
 /* The sections under the category bubbles are below the first screen: the browser skips their layout until they near
    the screen. The first layout of the whole page (Persian text set first in the fallback font, again when the web font
    arrives) took ~1.3 s on a 4× slower phone CPU and held back the first paint and the hero (LCP); with this ~0.1 s.
@@ -16,16 +22,16 @@
   contain-intrinsic-size: auto 420px;
 }
 .bubbles ~ [data-home-section='brands'] {
-  contain-intrinsic-size: auto 155px;
+  contain-intrinsic-size: auto 172px;
 }
 .bubbles ~ [data-bestsellers] {
-  contain-intrinsic-size: auto 1760px;
+  contain-intrinsic-size: auto 445px;
 }
 .bubbles ~ [data-routine] {
-  contain-intrinsic-size: auto 700px;
+  contain-intrinsic-size: auto 623px;
 }
 .bubbles ~ [data-home-section='magazine'] {
-  contain-intrinsic-size: auto 390px;
+  contain-intrinsic-size: auto 370px;
 }
 .bubbles ~ [data-home-section='affiliate'] {
   contain-intrinsic-size: auto 275px;
@@ -35,16 +41,16 @@
     contain-intrinsic-size: auto 395px;
   }
   .bubbles ~ [data-home-section='brands'] {
-    contain-intrinsic-size: auto 165px;
+    contain-intrinsic-size: auto 197px;
   }
   .bubbles ~ [data-bestsellers] {
-    contain-intrinsic-size: auto 955px;
+    contain-intrinsic-size: auto 549px;
   }
   .bubbles ~ [data-routine] {
-    contain-intrinsic-size: auto 400px;
+    contain-intrinsic-size: auto 483px;
   }
   .bubbles ~ [data-home-section='magazine'] {
-    contain-intrinsic-size: auto 445px;
+    contain-intrinsic-size: auto 456px;
   }
 }
 @media (min-width: 1024px) {

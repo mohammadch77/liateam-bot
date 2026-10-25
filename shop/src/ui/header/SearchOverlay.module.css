@@ -1,0 +1,39 @@
+/* Full-screen search dialog (phones): the search row at the top, suggestions below it. */
+.dialog {
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+.dialog::backdrop {
+  background: rgb(30 27 36 / 40%);
+}
+.bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 12px 12px 12px 6px;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-white);
+}
+.box {
+  flex: 1;
+  min-width: 0;
+}
+.close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--color-ink);
+  -webkit-tap-highlight-color: transparent;
+}
