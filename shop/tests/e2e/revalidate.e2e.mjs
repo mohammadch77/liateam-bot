@@ -45,6 +45,15 @@ res = await post({ paths: [{ path: 'https://evil.example/' }] }, { 'x-revalidate
 check('5 not a path of the shop → 400', res.status === 400, String(res.status));
 res = await post({ nope: 1 }, { 'x-revalidate-secret': secret });
 check('6 bad body → 400', res.status === 400, String(res.status));
+res = await post({ paths: [{ path: '/shop' }] }, { 'x-revalidate-secret': secret });
+const listings = (await res.json().catch(() => ({}))).revalidated ?? [];
+check(
+  '8 a listing change also refreshes offers, the overviews and the pack pages',
+  ['/offers', '/categories', '/brands', '/packs/[collection]/[variant] (page)'].every((x) =>
+    listings.includes(x),
+  ),
+  JSON.stringify(listings),
+);
 res = await fetch(url);
 check('7 GET is not allowed', res.status === 405, String(res.status));
 finish();

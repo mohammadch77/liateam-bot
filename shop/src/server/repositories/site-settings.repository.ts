@@ -15,7 +15,8 @@ export const siteSettingsRepository = {
     return new Map(rows.map((r) => [r.key, r.value]));
   },
 
-  async set(key: string, value: unknown, by: string, db?: Queryable): Promise<void> {
+  /** `by` = the admin's user id, null for the system (e.g. the last revalidate time) */
+  async set(key: string, value: unknown, by: string | null, db?: Queryable): Promise<void> {
     await query(
       'site_settings.set',
       `INSERT INTO site_settings (key, value, updated_by, updated_at) VALUES ($1, $2::jsonb, $3, now())

@@ -31,6 +31,7 @@ const ALL = [
   'product-related',
   'listing-filters',
   'login-layout',
+  'sync-status',
 ];
 const wanted = process.argv.slice(2);
 const unknown = wanted.filter((n) => !ALL.includes(n));

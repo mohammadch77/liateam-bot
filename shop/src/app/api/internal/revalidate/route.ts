@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { dataChanged } from '@/server/cache-events';
+import { healthService } from '@/server/services/health.service';
 import { z } from 'zod';
 import { getConfig } from '@/lib/config';
 import { logger } from '@/lib/logger';
@@ -14,7 +15,18 @@ export const dynamic = 'force-dynamic';
  * Storefront pages are rendered per request today, so this mostly clears the router/full-route cache; it keeps
  * changes visible at once if data caching is added later.
  */
-const ROUTE_PATTERNS = new Set(['/[slug]', '/c/[slug]', '/brands/[slug]']);
+const ROUTE_PATTERNS = new Set(['/[slug]', '/c/[slug]', '/brands/[slug]', '/packs/[collection]/[variant]']);
+/**
+ * The bot names the listings it knows (/, /shop, /search, categories, brands). A change that reaches the listings
+ * (price, stock, a product added or gone) also shows on pages it does not name: the offers, the category and brand
+ * overviews and the pack prices — the shop adds them here (README «رویداد → صفحه‌ها»).
+ */
+const WITH_LISTINGS: ReadonlyArray<{ path: string; type?: 'page' }> = [
+  { path: '/offers' },
+  { path: '/categories' },
+  { path: '/brands' },
+  { path: '/packs/[collection]/[variant]', type: 'page' },
+];
 /**
  * Products moved from /p/<slug> to /<slug>; the bot still names them the old way (/p/<slug>, '/p/[slug]'), so its
  * paths are translated here and the bot needs no change.
@@ -54,7 +66,9 @@ export async function POST(req: Request) {
   if (!parsed.success) return Response.json({ ok: false, error: 'invalid body' }, { status: 400 });
 
   const done: string[] = [];
-  for (const { path: given, type } of parsed.data.paths) {
+  const sent = parsed.data.paths;
+  const paths = sent.some((x) => x.path === '/shop') ? [...sent, ...WITH_LISTINGS] : sent;
+  for (const { path: given, type } of paths) {
     const path = productAddress(given);
     if (path.includes('[') && !(ROUTE_PATTERNS.has(path) && type)) continue; // only known patterns, with a type
     revalidatePath(path, type);
@@ -62,6 +76,7 @@ export async function POST(req: Request) {
   }
   // the shop's own short caches (prices, packs, best sellers) too
   dataChanged();
+  await healthService.recordRevalidate(); // «آخرین revalidate» in the panel
   logger.info('revalidate.done', { count: done.length });
   return Response.json({ ok: true, revalidated: done });
 }
