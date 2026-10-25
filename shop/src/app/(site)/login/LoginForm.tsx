@@ -16,7 +16,36 @@ type SendState = { sent: Sent | null; error: string | null };
  * Two steps on one page: phone number → SMS code. The send state keeps the last successful send, so a failed
  * resend shows its error on the code step instead of throwing the user back to the phone step.
  */
+/**
+ * Phones: when a field gets focus the keyboard slides up a moment later; then the field is scrolled to the middle
+ * of what is left, so the keyboard never covers it or its button.
+ */
+function useKeepFocusedFieldInView() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onFocus = (e: FocusEvent) => {
+      const t = e.target as HTMLElement;
+      if (!t.matches('input')) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        t.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+      }, 300);
+    };
+    el.addEventListener('focusin', onFocus);
+    return () => {
+      clearTimeout(timer);
+      el.removeEventListener('focusin', onFocus);
+    };
+  }, []);
+  return ref;
+}
+
 export function LoginForm({ next }: { next: string }) {
+  const keepInView = useKeepFocusedFieldInView();
   const [send, sendAction] = useActionState<SendState, FormData>(
     async (prev, form) => {
       const r = await requestCodeAction(null, form);
@@ -31,7 +60,7 @@ export function LoginForm({ next }: { next: string }) {
 
   if (!sent) {
     return (
-      <>
+      <div ref={keepInView} className={s.steps}>
         <h1 id="login-title" className={s.title}>
           ورود | ثبت‌نام
         </h1>
@@ -46,6 +75,7 @@ export function LoginForm({ next }: { next: string }) {
             autoComplete="tel"
             placeholder="۰۹۱۲ ۳۴۵ ۶۷۸۹"
             maxLength={16}
+            enterKeyHint="send"
             defaultValue={send.sent?.phone}
             required
             autoFocus
@@ -54,19 +84,21 @@ export function LoginForm({ next }: { next: string }) {
           <Submit pendingText="در حال ارسال کد…">دریافت کد تأیید</Submit>
         </form>
         <p className={s.terms}>ورود شما به معنای پذیرش شرایط و قوانین حریم خصوصی فروشگاه است.</p>
-      </>
+      </div>
     );
   }
 
   return (
-    <CodeStep
-      key={sent.at} // a new send remounts the step: fresh countdown, empty code field
-      sent={sent}
-      next={next}
-      resendAction={sendAction}
-      resendError={send.error}
-      onEditPhone={() => setEditedAt(Date.now())}
-    />
+    <div ref={keepInView} className={s.steps}>
+      <CodeStep
+        key={sent.at} // a new send remounts the step: fresh countdown, empty code field
+        sent={sent}
+        next={next}
+        resendAction={sendAction}
+        resendError={send.error}
+        onEditPhone={() => setEditedAt(Date.now())}
+      />
+    </div>
   );
 }
 

@@ -316,8 +316,9 @@ a.topbarItem:hover {
 .mobileSearchWrap {
   padding: 0 16px 12px;
 }
-/* the home page on phones: no search row (its room goes to the banner); the tab bar's search opens the overlay */
-body:has([data-home-page]) .mobileSearchWrap {
+/* the home page on phones: no search row (its room goes to the banner); the tab bar's search opens the overlay.
+   The sign-in page likewise: the whole form fits the first screen of a 375×667 phone. */
+body:has([data-home-page], [data-auth-page]) .mobileSearchWrap {
   display: none;
 }
 

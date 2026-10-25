@@ -1,23 +1,80 @@
-/* Sign-in: one cream card centred on the blush backdrop, built from design-system tokens. */
+/* Sign-in: one cream card on the blush backdrop; desktop adds a side panel. Phones: everything (brand, title, field,
+   button, terms) fits the first screen of a 375×667 phone — tight spacing, small brand, no header search row. */
 .page {
   display: flex;
   justify-content: center;
-  padding: 24px var(--gutter) 40px;
+  align-items: flex-start;
+  min-height: calc(100dvh - 180px);
+  padding: 12px var(--gutter) 24px;
   background: radial-gradient(90% 70% at 50% 0%, var(--color-blush) 0%, var(--color-surface) 70%);
 }
 @media (min-width: 768px) {
   .page {
-    padding-block: 64px 88px;
+    padding-block: 56px 80px;
   }
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  max-width: 440px;
+}
+.side {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 440px;
+    max-width: 920px;
+    border-radius: var(--radius-panel);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+  }
+  .side {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 28px;
+    padding: 48px 40px;
+    background: linear-gradient(160deg, var(--color-primary) 0%, var(--color-primary-press) 100%);
+    color: #fff;
+  }
+  .layout .card {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .layout .card .brand {
+    display: none; /* the side panel carries it */
+  }
+}
+.sideBrand {
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1;
+}
+.perks {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 15px;
+  font-weight: 600;
+}
+.perks li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 .card {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   width: 100%;
-  max-width: 440px;
   min-width: 0;
-  padding: 28px 20px;
+  padding: 18px 16px;
   border-radius: var(--radius-panel);
   border: 1px solid var(--color-line);
   background: var(--color-white);
@@ -25,11 +82,22 @@
 }
 @media (min-width: 768px) {
   .card {
+    gap: 16px;
     padding: 40px 36px;
   }
 }
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+@media (min-width: 768px) {
+  .steps {
+    gap: 16px;
+  }
+}
 .brand {
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 900;
   line-height: 1;
   letter-spacing: -0.4px;
@@ -47,8 +115,8 @@
   line-height: var(--type-h2-line);
 }
 .lead {
-  font-size: 14px;
-  line-height: 1.95;
+  font-size: 13.5px;
+  line-height: 1.85;
   color: var(--color-ink-2);
 }
 .phone {
