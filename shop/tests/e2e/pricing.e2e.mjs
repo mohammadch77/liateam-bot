@@ -51,7 +51,7 @@ const ctxFor = (n) =>
   });
 /** [what the customer pays, the struck-through price or null] from the product page's price label */
 async function shownPrice(page) {
-  await page.goto(`${BASE}/p/${slug}`, { waitUntil: 'load' });
+  await page.goto(`${BASE}/${slug}`, { waitUntil: 'load' });
   const label =
     (await page
       .locator('main article')
@@ -163,7 +163,7 @@ try {
 
   // ── 5. nothing about cost or margin leaves the server ──
   const pages = [
-    await (await fetch(`${BASE}/p/${slug}`)).text(),
+    await (await fetch(`${BASE}/${slug}`)).text(),
     await (await fetch(`${BASE}/`)).text(),
     await (await fetch(`${BASE}/api/search/suggest?q=${encodeURIComponent('کرم')}`)).text(),
   ].join('\n');

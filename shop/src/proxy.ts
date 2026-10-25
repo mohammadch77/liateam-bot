@@ -1,24 +1,28 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { idFromSlug, productPath } from '@/lib/catalog-urls';
 import { SEARCH_HEADER } from '@/lib/internal-headers';
+import { isReservedSlug } from '@/lib/reserved-slugs';
 import { catalogRepository } from '@/server/repositories/catalog.repository';
 import { indexingBlocked } from '@/server/seo-policy';
 
 /**
- * 1. Product addresses: any non-canonical form of /p/… (the old Persian /p/123-نام links, /p/123, an outdated
- *    English slug) gets a 301 to the canonical English slug, so old links and their search ranking carry over.
- *    Next's permanentRedirect() would send 308; the layout's canonical check stays as the fallback (308) for
- *    when this lookup fails.
- * 3. While search engines are kept out (src/server/seo-policy.ts), every response carries X-Robots-Tag: noindex.
- * 2. Layouts cannot read the query string, but the canonical-URL redirect in /c/[slug] and /p/[slug] layouts must
+ * 1. Product addresses live at the site root (/<slug>). The old /p/<slug> links — and any non-canonical root form
+ *    (/123, /123-نام, an outdated English slug) — get a 301 to the canonical address, so old links and their search
+ *    ranking carry over. Reserved top-level segments (/shop, /cart, …: src/lib/reserved-slugs.ts) are never looked
+ *    up. Next's permanentRedirect() would send 308; the layout's canonical check stays as the fallback (308) for
+ *    when this lookup fails. An unknown /p/… address falls through to a real 404.
+ * 2. Layouts cannot read the query string, but the canonical-URL redirect in the /c/[slug] and /[slug] layouts must
  *    keep it (an old link with ?sort=…&page=2 should land on the same filtered view). This passes it along in an
  *    internal request header. Any client-sent value of that header is overwritten.
+ * 3. While search engines are kept out (src/server/seo-policy.ts), every response carries X-Robots-Tag: noindex.
  */
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
-  const m = /^\/p\/([^/]+)\/?$/.exec(pathname);
-  if (m) {
-    const target = await canonicalProduct(m[1] ?? '');
+  const old = /^\/p\/([^/]+)\/?$/.exec(pathname);
+  const root = old ? null : /^\/([^/]+)\/?$/.exec(pathname);
+  const segment = old?.[1] ?? (root && !isReservedSlug(decoded(root[1] ?? '')) ? root[1] : null);
+  if (segment) {
+    const target = await canonicalProduct(segment);
     if (target && decoded(target) !== decoded(pathname)) {
       const query = /^\?[^\s#]{0,500}$/.test(search) ? search : '';
       return NextResponse.redirect(new URL(target + query, request.url), 301);

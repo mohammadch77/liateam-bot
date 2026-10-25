@@ -38,7 +38,7 @@ try {
   // ── 1. slides and links ──
   await home();
   const hrefs = await links.evaluateAll((as) => as.map((a) => a.getAttribute('href')));
-  const want = expected.map((e) => `/${e[0]}/${e.slice(2)}`); // p:<slug_en> → /p/…, c:<code> → /c/<code>-…
+  const want = expected.map((e) => (e[0] === 'p' ? `/${e.slice(2)}` : `/c/${e.slice(2)}`)); // p:<slug_en> → /<slug>, c:<code> → /c/<code>-…
   check(
     '1a one slide per DB row with a live destination, in DB order',
     hrefs.length === expected.length &&
@@ -49,9 +49,9 @@ try {
   );
   check(
     '1b product slides link to the English slug',
-    hrefs.filter((h) => h.startsWith('/p/')).every((h) => /^\/p\/[a-z0-9-]+-\d+$/.test(h)),
+    hrefs.filter((h) => !h.startsWith('/c/')).every((h) => /^\/[a-z0-9-]+-\d+$/.test(h)),
     hrefs
-      .filter((h) => h.startsWith('/p/'))
+      .filter((h) => !h.startsWith('/c/'))
       .slice(0, 2)
       .join(' '),
   );

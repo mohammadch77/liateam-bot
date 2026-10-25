@@ -1,7 +1,9 @@
+import { isReservedSlug } from './reserved-slugs';
+
 /**
- * Clean URLs. Products: /p/serge-rimel-abro-541, the English slug the sync bot assigns once (slug_en, ends with
- * the supplier code); until a product has one, and for categories, the Persian form /p/1234-سرم-آبرسان or
- * /c/56-مراقبت-پوست. Only the number is read; the words are for people and search engines. Any other form of a
+ * Clean URLs. Products at the site root: /serge-rimel-abro-541, the English slug the sync bot assigns once
+ * (slug_en, ends with the supplier code); until a product has one, the Persian form /1234-سرم-آبرسان; categories
+ * /c/56-مراقبت-پوست. Old /p/… addresses redirect permanently (src/proxy.ts). Only the number is read; the words are for people and search engines. Any other form of a
  * product's address (old Persian links included) is redirected permanently to the canonical one.
  */
 export function slugify(name: string): string {
@@ -22,11 +24,15 @@ const withSlug = (base: string, id: number, name: string | null) => {
 
 const ENGLISH_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-/** slug_en when the bot has assigned one (it always ends with "-<id>"), otherwise /p/<id>-<Persian words>. */
+/**
+ * A product's address at the site root: /<slug_en> when the bot has assigned one (it always ends with "-<id>"),
+ * otherwise /<id>-<Persian words>. Neither form can be a reserved top-level segment (both carry the id); the check
+ * is kept as a guard so a product can never take a page's address.
+ */
 export const productPath = (id: number, name: string | null, slugEn?: string | null) =>
-  slugEn && ENGLISH_SLUG.test(slugEn) && slugEn.endsWith(`-${id}`)
-    ? `/p/${slugEn}`
-    : withSlug('/p', id, name);
+  slugEn && ENGLISH_SLUG.test(slugEn) && slugEn.endsWith(`-${id}`) && !isReservedSlug(slugEn)
+    ? `/${slugEn}`
+    : withSlug('', id, name);
 export const categoryPath = (code: number, name: string | null) => withSlug('/c', code, name);
 
 /**

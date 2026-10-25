@@ -28,7 +28,7 @@ import {
   Saving,
   Section,
 } from '@/ui';
-import { CatalogUnavailable } from '../../_catalog/CatalogListing';
+import { CatalogUnavailable } from '../_catalog/CatalogListing';
 import { ActiveTab } from './ActiveTab';
 import { Gallery } from './Gallery';
 import { VideoFacade } from './VideoFacade';

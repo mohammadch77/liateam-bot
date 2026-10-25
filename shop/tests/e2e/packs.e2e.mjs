@@ -132,7 +132,11 @@ try {
   check('4a pack page: five steps in order', (await steps.count()) === 5);
   check(
     '4b each product step links to its product page',
-    (await anon.locator('main ol[class*=steps] > li a[href^="/p/"]').count()) === packIds('oily').length,
+    (await anon
+      .locator('main ol[class*=steps] > li a')
+      .evaluateAll(
+        (as) => as.filter((a) => /^\/[^/]+-\d+$|^\/\d+/.test(a.getAttribute('href') ?? '')).length,
+      )) === packIds('oily').length,
   );
   const aside = await anon.locator('aside[aria-label="قیمت پک"]').innerText();
   check(

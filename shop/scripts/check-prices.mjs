@@ -34,7 +34,7 @@ for (const p of products) {
   if (ratio > 5 || ratio < 0.2)
     problems.push(`stored ${stored} vs Liateam ${p.displayed.price}: ×${ratio.toFixed(2)} — unit error`);
 
-  const res = await fetch(`${base}/p/${p.code}`, { redirect: 'follow' });
+  const res = await fetch(`${base}/${p.code}`, { redirect: 'follow' });
   const html = await res.text();
   // the buy box price: <b class="…amount…">۷۴۹٬۰۰۰</b>
   const shown = /class="[^"]*buyBox[^"]*"[\s\S]*?class="[^"]*amount[^"]*">([^<]+)</.exec(html)?.[1];

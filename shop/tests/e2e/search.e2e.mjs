@@ -3,6 +3,9 @@
 // sort, empty state, no horizontal scroll at 390–1920 px. Read-only: can run against any URL of the app.
 import { BASE, check, chromium, finish, SHOTS, shot } from './_harness.mjs';
 
+// a product page: /<english-slug>-<id> or /<id>-<Persian words> at the site root
+const PRODUCT_URL = /^https?:\/\/[^/]+\/(?:[a-z0-9-]+-\d+|\d+(?:-[^/?#]*)?)(?:[?#].*)?$/;
+
 const b = await chromium.launch();
 
 const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
@@ -81,10 +84,10 @@ await p.keyboard.press('ArrowDown'); // reopen
 await p.keyboard.press('ArrowDown');
 const target = (await list.locator('[aria-selected=true]').innerText()).split('\n')[0];
 await p.keyboard.press('Enter');
-await p.waitForURL(/\/p\//, { timeout: 30000 });
+await p.waitForURL(PRODUCT_URL, { timeout: 30000 });
 check(
   'Enter on a suggestion opens that product',
-  /\/p\//.test(p.url()),
+  PRODUCT_URL.test(p.url()),
   `${target} → ${decodeURI(p.url()).slice(BASE.length)}`,
 );
 
@@ -96,7 +99,7 @@ await p.waitForTimeout(400);
 const firstProduct = list.locator('[role=option][class*=productRow]').first();
 const name = (await firstProduct.innerText()).split('\n')[0];
 await firstProduct.click();
-await p.waitForURL(/\/p\//, { timeout: 30000 });
+await p.waitForURL(PRODUCT_URL, { timeout: 30000 });
 const h1 = await p.locator('h1').first().innerText();
 check('click on a suggestion opens the product page', h1.includes(name.slice(0, 12)), `${name} → ${h1}`);
 

@@ -30,7 +30,7 @@ const PAGES = {
   shop: '/shop',
   category: firstHref('/c/'),
   brand: firstHref('/brands/'),
-  product: `/p/${productSlug}`,
+  product: `/${productSlug}`,
   offers: '/offers',
   pack: '/packs/skin-routine/oily',
   login: '/login',

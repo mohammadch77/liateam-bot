@@ -47,7 +47,7 @@ const settled = (page) =>
     const top = document.querySelector('[data-bestsellers]')?.getBoundingClientRect().top ?? 0;
     return [...document.images].every((i) => i.complete || i.getBoundingClientRect().top > top);
   });
-const productIdOf = (href) => Number(/-(\d+)$/.exec(href ?? '')?.[1] ?? /\/p\/(\d+)/.exec(href ?? '')?.[1]);
+const productIdOf = (href) => Number(/-(\d+)$/.exec(href ?? '')?.[1] ?? /^\/(\d+)/.exec(href ?? '')?.[1]);
 const inStock = (id) => Number(one(`select stock from product_catalog where id = ${id}`)) > 0;
 const cleanup = () => {
   sql(`delete from ${SCHEMA}.bestseller_picks where created_at > now() - interval '2 hours'`);

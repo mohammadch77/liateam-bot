@@ -22,7 +22,7 @@ const PAGES = [
   '/packs/skin-routine/oily',
   '/c/173', // a parent category (redirects to its canonical /c/173-â€¦)
   '/c/173?sort=price_asc&inStock=1&page=1',
-  '/p/541', // a product (redirects to /p/541-â€¦)
+  '/541', // a product (redirects to /<english-slug>-541)
   '/search?q=%D8%B4%D8%A7%D9%85%D9%BE%D9%88', // Â«Ø´Ø§Ù…Ù¾ÙˆÂ»
   '/search?q=qqzzxx', // empty state
   '/login',

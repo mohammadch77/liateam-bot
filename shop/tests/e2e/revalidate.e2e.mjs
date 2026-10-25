@@ -38,7 +38,7 @@ check(
   '4 with the secret → 200, exactly the given paths revalidated (unknown pattern ignored)',
   res.status === 200 &&
     JSON.stringify(body.revalidated) ===
-      JSON.stringify(['/p/serge-riml-abro-mshki-srzhe-541', '/', '/c/[slug] (page)']),
+      JSON.stringify(['/serge-riml-abro-mshki-srzhe-541', '/', '/c/[slug] (page)']), // the bot's /p/… → /<slug>
   JSON.stringify(body.revalidated),
 );
 res = await post({ paths: [{ path: 'https://evil.example/' }] }, { 'x-revalidate-secret': secret });

@@ -28,7 +28,7 @@ const SECTIONS = (v) => ['intro', 'specs', ...(v ? ['video'] : []), 'how', 'faq'
 
 const browser = await chromium.launch();
 const open = async (page, id) => {
-  await page.goto(`${BASE}/p/${slug(id)}`, { waitUntil: 'load', timeout: 120000 });
+  await page.goto(`${BASE}/${slug(id)}`, { waitUntil: 'load', timeout: 120000 });
   await page.waitForSelector('[data-section="reviews"]', { timeout: 60000 });
 };
 const heights = { desktop: {}, mobile: {} };
@@ -280,7 +280,7 @@ try {
     await m.locator('[data-section="faq"]').evaluate((e) => e.open),
   );
   // phone: the video is its own accordion section, and a #video link opens it
-  await m.goto(`${BASE}/p/${slug(ids.rich)}#video`, { waitUntil: 'load', timeout: 120000 });
+  await m.goto(`${BASE}/${slug(ids.rich)}#video`, { waitUntil: 'load', timeout: 120000 });
   await m
     .waitForFunction(() => document.getElementById('video')?.open === true, null, { timeout: 15000 })
     .catch(() => {});
@@ -310,7 +310,7 @@ try {
     for (const id of Object.values(ids)) {
       await open(p, id);
       const over = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
-      check(`6 ${width}px /p/${id}: no horizontal scroll`, over <= 0, `overflow ${over}px`);
+      check(`6 ${width}px product ${id}: no horizontal scroll`, over <= 0, `overflow ${over}px`);
     }
     await p.close();
   }

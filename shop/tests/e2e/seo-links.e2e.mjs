@@ -4,7 +4,7 @@
 import { BASE, check, finish, sql } from './_harness.mjs';
 
 const slug = sql(`select slug_en from product_catalog where id = 426`);
-const pages = ['/', '/shop', '/brands', `/p/${slug}`];
+const pages = ['/', '/shop', '/brands', `/${slug}`];
 
 const linksIn = (html, prefix) =>
   new Set(
@@ -20,7 +20,7 @@ for (const path of pages) {
   const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
   const cats = linksIn(header, '/c/');
   const brands = linksIn(header, '/brands/');
-  const name = path.startsWith('/p/') ? 'product 426' : path;
+  const name = path === `/${slug}` ? 'product 426' : path;
   check(`${name}: 200`, res.ok, res.status);
   check(`${name}: header has category links in the HTML`, cats.size >= 5, cats.size);
   check(`${name}: header has brand links in the HTML`, brands.size >= 3, brands.size);

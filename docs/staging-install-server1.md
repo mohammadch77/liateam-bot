@@ -355,7 +355,7 @@ ssh -p 9011 -N -L 3861:127.0.0.1:3861 root@193.242.208.208
 npm run perf -- http://127.0.0.1:3861 --pages /,/shop,/brands,/offers --runs 3
 ```
 
-برای صفحه‌ی محصول آدرس کامل را بدهید (مثلاً `--pages /p/<slug>`؛ `pN` فقط با `DATABASE_URL` همان دیتابیس کار می‌کند). عددها شامل تأخیر تونل SSH هم هستند.
+برای صفحه‌ی محصول آدرس کامل را بدهید (مثلاً `--pages /<slug>`؛ `pN` فقط با `DATABASE_URL` همان دیتابیس کار می‌کند). عددها شامل تأخیر تونل SSH هم هستند.
 
 **حداقل چک‌های رانبوک بعد از هر دیپلوی:** `/health`، `check:prices`، `check:search`، لاگ هشدارها، `systemctl start avina-shop-images-warm`، و هر چند هفته `npm audit --omit=dev` در `/opt/avina-shop`.
 

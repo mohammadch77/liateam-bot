@@ -10,7 +10,7 @@ const BUDGET = {
   elements: 1400, // Lighthouse's «excessive DOM size» line (product 426 with 53 FAQs and 20 reviews: ~1100)
 };
 const slug = sql(`select slug_en from product_catalog where id = 426`);
-const pages = ['/', `/p/${slug}`, '/shop'];
+const pages = ['/', `/${slug}`, '/shop'];
 
 const browser = await chromium.launch();
 try {

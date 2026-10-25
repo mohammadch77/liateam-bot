@@ -205,7 +205,7 @@ try {
   await shot(admin, 'offers-admin-1440.png', { fullPage: true });
 
   // ── 4. the storefront ──
-  await anon.goto(`${BASE}/p/${slugOf(PRODUCT)}`, { waitUntil: 'load' });
+  await anon.goto(`${BASE}/${slugOf(PRODUCT)}`, { waitUntil: 'load' });
   const buy = anon.locator('aside[aria-label="خرید"]');
   const del = toLatin(
     (await buy
@@ -220,14 +220,14 @@ try {
     Number(del) === p426 && Number(now) === final426,
     `${del} → ${now}`,
   );
-  await anon.goto(`${BASE}/p/${slugOf(LOSS)}`, { waitUntil: 'load' });
+  await anon.goto(`${BASE}/${slugOf(LOSS)}`, { waitUntil: 'load' });
   const lossNow = Number(toLatin(await buy.locator('[class*=current] b').first().innerText()));
   check(
     '4a2 loss allowed: the product sells at 25% off (under the purchase price, as the admin chose)',
     lossNow === Math.ceil((priceOf(LOSS) * 0.75) / 100) * 100,
     `${lossNow}`,
   );
-  await anon.goto(`${BASE}/p/${slugOf(PRODUCT)}`, { waitUntil: 'load' });
+  await anon.goto(`${BASE}/${slugOf(PRODUCT)}`, { waitUntil: 'load' });
   const pageHtml = await anon.content();
   check(
     '4b product page: no purchase price / Liateam discount in the HTML',
@@ -299,7 +299,7 @@ try {
 
   // ── 5. phones ──
   const m = await (await ctxFor(4, { width: 390, height: 844 })).newPage();
-  for (const path of ['/', '/offers', `/p/${slugOf(PRODUCT)}`]) {
+  for (const path of ['/', '/offers', `/${slugOf(PRODUCT)}`]) {
     await m.goto(`${BASE}${path}`, { waitUntil: 'load' });
     const over = await m.evaluate(() => document.documentElement.scrollWidth - innerWidth);
     check(`5 390px ${path}: no horizontal scroll`, over <= 0, `${over}px`);
@@ -315,7 +315,7 @@ try {
     `update ${SCHEMA}.shop_discounts set ends_at = now(), starts_at = least(starts_at, now() - interval '1 minute') where label = '${LABEL}' and scope = 'product'`,
   );
   await sleep(31_000);
-  await anon.goto(`${BASE}/p/${slugOf(PRODUCT)}`, { waitUntil: 'load' });
+  await anon.goto(`${BASE}/${slugOf(PRODUCT)}`, { waitUntil: 'load' });
   check("6 ended discount: product page back to Liateam's price", (await buy.locator('del').count()) === 0);
 } finally {
   cleanup();

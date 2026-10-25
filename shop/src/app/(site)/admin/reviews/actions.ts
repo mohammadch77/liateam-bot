@@ -14,6 +14,6 @@ export async function moderateReviewAction(form: FormData): Promise<void> {
     const admin = await authorize('admin');
     return reviewService.moderate(admin, String(form.get('id') ?? ''), decision, await requestMeta());
   });
-  if (result.ok) revalidatePath('/p/[slug]', 'page');
+  if (result.ok) revalidatePath('/[slug]', 'page');
   redirect(`/admin/reviews?${result.ok ? 'done' : 'error'}=1`);
 }

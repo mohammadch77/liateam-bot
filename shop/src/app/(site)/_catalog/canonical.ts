@@ -6,7 +6,7 @@ import { idFromSlug } from '@/lib/catalog-urls';
 
 /**
  * Runs in the segment layout, i.e. BEFORE loading.tsx starts streaming, so search engines get real status codes:
- * 404 for unknown ids and 308 to the canonical /p/123-name (or /c/…) for a missing or outdated slug.
+ * 404 for unknown ids and 308 to the canonical /123-name or /english-slug-123 (or /c/…) for a missing or outdated slug.
  * A database error is not a 404: the page itself shows the «unavailable» state.
  */
 export async function enforceCanonical(

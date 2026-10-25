@@ -28,11 +28,11 @@ const out = opt('out', null);
 async function productPaths(ids = [426, 160, 520]) {
   for (const f of ['.env.local', '.env'])
     if (fs.existsSync(path.join(root, f))) process.loadEnvFile(path.join(root, f));
-  if (!process.env.DATABASE_URL) return ['/p/541'];
+  if (!process.env.DATABASE_URL) return ['/541'];
   const c = new pg.Client({ connectionString: process.env.DATABASE_URL });
   await c.connect();
   const { rows } = await c.query(
-    `SELECT '/p/' || slug_en AS p FROM product_catalog WHERE id = ANY($1) AND slug_en IS NOT NULL ORDER BY array_position($1, id)`,
+    `SELECT '/' || slug_en AS p FROM product_catalog WHERE id = ANY($1) AND slug_en IS NOT NULL ORDER BY array_position($1, id)`,
     [ids],
   );
   await c.end();
