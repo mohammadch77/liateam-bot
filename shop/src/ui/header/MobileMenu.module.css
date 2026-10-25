@@ -1,4 +1,5 @@
-/* Mobile drawer (below 1024px): slides in from the start side (right in RTL), full height, max 360px wide. */
+/* Mobile drawer (below 1024px): slides in from the start side (right in RTL), full height (100dvh), max 400px wide;
+   two levels (categories → sub-categories) and a fixed footer. */
 .button {
   width: 44px;
   height: 44px;
@@ -15,7 +16,7 @@
 .drawer {
   position: fixed;
   inset: 0 0 0 auto;
-  width: min(360px, 88vw);
+  width: min(400px, 92vw);
   max-width: none;
   height: 100dvh;
   max-height: none;
@@ -74,40 +75,76 @@
   flex: 1;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 14px 0 24px;
+  padding: 10px 0 16px;
 }
 .section {
   display: block;
-  padding: 0 16px 8px;
+  padding: 14px 16px 6px;
   font-size: 12.5px;
   font-weight: 700;
   color: var(--color-muted);
 }
 .list,
-.children {
+.pages {
   margin: 0;
   padding: 0;
   list-style: none;
 }
-
-.row {
+.row,
+.allProducts {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 50px;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
   padding: 0 16px;
+  border: 0;
+  border-bottom: 1px solid var(--color-line-row);
+  background: none;
+  font: inherit;
   font-size: 15px;
   font-weight: 600;
   color: var(--color-ink);
-  border-bottom: 1px solid var(--color-line-row);
+  text-align: start;
   cursor: pointer;
-  list-style: none;
+  -webkit-tap-highlight-color: transparent;
 }
-.row::-webkit-details-marker {
-  display: none;
-}
-.row:focus-visible {
+.row:focus-visible,
+.allProducts:focus-visible,
+.back:focus-visible,
+.foot:focus-visible,
+.page:focus-visible {
+  outline: 2px solid var(--color-primary);
   outline-offset: -2px;
+}
+.allProducts {
+  margin: 0 12px;
+  width: auto;
+  border: 0;
+  border-radius: 12px;
+  background: var(--color-blush);
+  color: var(--color-primary);
+  font-weight: 800;
+}
+.end {
+  margin-inline-start: auto;
+}
+.thumb {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--color-white);
+  border: 1px solid var(--color-line);
+  color: var(--color-accent);
+}
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .label {
   flex: 1;
@@ -116,60 +153,76 @@
 .muted {
   color: var(--color-muted);
 }
-.arrow {
-  color: var(--color-muted);
-  transition: transform var(--motion-fast) var(--motion-ease);
-}
-.group[open] > .row {
-  color: var(--color-primary);
-  background: var(--color-blush);
-}
-.group[open] .arrow {
-  transform: rotate(180deg);
-  color: var(--color-primary);
-}
-
-.children {
-  padding: 4px 0 8px;
-  background: var(--color-white);
-  border-bottom: 1px solid var(--color-line-row);
-}
-.allOf,
-.child {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 32px 0 16px;
-  font-size: 14px;
-  color: var(--color-ink-2);
-}
-.allOf {
-  font-weight: 700;
-  color: var(--color-primary);
-}
 .count {
   font-size: 12px;
   font-weight: 500;
   color: var(--color-muted);
 }
-.child:focus-visible,
-.allOf:focus-visible {
-  outline-offset: -2px;
-}
-
-.allCats {
-  display: flex;
+.back {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin: 18px 16px 0;
-  min-height: 46px;
-  padding: 0 14px;
-  border-radius: 12px;
-  border: 1px solid var(--color-line-button);
-  background: var(--color-white);
+  gap: 4px;
+  min-height: 44px;
+  margin: 0 8px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  font: inherit;
   font-size: 14px;
   font-weight: 700;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+.levelTitle {
+  padding: 4px 16px 12px;
+  font-size: 19px;
+  font-weight: 800;
+}
+.pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 18px 16px 0;
+}
+.page {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: var(--color-white);
+  font-size: 13.5px;
+  color: var(--color-ink-2);
+}
+
+/* fixed footer: the account, the wallet, order tracking */
+.footer {
+  flex: none;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--color-line);
+  background: var(--color-white);
+}
+.foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 56px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
   color: var(--color-ink);
+  text-align: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .drawer[open] {
+    animation: none;
+  }
 }

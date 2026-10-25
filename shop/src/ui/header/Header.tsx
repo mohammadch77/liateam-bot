@@ -108,23 +108,28 @@ export function Header(p: HeaderProps) {
           <div className={s.actions}>
             {p.signedIn ? (
               <>
-                {wallet !== null && (
-                  <Link href={p.links.wallet} className={s.wallet}>
-                    <Icon name="account_balance_wallet" size={20} className={s.walletIcon} />
-                    <span className={s.walletText}>
-                      <span className={s.walletLabel}>کیف پول</span>
+                <Link href={p.links.wallet} className={s.wallet} data-header-action="wallet">
+                  <Icon name="account_balance_wallet" size={20} className={s.walletIcon} />
+                  <span className={s.walletText}>
+                    <span className={s.walletLabel}>کیف پول</span>
+                    {wallet !== null && (
                       <span className={s.walletAmount}>
                         {formatToman(wallet)} <span className={s.walletUnit}>تومان</span>
                       </span>
-                    </span>
-                  </Link>
-                )}
-                <Link href={p.links.account} className={s.iconLink} aria-label="حساب کاربری">
+                    )}
+                  </span>
+                </Link>
+                <Link
+                  href={p.links.account}
+                  className={s.iconLink}
+                  aria-label="حساب کاربری"
+                  data-header-action="account"
+                >
                   <Icon name="person" size={24} />
                 </Link>
               </>
             ) : (
-              <Link href={p.links.login} className={s.login}>
+              <Link href={p.links.login} className={s.login} data-header-action="account">
                 <Icon name="person" size={20} />
                 ورود | ثبت‌نام
               </Link>
@@ -173,6 +178,9 @@ export function Header(p: HeaderProps) {
               brandsHref={p.brandsHref}
               pages={p.pages}
               brandName={p.brand.name}
+              signedIn={p.signedIn}
+              links={p.links}
+              supportPhone={p.supportPhone}
             />
             <Link href={home} className={s.mobileLogo} aria-label={`${p.brand.name} — صفحه اصلی`}>
               {p.brand.name}
@@ -180,22 +188,44 @@ export function Header(p: HeaderProps) {
             </Link>
           </div>
           <div className={s.mobileGroup}>
-            {p.signedIn && wallet !== null ? (
-              <Link href={p.links.wallet} className={s.walletShort}>
-                <Icon name="account_balance_wallet" size={18} className={s.walletIcon} />
-                {formatTomanShort(wallet)}
-              </Link>
-            ) : p.signedIn ? (
-              <Link href={p.links.account} className={s.iconLink} aria-label="حساب کاربری">
-                <Icon name="person" size={24} />
-              </Link>
+            {p.signedIn ? (
+              <>
+                {wallet !== null ? (
+                  <Link href={p.links.wallet} className={s.walletShort} data-header-action="wallet">
+                    <Icon name="account_balance_wallet" size={18} className={s.walletIcon} />
+                    {formatTomanShort(wallet)}
+                  </Link>
+                ) : (
+                  <Link
+                    href={p.links.wallet}
+                    className={s.iconLink}
+                    aria-label="کیف پول"
+                    data-header-action="wallet"
+                  >
+                    <Icon name="account_balance_wallet" size={24} />
+                  </Link>
+                )}
+                <Link
+                  href={p.links.account}
+                  className={s.iconLink}
+                  aria-label="حساب کاربری"
+                  data-header-action="account"
+                >
+                  <Icon name="person" size={24} />
+                </Link>
+              </>
             ) : (
-              <Link href={p.links.login} className={s.walletShort}>
+              <Link href={p.links.login} className={s.walletShort} data-header-action="account">
                 <Icon name="person" size={18} />
                 ورود
               </Link>
             )}
-            <Link href={p.links.favorites} className={s.iconLink} aria-label="علاقه‌مندی‌ها">
+            <Link
+              href={p.links.favorites}
+              className={s.iconLink}
+              aria-label="علاقه‌مندی‌ها"
+              data-header-action="favorites"
+            >
               <Icon name="favorite" size={24} />
             </Link>
           </div>
@@ -227,6 +257,7 @@ function CartLink({ href, count }: { href: string; count: number }) {
       href={href}
       className={s.iconLink}
       aria-label={count > 0 ? `سبد خرید، ${formatNumber(count)} کالا` : 'سبد خرید'}
+      data-header-action="cart"
     >
       <Icon name="shopping_bag" size={24} />
       {count > 0 && (

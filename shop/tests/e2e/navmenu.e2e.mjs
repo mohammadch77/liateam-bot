@@ -303,10 +303,10 @@ try {
   await m.goto(`${BASE}/`, { waitUntil: 'load' });
   await m.getByRole('button', { name: 'منو' }).click();
   const drawer = m.getByRole('dialog');
-  const dLinks = (await drawer.locator('a, summary').allInnerTexts()).map((t) => t.split('\n')[0].trim());
+  const dLinks = (await drawer.locator('a, button').allInnerTexts()).map((t) => t.split('\n')[0].trim());
   check(
     '8 phone drawer: categories, brands, the plain links; no product cards',
-    dLinks.includes('برندها') &&
+    dLinks.includes('همه‌ی برندها') &&
       dLinks.includes('همکاری در فروش') &&
       (await drawer.locator('[data-nav-product]').count()) === 0,
     dLinks.slice(0, 6).join(' | '),

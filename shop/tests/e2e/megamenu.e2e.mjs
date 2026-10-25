@@ -122,27 +122,26 @@ await m.getByRole('button', { name: 'منو' }).click();
 const drawer = m.getByRole('dialog');
 check('drawer opens', await drawer.isVisible());
 const mroots = (
-  await drawer
-    .locator('nav > ul:first-of-type > li > details > summary, nav > ul:first-of-type > li > a')
-    .allInnerTexts()
-).map((t) => t.trim());
+  await drawer.locator('nav > a, nav > ul:first-of-type > li > :is(a, button)').allInnerTexts()
+).map((t) => t.split('\n').map((x) => x.trim()).filter(Boolean)[0] ?? '');
 check(
   'drawer: «همه‌ی محصولات», then the categories in Liateam order',
   mroots[0] === 'همه‌ی محصولات' && JSON.stringify(mroots.slice(1)) === JSON.stringify(LIATEAM),
   mroots.join(' | '),
 );
 await drawer.getByText('آرایشی', { exact: true }).click();
-const open1 = await drawer.locator('details[open] a').allInnerTexts();
+const open1 = await drawer.locator('nav a').allInnerTexts();
 check(
-  'accordion opens a category with its sub-categories',
-  open1.length === 8 && /همه محصولات آرایشی/.test(open1[0]),
+  'a category opens its own level: «همه‌ی محصولات آرایشی», then its sub-categories',
+  open1.length === 8 && /همه‌ی محصولات آرایشی/.test(open1[0]),
   open1.length + ' links',
 );
+await drawer.locator('[data-menu-back]').click();
 await drawer.getByText('سرم تخصصی', { exact: true }).click();
 check(
-  'opening another closes the first',
-  (await drawer.locator('details[open]').count()) === 1 &&
-    /سرم تخصصی/.test(await drawer.locator('details[open] summary').innerText()),
+  '«بازگشت», then another category: its level only',
+  (await drawer.locator('h2').innerText()) === 'سرم تخصصی' &&
+    (await drawer.locator('[data-menu-category]').count()) === 0,
 );
 const hscroll = await m.evaluate(() => document.documentElement.scrollWidth > innerWidth);
 check('no horizontal scroll with the drawer open', !hscroll);

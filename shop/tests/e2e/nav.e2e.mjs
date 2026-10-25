@@ -204,16 +204,18 @@ try {
   await m.goto(BASE + '/shop', { waitUntil: 'load' });
   await m.getByRole('button', { name: 'منو' }).click();
   const drawer = m.getByRole('dialog');
-  const dLinks = (await drawer.locator('a, summary').allInnerTexts()).map((t) => t.split('\n')[0].trim());
+  const dLinks = (await drawer.locator('nav a, nav button').allInnerTexts()).map((t) =>
+    t.split('\n')[0].trim(),
+  );
   check(
     '6a drawer: همه‌ی محصولات, categories, برندها, درباره ما, تماس با ما, سوالات متداول',
     dLinks[0] === 'همه‌ی محصولات' &&
-      ['برندها', 'درباره ما', 'تماس با ما', 'سوالات متداول'].every((x) => dLinks.includes(x)),
+      ['همه‌ی برندها', 'درباره ما', 'تماس با ما', 'سوالات متداول'].every((x) => dLinks.includes(x)),
     dLinks.join(' | '),
   );
-  await drawer.getByText('برندها', { exact: true }).click();
-  const dBrands = await drawer.locator('details[open] a').count();
-  check('6b drawer «برندها» opens the brand list', dBrands === brands.length + 1, `${dBrands} links`);
+  await drawer.locator('[data-menu-brands]').click();
+  const dBrands = await drawer.locator('nav a').count(); // «همه‌ی برندها» + each brand
+  check('6b drawer «برندها» opens the brand list as its own level', dBrands === brands.length + 1, `${dBrands} links`);
   await shot(m, 'drawer-390.png');
   await m.keyboard.press('Escape');
   await m.close();
