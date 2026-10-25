@@ -164,6 +164,10 @@ export type ProductListQuery = {
   /** only this supplier brand (brands.code) */
   brandCode?: number;
   excludeId?: number;
+  /** only these products (the price filter: ids whose final price is in the range) */
+  ids?: readonly number[];
+  /** ids from the cheapest final price up: the price sorts follow it instead of the list price */
+  priceOrder?: readonly number[];
   sort: ProductSort;
   limit: number;
   offset: number;
@@ -191,7 +195,12 @@ export const catalogRepository = {
     if (q.inStockOnly) where.push('p.stock > 0');
     if (q.brandCode !== undefined) where.push(`p.brand_code = ${add(q.brandCode)}`);
     if (q.excludeId !== undefined) where.push(`p.id <> ${add(q.excludeId)}`);
+    // the price filter, worked out on the final prices by the pricing service: only these ids
+    if (q.ids) where.push(`p.id = ANY(${add(q.ids)}::int[])`);
     let order = ORDER[q.sort];
+    // price sorts on the final price: the ids in that order (cheapest first), then the rest by list price
+    if (q.priceOrder && (q.sort === 'price_asc' || q.sort === 'price_desc'))
+      order = `array_position(${add(q.priceOrder)}::int[], p.id) ${q.sort === 'price_asc' ? 'ASC' : 'DESC'} NULLS LAST, ${order}`;
     if (q.search?.words.length) {
       if (await hasSearchFunctions()) {
         const { where: w, score } = searchSql(q.search, add, q.sort === 'relevance');

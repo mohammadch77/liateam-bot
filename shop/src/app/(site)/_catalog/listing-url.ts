@@ -11,6 +11,8 @@ export function listingHref(base: string, params: ListParams, change: Partial<Li
   if (next.cat) sp.set('cat', String(next.cat));
   if (next.group && !next.cat) sp.set('group', next.group);
   if (next.inStock === '1') sp.set('inStock', '1');
+  if (next.min !== undefined) sp.set('min', String(next.min));
+  if (next.max !== undefined) sp.set('max', String(next.max));
   if (next.sort && next.sort !== 'relevance') sp.set('sort', next.sort);
   if (next.page && next.page > 1) sp.set('page', String(next.page));
   const qs = sp.toString();

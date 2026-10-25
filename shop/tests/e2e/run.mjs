@@ -29,6 +29,7 @@ const ALL = [
   'home-sections',
   'header',
   'product-related',
+  'listing-filters',
 ];
 const wanted = process.argv.slice(2);
 const unknown = wanted.filter((n) => !ALL.includes(n));

@@ -3,6 +3,7 @@ import { formatNumber } from '@/lib/format/number';
 import { SORT_OPTIONS, type Category, type Listing } from '@/server/services/catalog.service';
 import { Button, EmptyState, FilterChip, Pagination, ProductCard, ProductGrid, Select, Switch } from '@/ui';
 import { AutoSubmit } from './AutoSubmit';
+import { PriceFilter } from './PriceFilter';
 import { listingHref } from './listing-url';
 import s from './catalog.module.css';
 
@@ -29,7 +30,8 @@ export function CatalogListing({
 }: Props) {
   const { params } = listing;
   const activeCategory = filterCategories.find((c) => c.code === params.cat);
-  const hasFilters = !!activeCategory || params.inStock === '1';
+  const hasFilters =
+    !!activeCategory || params.inStock === '1' || params.min !== undefined || params.max !== undefined;
 
   const filters = (
     <form action={basePath} method="get" className={s.filters} aria-label="فیلترها">
@@ -42,6 +44,15 @@ export function CatalogListing({
       <Switch name="inStock" value="1" defaultChecked={params.inStock === '1'}>
         فقط کالاهای موجود
       </Switch>
+
+      {listing.priceBounds && listing.priceBounds.hi > listing.priceBounds.lo && (
+        <PriceFilter
+          min={params.min}
+          max={params.max}
+          lo={listing.priceBounds.lo}
+          hi={listing.priceBounds.hi}
+        />
+      )}
 
       {filterCategories.length > 0 && (
         <fieldset className={s.fieldset}>
@@ -66,7 +77,13 @@ export function CatalogListing({
         </span>
         {hasFilters && (
           <Button
-            href={listingHref(basePath, params, { cat: undefined, inStock: undefined, page: 1 })}
+            href={listingHref(basePath, params, {
+              cat: undefined,
+              inStock: undefined,
+              min: undefined,
+              max: undefined,
+              page: 1,
+            })}
             variant="ghost"
             size="sm"
           >
@@ -100,6 +117,8 @@ export function CatalogListing({
             ))}
             {params.cat && <input type="hidden" name="cat" value={params.cat} />}
             {params.inStock === '1' && <input type="hidden" name="inStock" value="1" />}
+            {params.min !== undefined && <input type="hidden" name="min" value={params.min} />}
+            {params.max !== undefined && <input type="hidden" name="max" value={params.max} />}
             <Select
               name="sort"
               label="مرتب‌سازی"

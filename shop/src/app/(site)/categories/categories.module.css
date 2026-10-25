@@ -1,66 +1,111 @@
-.grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
-}
-@media (min-width: 768px) {
-  .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
-  }
-}
-@media (min-width: 1024px) {
-  .grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
+/* «دسته‌بندی کالاها»: a block per parent category, picture cards for its sub-categories. */
 .group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 16px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-line);
-  background: var(--color-white);
+  gap: 14px;
+  margin-top: 28px;
+}
+.groupHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-line);
 }
 .groupTitle {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 16px;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 19px;
   font-weight: 800;
 }
-.groupTitle a {
-  color: var(--color-ink);
-}
-.groupTitle a:hover {
-  color: var(--color-primary);
-}
-.children {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.child {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 36px;
-  padding: 0 12px;
-  border-radius: var(--radius-pill);
-  background: var(--color-surface-2);
-  color: var(--color-ink);
+.groupCount {
   font-size: 13px;
-  font-weight: 600;
-}
-.child:hover {
-  background: var(--color-blush);
-  color: var(--color-primary);
-}
-.count {
-  font-size: 11.5px;
   font-weight: 500;
   color: var(--color-muted);
-  font-feature-settings: 'tnum';
+}
+.all {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--color-blush);
+  color: var(--color-primary);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+  }
+}
+@media (min-width: 1280px) {
+  .grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  padding: 10px 10px 14px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-white);
+  color: var(--color-ink);
+  text-align: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color var(--motion-fast) ease;
+}
+@media (hover: hover) {
+  .card:hover {
+    border-color: var(--color-primary);
+    color: var(--color-ink);
+  }
+}
+.photo {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  margin-bottom: 6px;
+  border-radius: 12px;
+  background: radial-gradient(
+    110% 85% at 50% 18%,
+    #fff 0%,
+    var(--color-stage-mid) 55%,
+    var(--color-stage-edge) 100%
+  );
+  color: var(--color-accent);
+  overflow: hidden;
+}
+.photo img {
+  object-fit: contain;
+  padding: 10%;
+  mix-blend-mode: multiply;
+}
+.name {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+.count {
+  font-size: 12px;
+  color: var(--color-muted);
 }

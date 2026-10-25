@@ -54,7 +54,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
   if (!data) notFound();
 
   // (the canonical-URL check and real 404/308 status happen in layout.tsx, before streaming)
-  const { category, parent, children, listing } = data;
+  const { category, parent, children, siblings, listing } = data;
 
   const crumbs = [
     { label: 'خانه', href: '/' },
@@ -75,6 +75,25 @@ export default async function CategoryPage({ params, searchParams }: Props) {
           {children.map((c) => (
             <Link key={c.code} href={c.href} className={s.subcat}>
               {c.name}
+              <span className={s.subcatCount}>{formatNumber(c.count)}</span>
+            </Link>
+          ))}
+        </nav>
+      )}
+      {siblings.length > 1 && parent && (
+        <nav aria-label={`دسته‌های ${parent.name}`} className={s.subcats} data-sibling-categories>
+          <Link href={parent.href} className={s.subcat}>
+            همه‌ی {parent.name}
+          </Link>
+          {siblings.map((c) => (
+            <Link
+              key={c.code}
+              href={c.href}
+              className={s.subcat}
+              aria-current={c.code === category.code ? 'true' : undefined}
+            >
+              {c.name}
+              <span className={s.subcatCount}>{formatNumber(c.count)}</span>
             </Link>
           ))}
         </nav>

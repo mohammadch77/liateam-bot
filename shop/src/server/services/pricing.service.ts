@@ -147,6 +147,17 @@ async function safeCurrent(): Promise<State> {
 }
 
 export const pricingService = {
+  /**
+   * What the customer pays for every visible product (the discounted price, or Liateam's), and the lowest / highest
+   * of them — the price filter and the price sorts of the listings work on this, not on the list price.
+   */
+  async finalPrices(): Promise<{ byId: Map<number, number>; lo: number; hi: number }> {
+    const st = await safeCurrent();
+    const byId = new Map(st.rows.map((r) => [r.id, st.offers.get(r.id)?.final ?? r.price]));
+    const all = [...byId.values()];
+    return { byId, lo: all.length ? Math.min(...all) : 0, hi: all.length ? Math.max(...all) : 0 };
+  },
+
   /** id → the offer (only products with a real discount). */
   async offers(): Promise<Map<number, Offer>> {
     return (await safeCurrent()).offers;

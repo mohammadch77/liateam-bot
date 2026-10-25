@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { BESTSELLER_TABS } from '@/lib/bestsellers';
 import { categoryPath, productPath } from '@/lib/catalog-urls';
 import { toAppError } from '@/lib/errors';
+import { priceRange } from '@/lib/price-range';
 import { logger } from '@/lib/logger';
 import { editDistance, normalizeSearch, searchWords } from '@/lib/search/normalize';
 import {
@@ -240,21 +241,28 @@ export type Listing = {
   page: number;
   totalPages: number;
   params: ListParams;
+  /** lowest and highest final price in the shop (the price filter's slider ends) */
+  priceBounds?: { lo: number; hi: number };
 };
 
 // ── query-string parsing (URL input is untrusted) ──
 const one = (v: unknown) => (Array.isArray(v) ? v[0] : v);
-const listParamsSchema = z.object({
-  page: z.preprocess(one, z.coerce.number().int().min(1).max(CATALOG_POLICY.maxPage).catch(1)).default(1),
-  sort: z
-    .preprocess(one, z.enum(['relevance', 'newest', 'price_asc', 'price_desc']).catch('relevance'))
-    .default('relevance'),
-  inStock: z.preprocess(one, z.enum(['1']).optional().catch(undefined)),
-  cat: z.preprocess(one, z.coerce.number().int().positive().optional().catch(undefined)),
-  q: z.preprocess(one, z.string().trim().max(CATALOG_POLICY.maxQueryLength).optional().catch(undefined)),
-  /** a home «پرفروش‌ترین‌ها» tab: its categories (src/lib/bestsellers.ts) when no single category is chosen */
-  group: z.preprocess(one, z.enum(['skin', 'makeup', 'scent', 'hair']).optional().catch(undefined)),
-});
+const listParamsSchema = z
+  .object({
+    page: z.preprocess(one, z.coerce.number().int().min(1).max(CATALOG_POLICY.maxPage).catch(1)).default(1),
+    sort: z
+      .preprocess(one, z.enum(['relevance', 'newest', 'price_asc', 'price_desc']).catch('relevance'))
+      .default('relevance'),
+    inStock: z.preprocess(one, z.enum(['1']).optional().catch(undefined)),
+    cat: z.preprocess(one, z.coerce.number().int().positive().optional().catch(undefined)),
+    q: z.preprocess(one, z.string().trim().max(CATALOG_POLICY.maxQueryLength).optional().catch(undefined)),
+    /** a home «پرفروش‌ترین‌ها» tab: its categories (src/lib/bestsellers.ts) when no single category is chosen */
+    group: z.preprocess(one, z.enum(['skin', 'makeup', 'scent', 'hair']).optional().catch(undefined)),
+    /** price filter on the final price (toman; Persian or Latin digits, separators allowed) */
+    min: z.preprocess(one, z.unknown()),
+    max: z.preprocess(one, z.unknown()),
+  })
+  .transform(({ min, max, ...rest }) => ({ ...rest, ...priceRange(min, max) }));
 export type ListParams = z.infer<typeof listParamsSchema>;
 export type RawSearchParams = Record<string, string | string[] | undefined>;
 
@@ -358,6 +366,18 @@ async function listing(
   const search = (await searchTerms(params.q)) ?? undefined;
   const group = params.group ? BESTSELLER_TABS.find((t) => t.key === params.group)?.categories : undefined;
   const categories = extra.categories ?? (params.cat ? [params.cat] : (group ?? undefined)) ?? undefined;
+  // the price filter and the price sorts use what the customer pays (after discounts), from the pricing service
+  const finals = await pricingService.finalPrices();
+  const byPrice = [...finals.byId.entries()].sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+  const priced = params.min !== undefined || params.max !== undefined;
+  const ids = priced
+    ? byPrice
+        .filter(
+          ([, f]) =>
+            (params.min === undefined || f >= params.min) && (params.max === undefined || f <= params.max),
+        )
+        .map(([id]) => id)
+    : undefined;
   const [{ names }, { rows, total }, offers] = await Promise.all([
     categoryNames(),
     catalogRepository.listProducts({
@@ -365,6 +385,9 @@ async function listing(
       search,
       inStockOnly: params.inStock === '1',
       brandCode: extra.brandCode,
+      ids,
+      priceOrder:
+        params.sort === 'price_asc' || params.sort === 'price_desc' ? byPrice.map(([id]) => id) : undefined,
       sort: params.sort,
       limit: CATALOG_POLICY.pageSize,
       offset: (params.page - 1) * CATALOG_POLICY.pageSize,
@@ -377,6 +400,7 @@ async function listing(
     page: params.page,
     totalPages: Math.max(1, Math.ceil(total / CATALOG_POLICY.pageSize)),
     params,
+    priceBounds: { lo: finals.lo, hi: finals.hi },
   };
 }
 
@@ -529,7 +553,9 @@ export const catalogService = {
     const sub = params.cat && children.some((c) => c.code === params.cat) ? params.cat : undefined;
     const result = await listing({ ...params, cat: sub }, { categories: [sub ?? code] });
     const parent = category.parent_code ? (list.find((c) => c.code === category.parent_code) ?? null) : null;
-    return { category: toCategory(category), parent, children, listing: result };
+    // a sub-category without its own sub-categories: its sisters, so a visitor can move across at once
+    const siblings = parent && !children.length ? list.filter((c) => c.parentCode === parent.code) : [];
+    return { category: toCategory(category), parent, children, siblings, listing: result };
   },
 
   brands: brandList,
@@ -573,10 +599,12 @@ export const catalogService = {
       trail.unshift(c);
       c = c.parentCode !== null ? byCode.get(c.parentCode) : undefined;
     }
-    const related = await relatedProducts(id, product.categories[0]?.code ?? null, row.brand_code).catch((e) => {
-      logger.warn('catalog.related_unavailable', { code: toAppError(e).code });
-      return [] as ProductRow[];
-    });
+    const related = await relatedProducts(id, product.categories[0]?.code ?? null, row.brand_code).catch(
+      (e) => {
+        logger.warn('catalog.related_unavailable', { code: toAppError(e).code });
+        return [] as ProductRow[];
+      },
+    );
     const [content, siteReviews, brands] = await Promise.all([
       catalogRepository.getProductContent(id),
       reviewRepository.approvedFor(id, PRODUCT_REVIEWS_SHOWN),
@@ -722,6 +750,13 @@ export const catalogService = {
         lastModified: p.updated_at,
       })),
     ];
+  },
+
+  /** Every category with a cover picture (a product of its subtree: in stock and newest first; null when none). */
+  async categoriesWithCovers(): Promise<Array<Category & { imageUrl: string | null }>> {
+    const { list } = await categoryNames();
+    const covers = await catalogRepository.categoryCovers(list.map((c) => c.code));
+    return list.map((c) => ({ ...c, imageUrl: covers.get(c.code) ?? null }));
   },
 
   async allCategories(): Promise<Category[]> {
