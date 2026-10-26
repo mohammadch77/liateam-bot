@@ -33,6 +33,8 @@ const ALL = [
   'login-layout',
   'sync-status',
   'packs-admin',
+  'listing-flow',
+  'mobile-fixes',
 ];
 const wanted = process.argv.slice(2);
 const unknown = wanted.filter((n) => !ALL.includes(n));
