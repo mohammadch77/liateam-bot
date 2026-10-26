@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRef, useState, type KeyboardEvent } from 'react';
+import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import { formatToman } from '@/lib/format/money';
 import { toFaDigits } from '@/lib/format/number';
 import { Carousel, Icon, ProductCard } from '@/ui';
@@ -36,7 +36,20 @@ const SOON = 'به‌زودی فعال می‌شود';
  * every available item; a placeholder like the product page's button until the cart exists) and «مشاهده محصولات».
  * Every pack is in the page, so switching is instant; rows have a fixed height (no layout shift).
  */
-export function SkinRoutine({ title, packs }: { title: string; packs: RoutinePack[] }) {
+export function SkinRoutine({
+  title,
+  subtitle,
+  variantLabel,
+  packs,
+}: {
+  /** the collection's title and subtitle, edited in /admin/packs */
+  title: string;
+  subtitle: string;
+  /** what the tabs are called (نوع پوست, نیاز …) */
+  variantLabel: string;
+  packs: RoutinePack[];
+}) {
+  const uid = useId();
   const [key, setKey] = useState(packs[0]?.key);
   const tabs = useRef<Array<HTMLButtonElement | null>>([]);
   const pack = packs.find((p) => p.key === key) ?? packs[0];
@@ -59,17 +72,17 @@ export function SkinRoutine({ title, packs }: { title: string; packs: RoutinePac
   };
 
   return (
-    <section className={s.section} aria-labelledby="routine-title" data-routine={pack.key}>
+    <section className={s.section} aria-labelledby={`${uid}-title`} data-routine={pack.key}>
       <div className={s.head}>
-        <h2 id="routine-title" className={s.title}>
-          {title} شما
+        <h2 id={`${uid}-title`} className={s.title}>
+          {title}
         </h2>
         <p className={s.sub}>
-          نوع پوستتان را انتخاب کنید؛ {toFaDigits(pack.steps.length)} قدم به ترتیب مصرف.
+          {subtitle || `${variantLabel} را انتخاب کنید؛ ${toFaDigits(pack.steps.length)} محصول مکمل.`}
         </p>
       </div>
 
-      <div className={s.tabs} role="tablist" aria-label="نوع پوست" onKeyDown={onKey}>
+      <div className={s.tabs} role="tablist" aria-label={variantLabel} onKeyDown={onKey}>
         {packs.map((p, i) => (
           <button
             key={p.key}
@@ -78,8 +91,8 @@ export function SkinRoutine({ title, packs }: { title: string; packs: RoutinePac
             }}
             type="button"
             role="tab"
-            id={`routine-tab-${p.key}`}
-            aria-controls="routine-panel"
+            id={`${uid}-tab-${p.key}`}
+            aria-controls={`${uid}-panel`}
             aria-selected={p.key === pack.key}
             tabIndex={p.key === pack.key ? 0 : -1}
             className={s.tab}
@@ -90,7 +103,7 @@ export function SkinRoutine({ title, packs }: { title: string; packs: RoutinePac
         ))}
       </div>
 
-      <div className={s.card} role="tabpanel" id="routine-panel" aria-labelledby={`routine-tab-${pack.key}`}>
+      <div className={s.card} role="tabpanel" id={`${uid}-panel`} aria-labelledby={`${uid}-tab-${pack.key}`}>
         <ol className={s.steps} aria-label={pack.title} data-routine-compact>
           {pack.steps.map((st, i) => (
             <li key={i} className={s.step} data-status={st.status}>

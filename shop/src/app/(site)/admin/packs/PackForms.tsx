@@ -34,10 +34,27 @@ export type CollectionDraft = {
   id: number | null;
   slug: string;
   title: string;
+  subtitle: string;
   variantLabel: string;
   active: boolean;
   sortOrder: string;
 };
+
+/** ↑ / ↓ on a step row: swaps the row's name and product with the neighbour's (the order is the row order). */
+function moveStep(button: HTMLElement, dir: -1 | 1) {
+  const row = button.closest<HTMLElement>('[data-step-row]');
+  const other = (dir < 0 ? row?.previousElementSibling : row?.nextElementSibling) as
+    HTMLElement | null | undefined;
+  if (!row || !other?.matches('[data-step-row]')) return;
+  const mine = row.querySelectorAll<HTMLInputElement>('input');
+  const theirs = other.querySelectorAll<HTMLInputElement>('input');
+  mine.forEach((input, k) => {
+    const t = theirs[k];
+    if (!t) return;
+    [input.value, t.value] = [t.value, input.value];
+  });
+  other.querySelector<HTMLInputElement>('input')?.focus();
+}
 
 /** Submitted by hand: a form `action` would reset every field after «پیش‌نمایش» or an error (React 19). */
 function submitWith(action: (d: FormData) => void) {
@@ -164,8 +181,24 @@ export function PackForm({
           ))}
         </datalist>
         {steps.map((st, i) => (
-          <div key={i} className={a.stepRow}>
+          <div key={i} className={a.stepRow} data-step-row>
             <span className={a.stepNo}>{toFaDigits(i + 1)}</span>
+            <span className={a.stepMove}>
+              <button
+                type="button"
+                aria-label={`بالا بردن مرحله‌ی ${i + 1}`}
+                onClick={(e) => moveStep(e.currentTarget, -1)}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                aria-label={`پایین بردن مرحله‌ی ${i + 1}`}
+                onClick={(e) => moveStep(e.currentTarget, 1)}
+              >
+                ↓
+              </button>
+            </span>
             <input
               name={`step${i}Label`}
               defaultValue={st.label}
@@ -253,7 +286,22 @@ export function CollectionForm({ draft }: { draft: CollectionDraft }) {
       <div className={a.grid}>
         <label className={a.field}>
           <span>عنوان</span>
-          <input name="title" defaultValue={draft.title} maxLength={80} required placeholder="روتین پوستی" />
+          <input
+            name="title"
+            defaultValue={draft.title}
+            maxLength={80}
+            required
+            placeholder="پک‌های کاربردی"
+          />
+        </label>
+        <label className={a.field}>
+          <span>زیرعنوان (زیر عنوان بخش صفحه‌ی اصلی؛ خالی = متن پیش‌فرض)</span>
+          <input
+            name="subtitle"
+            defaultValue={draft.subtitle}
+            maxLength={200}
+            placeholder="نوع پوست یا نیازتان را انتخاب کنید"
+          />
         </label>
         <label className={a.field}>
           <span>نشانی (انگلیسی)</span>

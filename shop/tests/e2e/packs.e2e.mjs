@@ -243,7 +243,7 @@ try {
     /قیمت پک/.test(newAside) || /در دسترس نیست/.test(newAside),
   );
   await admin.goto(`${BASE}/admin/packs`, { waitUntil: 'load' });
-  await admin.locator(`tr[data-pack="${KEY}"] button`).click();
+  await admin.locator(`tr[data-pack="${KEY}"] form:has(input[name=active]) button`).click();
   await admin.waitForURL(/done=off/);
   check(
     '5f switched off from the list',

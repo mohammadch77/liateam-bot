@@ -8,13 +8,36 @@ import { PACK_POLICY, packPath, packService } from '@/server/services/pack.servi
 import { Alert, Breadcrumb, Button, Container, EmptyState } from '@/ui';
 import s from '../../account/account.module.css';
 import a from '../admin-forms.module.css';
-import { togglePackAction } from './actions';
+import { moveAction, togglePackAction } from './actions';
 import { CollectionForm, PackForm, type CollectionDraft, type PackDraft } from './PackForms';
 
 export const metadata: Metadata = { title: 'پک‌ها', robots: { index: false } };
 
 const local = (d: Date | null) =>
   d ? new Date(d.getTime() + 3.5 * 3600_000).toISOString().slice(0, 16) : '';
+
+/** ↑ / ↓: one place up or down (a plain form per button: works without JavaScript). */
+function MoveButtons({ kind, id }: { kind: 'collection' | 'pack'; id: number }) {
+  return (
+    <span className={a.rowActions} data-move={kind}>
+      {(['up', 'down'] as const).map((dir) => (
+        <form key={dir} action={moveAction}>
+          <input type="hidden" name="kind" value={kind} />
+          <input type="hidden" name="id" value={id} />
+          <input type="hidden" name="dir" value={dir} />
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            aria-label={dir === 'up' ? 'بالا بردن' : 'پایین بردن'}
+          >
+            {dir === 'up' ? '↑' : '↓'}
+          </Button>
+        </form>
+      ))}
+    </span>
+  );
+}
 
 /** Pack collections («روتین پوستی») and their packs: list, new / edit with preview, switch off. Admins only. */
 export default async function AdminPacksPage({
@@ -72,11 +95,12 @@ export default async function AdminPacksPage({
         id: editCollection.id,
         slug: editCollection.slug,
         title: editCollection.title,
+        subtitle: editCollection.subtitle,
         variantLabel: editCollection.variant_label,
         active: editCollection.active,
         sortOrder: String(editCollection.sort_order),
       }
-    : { id: null, slug: '', title: '', variantLabel: '', active: true, sortOrder: '0' };
+    : { id: null, slug: '', title: '', subtitle: '', variantLabel: '', active: true, sortOrder: '0' };
 
   return (
     <Container className={s.page}>
@@ -117,6 +141,7 @@ export default async function AdminPacksPage({
                 <Link href={`/admin/packs?collection=${c.id}`} style={{ fontSize: 13 }}>
                   ویرایش مجموعه
                 </Link>
+                <MoveButtons kind="collection" id={c.id} />
               </h2>
               <div className={a.tableWrap}>
                 <table className={a.table}>
@@ -160,6 +185,7 @@ export default async function AdminPacksPage({
                           <td>
                             <div className={a.rowActions}>
                               <Link href={`/admin/packs?pack=${p.id}`}>ویرایش</Link>
+                              <MoveButtons kind="pack" id={p.id} />
                               <form action={togglePackAction}>
                                 <input type="hidden" name="id" value={p.id} />
                                 <input type="hidden" name="active" value={p.active ? '0' : '1'} />

@@ -32,7 +32,7 @@ if (!url || !schema || !/^shop(_staging)?$/.test(schema)) {
 }
 const dry = process.argv.includes('--dry');
 
-const COLLECTION = { slug: 'skin-routine', title: 'روتین پوستی', variantLabel: 'نوع پوست' };
+const COLLECTION = { slug: 'skin-routine', title: 'پک‌های کاربردی', variantLabel: 'نوع پوست' };
 const SKINS = [
   { key: 'oily', title: 'پوست چرب', word: /چرب/, concern: /چربی/ },
   { key: 'dry', title: 'پوست خشک', word: /خشک/, concern: /خشکی/ },

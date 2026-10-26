@@ -39,10 +39,10 @@ export default async function HomePage() {
     );
   }
   const hero = data.featuredHero;
-  // «روتین پوستی»: only while a pack runs; never fails the home page
-  const routine: CollectionView | null = await packService.collection('skin-routine').catch((e) => {
+  // «پک‌های کاربردی»: one section per running collection, in the panel's order; never fails the home page
+  const routines: CollectionView[] = await packService.homeCollections().catch((e) => {
     logger.warn('home.routine_unavailable', { err: e });
-    return null;
+    return [];
   });
   // «برندها» and the first «پرفروش‌ترین‌ها» tab; neither fails the home page
   const brands: BrandTile[] = (await catalogService.brands().catch(() => [])).map((b) => ({
@@ -72,27 +72,33 @@ export default async function HomePage() {
     oldPriceToman: p.oldPriceToman ?? null,
     stock: p.stock,
   }));
-  const routinePacks: RoutinePack[] = (routine?.packs ?? []).map((p) => ({
-    key: p.key,
-    variantTitle: p.variantTitle,
-    title: p.title,
-    href: p.href,
-    total: p.total,
-    final: p.final,
-    saving: p.saving,
-    available: p.available,
-    steps: p.steps.map((st) => ({
-      label: st.label,
-      status: st.status,
-      price: st.price,
-      product: st.product
-        ? {
-            name: st.product.name,
-            href: st.product.href,
-            brand: st.product.brandName,
-            imageUrl: st.product.imageUrl ?? null,
-          }
-        : null,
+  const routineSections = routines.map((c) => ({
+    slug: c.slug,
+    title: c.title,
+    subtitle: c.subtitle,
+    variantLabel: c.variantLabel,
+    packs: c.packs.map((p): RoutinePack => ({
+      key: p.key,
+      variantTitle: p.variantTitle,
+      title: p.title,
+      href: p.href,
+      total: p.total,
+      final: p.final,
+      saving: p.saving,
+      available: p.available,
+      steps: p.steps.map((st) => ({
+        label: st.label,
+        status: st.status,
+        price: st.price,
+        product: st.product
+          ? {
+              name: st.product.name,
+              href: st.product.href,
+              brand: st.product.brandName,
+              imageUrl: st.product.imageUrl ?? null,
+            }
+          : null,
+      })),
     })),
   }));
 
@@ -190,7 +196,15 @@ export default async function HomePage() {
 
         <Bestsellers tabs={bestsellerTabs} initial={bestsellersFirst} />
 
-        {routine && routinePacks.length > 0 && <SkinRoutine title={routine.title} packs={routinePacks} />}
+        {routineSections.map((c) => (
+          <SkinRoutine
+            key={c.slug}
+            title={c.title}
+            subtitle={c.subtitle}
+            variantLabel={c.variantLabel}
+            packs={c.packs}
+          />
+        ))}
 
         <Magazine />
 

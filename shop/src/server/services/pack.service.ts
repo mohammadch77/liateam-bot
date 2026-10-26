@@ -45,7 +45,13 @@ export type PackView = {
   available: boolean;
 };
 
-export type CollectionView = { slug: string; title: string; variantLabel: string; packs: PackView[] };
+export type CollectionView = {
+  slug: string;
+  title: string;
+  subtitle: string;
+  variantLabel: string;
+  packs: PackView[];
+};
 
 export const packPath = (collection: string, key: string) => `/packs/${collection}/${key}`;
 
@@ -120,6 +126,7 @@ async function liveCollection(slug: string): Promise<CollectionView | null> {
       value = {
         slug: collection.slug,
         title: collection.title,
+        subtitle: collection.subtitle,
         variantLabel: collection.variant_label,
         packs: await view(collection, packs, items),
       };
@@ -163,6 +170,7 @@ const slug = (label: string) =>
 const collectionSchema = z.object({
   slug: slug('نشانی مجموعه'),
   title: z.string().trim().min(2, 'عنوان مجموعه را بنویسید').max(80, 'عنوان مجموعه حداکثر ۸۰ نویسه است'),
+  subtitle: z.string().trim().max(200, 'زیرعنوان حداکثر ۲۰۰ نویسه است').default(''),
   variantLabel: z.string().trim().min(2, 'نام گونه‌ها را بنویسید (مثلاً نوع پوست)').max(40),
   active: flag,
   sortOrder: z.preprocess(faDigits, z.coerce.number().int().min(0).max(1000).catch(0)),
@@ -289,6 +297,65 @@ export const packService = {
   /** Storefront: the running packs of a collection, or null. */
   collection: liveCollection,
 
+  /** Every running collection in the panel's order: each one is a section of the home page. Never fails the page. */
+  async homeCollections(): Promise<CollectionView[]> {
+    const all = (await packRepository.collections()).filter((c) => c.active);
+    const views = await Promise.all(all.map((c) => liveCollection(c.slug).catch(() => null)));
+    return views.filter((v): v is CollectionView => v !== null);
+  },
+
+  /** Move a collection one place up or down in the panel's order (admins only; audited; nothing is deleted). */
+  async moveCollection(id: number, dir: -1 | 1, meta: RequestMeta): Promise<void> {
+    const admin = await authorize('admin');
+    await withTransaction(async (db) => {
+      const ids = (await packRepository.collections()).map((c) => c.id);
+      const from = ids.indexOf(id);
+      const to = from + dir;
+      if (from < 0 || to < 0 || to >= ids.length) return;
+      [ids[from], ids[to]] = [ids[to]!, ids[from]!];
+      await packRepository.reorderCollections(ids, db);
+      await auditRepository.record(
+        {
+          actorUserId: admin.id,
+          action: 'pack_collection.move',
+          entityType: 'pack_collection',
+          entityId: String(id),
+          meta: { dir },
+          ip: meta.ip,
+        },
+        db,
+      );
+    });
+    cache.clear();
+  },
+
+  /** Move a pack (a tab of its collection) one place up or down. */
+  async movePack(id: number, dir: -1 | 1, meta: RequestMeta): Promise<void> {
+    const admin = await authorize('admin');
+    await withTransaction(async (db) => {
+      const pack = await packRepository.pack(id);
+      if (!pack) throw new AppError('NOT_FOUND');
+      const ids = (await packRepository.packs(pack.collection_id)).map((p) => p.id);
+      const from = ids.indexOf(id);
+      const to = from + dir;
+      if (from < 0 || to < 0 || to >= ids.length) return;
+      [ids[from], ids[to]] = [ids[to]!, ids[from]!];
+      await packRepository.reorderPacks(pack.collection_id, ids, db);
+      await auditRepository.record(
+        {
+          actorUserId: admin.id,
+          action: 'pack.move',
+          entityType: 'pack',
+          entityId: String(id),
+          meta: { dir },
+          ip: meta.ip,
+        },
+        db,
+      );
+    });
+    cache.clear();
+  },
+
   async pack(
     collectionSlug: string,
     key: string,
@@ -373,6 +440,7 @@ export const packService = {
     const input: CollectionInput = {
       slug: v.slug,
       title: v.title,
+      subtitle: v.subtitle,
       variantLabel: v.variantLabel,
       active: v.active,
       sortOrder: v.sortOrder,

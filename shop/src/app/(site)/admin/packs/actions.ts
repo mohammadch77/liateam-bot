@@ -53,6 +53,7 @@ export async function collectionFormAction(
   const raw = {
     slug: text(form, 'slug'),
     title: text(form, 'title'),
+    subtitle: text(form, 'subtitle'),
     variantLabel: text(form, 'variantLabel'),
     active: form.get('active') ? 'on' : undefined,
     sortOrder: text(form, 'sortOrder'),
@@ -63,6 +64,18 @@ export async function collectionFormAction(
   return r.ok
     ? { ok: true, message: id ? 'مجموعه به‌روز شد.' : 'مجموعه ساخته شد.' }
     : { ok: false, message: r.error };
+}
+
+/** ↑ / ↓ in the panel: one place up or down (collections and packs are renumbered; nothing is deleted). */
+export async function moveAction(form: FormData): Promise<void> {
+  const id = Number(form.get('id'));
+  const dir = form.get('dir') === 'up' ? -1 : 1;
+  const r = await runAction('pack.move', async () =>
+    form.get('kind') === 'collection'
+      ? packService.moveCollection(id, dir, await requestMeta())
+      : packService.movePack(id, dir, await requestMeta()),
+  );
+  redirect(`/admin/packs?${r.ok ? 'done=moved' : 'error=1'}`);
 }
 
 export async function togglePackAction(form: FormData): Promise<void> {

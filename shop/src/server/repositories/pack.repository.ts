@@ -15,6 +15,8 @@ export type CollectionRow = {
   slug: string;
   title: string;
   variant_label: string;
+  /** the home section's second line (empty = a default) */
+  subtitle: string;
   active: boolean;
   sort_order: number;
 };
@@ -45,6 +47,7 @@ export type PackItemRow = {
 export type CollectionInput = {
   slug: string;
   title: string;
+  subtitle: string;
   variantLabel: string;
   active: boolean;
   sortOrder: number;
@@ -65,7 +68,7 @@ export type PackInput = {
   steps: Array<{ label: string; productId: number | null }>;
 };
 
-const COLLECTION_COLS = 'id::int, slug, title, variant_label, active, sort_order';
+const COLLECTION_COLS = 'id::int, slug, title, subtitle, variant_label, active, sort_order';
 const PACK_COLS = `id::int, collection_id::int, variant_key, variant_title, title, description, discount_kind,
   discount_value::bigint, active, allow_loss, starts_at, ends_at, sort_order`;
 
@@ -123,12 +126,36 @@ export const packRepository = {
     );
   },
 
+  /** Give the collections these sort orders (10, 20, …) in this order: one transaction, no row is deleted. */
+  async reorderCollections(ids: readonly number[], db?: Queryable): Promise<void> {
+    await query(
+      'pack.collections_reorder',
+      `UPDATE pack_collections c SET sort_order = x.n
+         FROM (SELECT id, ord * 10 AS n FROM unnest($1::bigint[]) WITH ORDINALITY AS t(id, ord)) x
+        WHERE c.id = x.id`,
+      [ids],
+      db,
+    );
+  },
+
+  /** Same for the packs (tabs) of one collection. */
+  async reorderPacks(collectionId: number, ids: readonly number[], db?: Queryable): Promise<void> {
+    await query(
+      'pack.packs_reorder',
+      `UPDATE packs p SET sort_order = x.n
+         FROM (SELECT id, ord * 10 AS n FROM unnest($2::bigint[]) WITH ORDINALITY AS t(id, ord)) x
+        WHERE p.id = x.id AND p.collection_id = $1`,
+      [collectionId, ids],
+      db,
+    );
+  },
+
   async insertCollection(c: CollectionInput, db?: Queryable): Promise<number> {
     const row = await queryOne<{ id: number }>(
       'pack.collection_insert',
-      `INSERT INTO pack_collections (slug, title, variant_label, active, sort_order)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id::int`,
-      [c.slug, c.title, c.variantLabel, c.active, c.sortOrder],
+      `INSERT INTO pack_collections (slug, title, subtitle, variant_label, active, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id::int`,
+      [c.slug, c.title, c.subtitle, c.variantLabel, c.active, c.sortOrder],
       db,
     );
     return row!.id;
@@ -137,9 +164,9 @@ export const packRepository = {
   async updateCollection(id: number, c: CollectionInput, db?: Queryable): Promise<boolean> {
     const rows = await query(
       'pack.collection_update',
-      `UPDATE pack_collections SET slug = $2, title = $3, variant_label = $4, active = $5, sort_order = $6
+      `UPDATE pack_collections SET slug = $2, title = $3, subtitle = $4, variant_label = $5, active = $6, sort_order = $7
         WHERE id = $1 RETURNING id`,
-      [id, c.slug, c.title, c.variantLabel, c.active, c.sortOrder],
+      [id, c.slug, c.title, c.subtitle, c.variantLabel, c.active, c.sortOrder],
       db,
     );
     return rows.length === 1;
