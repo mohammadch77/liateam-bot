@@ -99,12 +99,12 @@ try {
     chips.join(' | '),
   );
   const before = await section.boundingBox();
-  const oilyNames = await section.locator('li').allInnerTexts();
-  check('3b five steps shown', (await section.locator('li').count()) === 5);
+  const oilyNames = await section.locator('[data-routine-compact] li').allInnerTexts();
+  check('3b five steps shown', (await section.locator('[data-routine-compact] li').count()) === 5);
   await section.getByRole('tab', { name: 'پوست خشک' }).click();
   await anon.waitForFunction(() => document.querySelector('[data-routine]')?.dataset.routine === 'dry');
   const after = await section.boundingBox();
-  const dryNames = await section.locator('li').allInnerTexts();
+  const dryNames = await section.locator('[data-routine-compact] li').allInnerTexts();
   check(
     '3c switching to «پوست خشک» changes the steps, the section keeps its height (no layout shift)',
     JSON.stringify(oilyNames) !== JSON.stringify(dryNames) && Math.abs(before.height - after.height) < 2,

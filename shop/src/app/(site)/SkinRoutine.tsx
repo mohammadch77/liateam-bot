@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { formatToman } from '@/lib/format/money';
 import { toFaDigits } from '@/lib/format/number';
-import { Icon } from '@/ui';
+import { Carousel, Icon, ProductCard } from '@/ui';
 import s from './skin-routine.module.css';
 
 /** Only what the section shows (no ids beyond the pack key, no purchase price). */
@@ -91,7 +91,7 @@ export function SkinRoutine({ title, packs }: { title: string; packs: RoutinePac
       </div>
 
       <div className={s.card} role="tabpanel" id="routine-panel" aria-labelledby={`routine-tab-${pack.key}`}>
-        <ol className={s.steps} aria-label={pack.title}>
+        <ol className={s.steps} aria-label={pack.title} data-routine-compact>
           {pack.steps.map((st, i) => (
             <li key={i} className={s.step} data-status={st.status}>
               <span className={s.thumb} aria-hidden="true">
@@ -125,6 +125,38 @@ export function SkinRoutine({ title, packs }: { title: string; packs: RoutinePac
             </li>
           ))}
         </ol>
+
+        {/* desktop (≥1024px): the same five steps as the shared product cards in the shared carousel */}
+        <div className={s.desktop} data-routine-carousel>
+          <Carousel key={pack.key} label={`مراحل ${pack.title}`}>
+            {pack.steps.map((st, i) => (
+              <div key={i} className={s.stepItem} data-status={st.status}>
+                <span className={s.stepTag}>
+                  <b>{toFaDigits(i + 1)}</b>
+                  {st.label}
+                </span>
+                {st.product && st.status !== 'soon' ? (
+                  <ProductCard
+                    product={{
+                      href: st.product.href,
+                      name: st.product.name,
+                      brand: st.product.brand,
+                      imageUrl: st.product.imageUrl,
+                      priceToman: st.price ?? 0,
+                      stock: st.status === 'out' ? 'out' : 'in',
+                    }}
+                  />
+                ) : (
+                  <div className={s.soonCard}>
+                    <Icon name="spa" size={40} />
+                    <b>به‌زودی</b>
+                    <span>محصول این مرحله به‌زودی اضافه می‌شود.</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </Carousel>
+        </div>
 
         <aside className={s.summary} aria-label={`قیمت ${pack.title}`}>
           <div className={s.total}>

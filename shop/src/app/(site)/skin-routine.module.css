@@ -87,11 +87,6 @@
   background: var(--color-white);
   overflow: hidden;
 }
-@media (min-width: 1024px) {
-  .card {
-    grid-template-columns: minmax(0, 1fr) 300px;
-  }
-}
 .steps {
   margin: 0;
   padding: 4px 14px;
@@ -193,14 +188,6 @@
   border-top: 1px solid var(--color-line);
   background: color-mix(in srgb, var(--color-blush) 45%, #fff);
 }
-@media (min-width: 1024px) {
-  .summary {
-    justify-content: center;
-    padding: 20px;
-    border-top: 0;
-    border-inline-start: 1px solid var(--color-line);
-  }
-}
 .total {
   display: flex;
   flex-wrap: wrap;
@@ -239,12 +226,13 @@
 }
 .actions {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
+  min-width: 0;
 }
-@media (min-width: 1024px) {
+@media (min-width: 540px) and (max-width: 1023px) {
   .actions {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 .add,
@@ -253,13 +241,17 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+  min-width: 0;
   min-height: 46px;
-  padding: 0 14px;
+  padding: 6px 14px;
   border-radius: 12px;
   font: inherit;
   font-size: 14px;
   font-weight: 700;
-  white-space: nowrap;
+  line-height: 1.5;
+  text-align: center;
+  white-space: normal; /* a long label wraps inside its button instead of leaving the card */
+  overflow-wrap: anywhere;
   -webkit-tap-highlight-color: transparent;
 }
 .add {
@@ -273,8 +265,99 @@
   background: var(--color-white);
   color: var(--color-primary);
 }
-@media (max-width: 359px) {
+
+/* ── desktop: tabs, then the pack summary as a bar, then the steps as product cards in the shared carousel ── */
+.desktop {
+  display: none;
+}
+.stepItem {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.stepItem > article,
+.stepItem > .soonCard {
+  flex: 1;
+}
+.stepTag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-accent-text);
+}
+.stepTag b {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 12px;
+}
+.stepItem[data-status='soon'] {
+  opacity: 0.7;
+}
+.soonCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 280px;
+  padding: 16px;
+  border: 1px dashed var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  color: var(--color-muted);
+  text-align: center;
+  font-size: 13px;
+}
+.soonCard b {
+  font-size: 16px;
+  color: var(--color-primary);
+}
+@media (min-width: 1024px) {
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    overflow: visible;
+  }
+  .steps {
+    display: none;
+  }
+  .desktop {
+    display: block;
+  }
+  .summary {
+    order: -1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 14px 20px;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg);
+  }
+  .total {
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+  }
   .actions {
-    grid-template-columns: minmax(0, 1fr);
+    display: flex;
+    flex: none;
+    gap: 10px;
+  }
+  .add,
+  .view {
+    white-space: nowrap;
   }
 }

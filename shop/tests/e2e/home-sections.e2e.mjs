@@ -48,7 +48,7 @@ try {
     (await routine.locator('[role=tab]').count()) >= 4 &&
       (await routine.locator('[role=tab][aria-selected=true]').count()) === 1,
   );
-  check('3b routine: five rows in one card', (await routine.locator('[role=tabpanel] li').count()) === 5);
+  check('3b routine: five rows in one card', (await routine.locator('[data-routine-compact] li').count()) === 5);
   const add = routine.locator('[data-routine-add]');
   check(
     '3c «افزودن پک به سبد خرید»: present, a placeholder like the product page (aria-disabled, به‌زودی)',
