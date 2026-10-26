@@ -1,11 +1,19 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import { Carousel, Icon } from '@/ui';
 import s from './home-sections.module.css';
 
-export type BrandTile = { code: number; name: string; href: string; logoUrl: string | null };
+export type BrandTile = {
+  code: number;
+  name: string;
+  href: string;
+  logoUrl: string | null;
+  /** up to three product photos of the brand (shown below 1024px) */
+  thumbs: string[];
+};
 
 /** One logo; the brand's name as text when there is no logo or it does not load. */
 function Logo({ b }: { b: BrandTile }) {
@@ -45,6 +53,15 @@ export function BrandsRow({ brands }: { brands: BrandTile[] }) {
         {brands.map((b) => (
           <Link key={b.code} href={b.href} className={s.brand} aria-label={b.name} data-brand={b.code}>
             <Logo b={b} />
+            {b.thumbs.length > 0 && (
+              <span className={s.brandThumbs} aria-hidden="true">
+                {b.thumbs.map((url) => (
+                  <span key={url} className={s.brandThumb}>
+                    <Image src={url} alt="" width={56} height={56} sizes="56px" draggable={false} />
+                  </span>
+                ))}
+              </span>
+            )}
           </Link>
         ))}
       </Carousel>

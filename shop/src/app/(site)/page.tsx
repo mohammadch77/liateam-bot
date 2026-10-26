@@ -50,6 +50,7 @@ export default async function HomePage() {
     name: b.name,
     href: b.href,
     logoUrl: b.logoUrl,
+    thumbs: b.thumbs,
   }));
   const bestsellerTabs = bestsellerService.tabs.map((t) => ({
     key: t.key,

@@ -59,6 +59,47 @@
 .brand:hover {
   border-color: var(--color-primary);
 }
+/*
+ * Below 1024px (phone carousel, tablet 4 columns) a brand tile also shows up to three small photos of its products
+ * under the logo: a fixed-ratio grid (square cells that scale with the tile), lazy images, so tiles keep one size and
+ * nothing shifts. From 1024px the seven logo tiles are as before (no photos).
+ */
+.brandThumbs {
+  display: none;
+}
+@media (max-width: 1023px) {
+  .brand {
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 10px;
+    aspect-ratio: auto;
+    min-height: 150px;
+    padding: 12px 10px;
+  }
+  .brandLogo {
+    width: 80%;
+    height: 44px;
+  }
+  .brandThumbs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    width: 100%;
+  }
+  .brandThumb {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border-radius: 8px;
+    background: var(--color-surface-2);
+    overflow: hidden;
+  }
+  .brandThumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    mix-blend-mode: multiply;
+  }
+}
 .brandLogo {
   /* sized by the tile, not the file: small SVG logos scale up with the column */
   width: 80%;

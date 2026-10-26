@@ -405,7 +405,9 @@ export const catalogRepository = {
       'catalog.list_brands',
       `SELECT b.code, b.name, b.latin_name, b.slug, count(p.id)::int AS product_count, b.image_url AS logo_url,
               (array_agg(p.image_url ORDER BY (p.stock > 0) DESC, p.first_seen_at DESC)
-                 FILTER (WHERE p.image_url IS NOT NULL))[1] AS image_url
+                 FILTER (WHERE p.image_url IS NOT NULL))[1] AS image_url,
+              (array_agg(p.image_url ORDER BY (p.stock > 0) DESC, p.first_seen_at DESC)
+                 FILTER (WHERE p.image_url IS NOT NULL))[1:3] AS image_urls
          FROM brands b
          JOIN product_catalog p ON p.brand_code = b.code AND ${VISIBLE}
         WHERE b.in_source
@@ -440,6 +442,8 @@ export type BrandRow = {
   product_count: number;
   logo_url: string | null;
   image_url: string | null;
+  /** up to three product photos of the brand (in stock first, newest first) */
+  image_urls: string[] | null;
 };
 
 export type HeroSlideRow = {

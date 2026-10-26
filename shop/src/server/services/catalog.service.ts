@@ -414,6 +414,8 @@ export type BrandView = {
   /** served by our own route (/api/brand-logo/<code>), never from the supplier's host */
   logoUrl: string | null;
   imageUrl: string | null;
+  /** up to three product photos of the brand (the phone / tablet brand cards) */
+  thumbs: string[];
 };
 
 const BRAND_LOGO = /^https:\/\/s3\.liateam\.ir\/[\w/.%-]+\.(?:svg|png|jpe?g|webp)$/i;
@@ -430,6 +432,7 @@ const brandList = cache(async (): Promise<BrandView[]> =>
     count: b.product_count,
     logoUrl: b.logo_url && BRAND_LOGO.test(b.logo_url) ? `/api/brand-logo/${b.code}` : null,
     imageUrl: b.image_url,
+    thumbs: b.image_urls ?? [],
   })),
 );
 

@@ -50,6 +50,18 @@ export default async function BrandsPage() {
                   <Icon name="spa" size={48} />
                 )}
               </span>
+              {/* phones and tablets: up to three product photos instead of the one large one (always three cells) */}
+              <span className={b.thumbRow} aria-hidden="true">
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className={b.thumbCell}>
+                    {x.thumbs[i] ? (
+                      <Image src={x.thumbs[i]} alt="" fill sizes="64px" draggable={false} />
+                    ) : (
+                      <Icon name="spa" size={22} />
+                    )}
+                  </span>
+                ))}
+              </span>
               <span className={b.body}>
                 {x.logoUrl && (
                   // eslint-disable-next-line @next/next/no-img-element -- SVG logo served by our own route
