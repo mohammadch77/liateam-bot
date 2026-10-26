@@ -7,6 +7,7 @@ import { formatNumber } from '@/lib/format/number';
 import { catalogService, parseListParams, type RawSearchParams } from '@/server/services/catalog.service';
 import { Breadcrumb, Container } from '@/ui';
 import { CatalogListing, CatalogUnavailable, NoResults } from '../_catalog/CatalogListing';
+import { redirectPastEnd } from '../_catalog/listing-url';
 import s from '../_catalog/catalog.module.css';
 
 type Props = { searchParams: Promise<RawSearchParams> };
@@ -35,6 +36,7 @@ export default async function ShopPage({ searchParams }: Props) {
     );
   }
   const topLevel = data.categories.filter((c) => c.parentCode === null);
+  redirectPastEnd('/shop', data.listing);
   // «مشاهده همه» of a home «پرفروش‌ترین‌ها» tab: the tab's categories
   const group = !params.cat && params.group ? BESTSELLER_TABS.find((t) => t.key === params.group) : undefined;
 

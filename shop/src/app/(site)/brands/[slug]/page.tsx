@@ -7,6 +7,7 @@ import { formatNumber } from '@/lib/format/number';
 import { catalogService, parseListParams, type RawSearchParams } from '@/server/services/catalog.service';
 import { Breadcrumb, Container } from '@/ui';
 import { CatalogListing, CatalogUnavailable, NoResults } from '../../_catalog/CatalogListing';
+import { redirectPastEnd } from '../../_catalog/listing-url';
 import s from '../../_catalog/catalog.module.css';
 import b from '../brands.module.css';
 
@@ -54,6 +55,7 @@ export default async function BrandPage({ params, searchParams }: Props) {
   }
   if (!data) notFound();
   const { brand, categories, listing } = data;
+  redirectPastEnd(brand.href, listing);
 
   return (
     <Container className={s.page}>

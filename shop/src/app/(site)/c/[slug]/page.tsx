@@ -9,6 +9,7 @@ import { formatNumber } from '@/lib/format/number';
 import { catalogService, parseListParams, type RawSearchParams } from '@/server/services/catalog.service';
 import { Breadcrumb, Container } from '@/ui';
 import { CatalogListing, CatalogUnavailable, NoResults } from '../../_catalog/CatalogListing';
+import { redirectPastEnd } from '../../_catalog/listing-url';
 import s from '../../_catalog/catalog.module.css';
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<RawSearchParams> };
@@ -55,6 +56,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
 
   // (the canonical-URL check and real 404/308 status happen in layout.tsx, before streaming)
   const { category, parent, children, siblings, listing } = data;
+  redirectPastEnd(category.href, listing);
 
   const crumbs = [
     { label: 'خانه', href: '/' },

@@ -1,7 +1,18 @@
 import type { ReactNode } from 'react';
+import { bestsellerService } from '@/server/services/bestseller.service';
 import { formatNumber } from '@/lib/format/number';
 import { SORT_OPTIONS, type Category, type Listing } from '@/server/services/catalog.service';
-import { Button, EmptyState, FilterChip, Pagination, ProductCard, ProductGrid, Select, Switch } from '@/ui';
+import {
+  Button,
+  Carousel,
+  EmptyState,
+  FilterChip,
+  Pagination,
+  ProductCard,
+  ProductGrid,
+  Select,
+  Switch,
+} from '@/ui';
 import { AutoSubmit } from './AutoSubmit';
 import { PriceFilter } from './PriceFilter';
 import { listingHref } from './listing-url';
@@ -29,6 +40,13 @@ export function CatalogListing({
   empty,
 }: Props) {
   const { params } = listing;
+  // the options are counted under the CURRENT filters (search words, brand, price, in stock): only categories that
+  // have a result are offered (plus the chosen one), so a tap never ends on an empty page
+  const options = listing.facets
+    ? filterCategories
+        .map((c) => ({ ...c, count: listing.facets!.get(c.code) ?? 0 }))
+        .filter((c) => c.count > 0 || c.code === params.cat)
+    : filterCategories;
   const activeCategory = filterCategories.find((c) => c.code === params.cat);
   const hasFilters =
     !!activeCategory || params.inStock === '1' || params.min !== undefined || params.max !== undefined;
@@ -54,11 +72,11 @@ export function CatalogListing({
         />
       )}
 
-      {filterCategories.length > 0 && (
+      {options.length > 0 && (
         <fieldset className={s.fieldset}>
           <legend className={s.legend}>{filterTitle}</legend>
           <div className={s.options}>
-            {filterCategories.map((c) => (
+            {options.map((c) => (
               <label key={c.code} className={s.radio}>
                 <input type="radio" name="cat" value={c.code} defaultChecked={params.cat === c.code} />
                 <span>{c.name}</span>
@@ -105,7 +123,7 @@ export function CatalogListing({
         {filters}
       </aside>
 
-      <div className={s.results}>
+      <div className={s.results} id="listing">
         <div className={s.toolbar}>
           <span className={s.total} role="status">
             {formatNumber(listing.total)} کالا
@@ -161,7 +179,7 @@ export function CatalogListing({
             <Pagination
               page={listing.page}
               totalPages={listing.totalPages}
-              hrefFor={(n) => listingHref(basePath, params, { page: n })}
+              hrefFor={(n) => `${listingHref(basePath, params, { page: n })}#listing`}
             />
           </>
         )}
@@ -170,22 +188,47 @@ export function CatalogListing({
   );
 }
 
-export function NoResults({ title, hint, clearHref }: { title: string; hint: string; clearHref?: string }) {
+/**
+ * «نتیجه‌ای نیست»: a clean message, the way out, and always product cards — popular products — so the page is never
+ * bare text.
+ */
+export async function NoResults({
+  title,
+  hint,
+  clearHref,
+}: {
+  title: string;
+  hint: string;
+  clearHref?: string;
+}) {
+  const suggestions = await bestsellerService.tab('all').catch(() => []);
   return (
-    <EmptyState
-      icon="search_off"
-      tone="neutral"
-      title={title}
-      action={
-        clearHref ? (
-          <Button href={clearHref} size="sm" variant="outline">
-            پاک کردن فیلترها
-          </Button>
-        ) : undefined
-      }
-    >
-      {hint}
-    </EmptyState>
+    <div data-no-results>
+      <EmptyState
+        icon="search_off"
+        tone="neutral"
+        title={title}
+        action={
+          clearHref ? (
+            <Button href={clearHref} size="sm" variant="outline">
+              پاک کردن فیلترها
+            </Button>
+          ) : undefined
+        }
+      >
+        {hint}
+      </EmptyState>
+      {suggestions.length > 0 && (
+        <section aria-label="محصولات پیشنهادی" className={s.suggested} data-suggested>
+          <h2 className={s.suggestedTitle}>پیشنهاد ما</h2>
+          <Carousel label="محصولات پیشنهادی">
+            {suggestions.slice(0, 8).map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </Carousel>
+        </section>
+      )}
+    </div>
   );
 }
 

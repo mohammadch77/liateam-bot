@@ -4,6 +4,7 @@ import { toAppError } from '@/lib/errors';
 import { catalogService, parseListParams, type RawSearchParams } from '@/server/services/catalog.service';
 import { Breadcrumb, Button, Container, TextField } from '@/ui';
 import { CatalogListing, CatalogUnavailable, NoResults } from '../_catalog/CatalogListing';
+import { redirectPastEnd } from '../_catalog/listing-url';
 import s from '../_catalog/catalog.module.css';
 
 type Props = { searchParams: Promise<RawSearchParams> };
@@ -34,6 +35,7 @@ export default async function SearchPage({ searchParams }: Props) {
   }
 
   const topLevel = data.categories.filter((c) => c.parentCode === null);
+  redirectPastEnd('/search', data.listing);
 
   return (
     <Container className={s.page}>

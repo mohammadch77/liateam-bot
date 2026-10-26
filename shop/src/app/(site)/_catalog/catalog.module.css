@@ -307,3 +307,18 @@
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
+
+/* «نتیجه‌ای نیست»: the message, then product cards (never bare text) */
+.suggested {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 24px;
+}
+.suggestedTitle {
+  font-size: 18px;
+  font-weight: 800;
+}
+.results {
+  scroll-margin-top: 72px;
+}

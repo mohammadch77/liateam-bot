@@ -185,6 +185,41 @@ const ORDER: Record<ProductSort, string> = {
 const likeEscape = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 export const catalogRepository = {
+  /**
+   * How many products each category (its whole subtree counted) would show under the CURRENT filters — search words,
+   * brand, price (ids), in stock — leaving the category choice itself out. The filter lists offer only categories that
+   * have a result, so a tap on an option never ends on an empty page. `within` limits the tree to a category's
+   * subtree (a category page's own sub-categories).
+   */
+  async facetCounts(
+    q: Pick<ProductListQuery, 'search' | 'inStockOnly' | 'brandCode' | 'ids'> & { within?: number },
+  ): Promise<Map<number, number>> {
+    const where = [VISIBLE];
+    const params: unknown[] = [];
+    const add = (v: unknown) => `$${params.push(v)}`;
+    if (q.inStockOnly) where.push('p.stock > 0');
+    if (q.brandCode !== undefined) where.push(`p.brand_code = ${add(q.brandCode)}`);
+    if (q.ids) where.push(`p.id = ANY(${add(q.ids)}::int[])`);
+    if (q.within !== undefined) where.push(`p.category && ${subtreeOf(add([q.within]))}`);
+    if (q.search?.words.length) {
+      if (await hasSearchFunctions()) where.push(...searchSql(q.search, add, false).where);
+      else
+        for (const { word } of q.search.words)
+          where.push(`${NORMALIZED_NAME} LIKE ${add(`%${likeEscape(word)}%`)}`);
+    }
+    const rows = await query<{ code: number; n: number }>(
+      'catalog.facet_counts',
+      `WITH RECURSIVE tree(root, code) AS (
+              SELECT code, code FROM categories
+              UNION SELECT t.root, c.code FROM tree t JOIN categories c ON c.parent_code = t.code)
+       SELECT t.root AS code, count(DISTINCT p.id)::int AS n
+         FROM tree t JOIN product_catalog p ON t.code = ANY (p.category) AND ${where.join(' AND ')}
+        GROUP BY t.root`,
+      params,
+    );
+    return new Map(rows.map((r) => [r.code, r.n]));
+  },
+
   /** One page of products plus the total for pagination (single round trip via a window count). */
   async listProducts(q: ProductListQuery): Promise<{ rows: ProductRow[]; total: number }> {
     const where = [VISIBLE];

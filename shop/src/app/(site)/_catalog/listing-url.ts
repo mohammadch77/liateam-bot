@@ -1,4 +1,5 @@
-import type { ListParams } from '@/server/services/catalog.service';
+import { redirect } from 'next/navigation';
+import type { ListParams, Listing } from '@/server/services/catalog.service';
 
 /**
  * Builds listing URLs that keep the current filters. Defaults are left out so URLs stay short and canonical
@@ -17,4 +18,10 @@ export function listingHref(base: string, params: ListParams, change: Partial<Li
   if (next.page && next.page > 1) sp.set('page', String(next.page));
   const qs = sp.toString();
   return qs ? `${base}?${qs}` : base;
+}
+
+/** A page past the end (an old link, a filter that shrank the list) goes to the last page, keeping the filters. */
+export function redirectPastEnd(basePath: string, listing: Listing): void {
+  if (listing.total > 0 && listing.page > listing.totalPages)
+    redirect(listingHref(basePath, listing.params, { page: listing.totalPages }));
 }

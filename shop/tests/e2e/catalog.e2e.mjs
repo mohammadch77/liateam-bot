@@ -61,12 +61,12 @@ check(
   catName.includes('آرایشی') && catTotal === dbCat,
   `«${catName}» ${catTotal} vs DB ${dbCat}`,
 );
-check('2b page 1 shows 20 cards (page size)', (await cards().count()) === Math.min(20, dbCat));
+check('2b page 1 shows 24 cards (page size)', (await cards().count()) === Math.min(24, dbCat));
 await page.locator('nav[aria-label="صفحه‌بندی"] a[aria-label="صفحه ۲"]').click();
 await page.waitForURL(/page=2/);
 check(
   '2c pagination: page 2 shows the rest',
-  (await cards().count()) === dbCat - 20,
+  (await cards().count()) === dbCat - 24,
   `${await cards().count()} on page 2`,
 );
 

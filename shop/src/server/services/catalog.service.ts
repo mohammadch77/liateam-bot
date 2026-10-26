@@ -22,7 +22,7 @@ import type { ProductCardData, StockState } from '@/ui';
 
 /** Catalog display policy. */
 export const CATALOG_POLICY = {
-  pageSize: 20, // 2 / 4 / 5 columns → full rows on phone, laptop and desktop
+  pageSize: 24, // 2 / 3 / 4 columns → full rows on phone, tablet and laptop
   limitedStockBelow: 5, // «موجودی محدود» badge
   maxPage: 500,
   maxQueryLength: 80,
@@ -243,13 +243,26 @@ export type Listing = {
   params: ListParams;
   /** lowest and highest final price in the shop (the price filter's slider ends) */
   priceBounds?: { lo: number; hi: number };
+  /** category code → products it would show under the current filters (the category choice left out) */
+  facets?: Map<number, number>;
 };
 
 // ── query-string parsing (URL input is untrusted) ──
 const one = (v: unknown) => (Array.isArray(v) ? v[0] : v);
 const listParamsSchema = z
   .object({
-    page: z.preprocess(one, z.coerce.number().int().min(1).max(CATALOG_POLICY.maxPage).catch(1)).default(1),
+    // a page past the end is clamped (then redirected to the real last page by the listing), not turned into page 1
+    page: z
+      .preprocess(
+        one,
+        z.coerce
+          .number()
+          .int()
+          .min(1)
+          .transform((n) => Math.min(n, CATALOG_POLICY.maxPage))
+          .catch(1),
+      )
+      .default(1),
     sort: z
       .preprocess(one, z.enum(['relevance', 'newest', 'price_asc', 'price_desc']).catch('relevance'))
       .default('relevance'),
@@ -361,7 +374,7 @@ async function categoryNames(): Promise<{ list: Category[]; names: Map<number, s
 
 async function listing(
   params: ListParams,
-  extra: { categories?: number[]; brandCode?: number } = {},
+  extra: { categories?: number[]; brandCode?: number; facetWithin?: number } = {},
 ): Promise<Listing> {
   const search = (await searchTerms(params.q)) ?? undefined;
   const group = params.group ? BESTSELLER_TABS.find((t) => t.key === params.group)?.categories : undefined;
@@ -378,7 +391,7 @@ async function listing(
         )
         .map(([id]) => id)
     : undefined;
-  const [{ names }, { rows, total }, offers] = await Promise.all([
+  const [{ names }, first, offers, facets] = await Promise.all([
     categoryNames(),
     catalogRepository.listProducts({
       categories,
@@ -393,9 +406,37 @@ async function listing(
       offset: (params.page - 1) * CATALOG_POLICY.pageSize,
     }),
     pricingService.offers(),
+    catalogRepository
+      .facetCounts({
+        search,
+        inStockOnly: params.inStock === '1',
+        brandCode: extra.brandCode,
+        ids,
+        within: extra.facetWithin,
+      })
+      .catch(() => undefined),
   ]);
+  const { rows } = first;
+  let { total } = first;
+  // a page past the end has no rows, and the window count then reports 0: ask page 1 for the real total, so the
+  // listing page can send the visitor to the last page
+  if (!rows.length && params.page > 1) {
+    total = (
+      await catalogRepository.listProducts({
+        categories,
+        search,
+        inStockOnly: params.inStock === '1',
+        brandCode: extra.brandCode,
+        ids,
+        sort: params.sort,
+        limit: 1,
+        offset: 0,
+      })
+    ).total;
+  }
   return {
     items: rows.map((r) => toView(r, names, offers)),
+    facets,
     total,
     page: params.page,
     totalPages: Math.max(1, Math.ceil(total / CATALOG_POLICY.pageSize)),
@@ -554,7 +595,7 @@ export const catalogService = {
     const children = list.filter((c) => c.parentCode === code);
     // a chosen sub-category narrows the list; it must really be a child of this category
     const sub = params.cat && children.some((c) => c.code === params.cat) ? params.cat : undefined;
-    const result = await listing({ ...params, cat: sub }, { categories: [sub ?? code] });
+    const result = await listing({ ...params, cat: sub }, { categories: [sub ?? code], facetWithin: code });
     const parent = category.parent_code ? (list.find((c) => c.code === category.parent_code) ?? null) : null;
     // a sub-category without its own sub-categories: its sisters, so a visitor can move across at once
     const siblings = parent && !children.length ? list.filter((c) => c.parentCode === parent.code) : [];
