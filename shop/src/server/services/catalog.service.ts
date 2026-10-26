@@ -5,6 +5,7 @@ import { BESTSELLER_TABS } from '@/lib/bestsellers';
 import { categoryPath, productPath } from '@/lib/catalog-urls';
 import { toAppError } from '@/lib/errors';
 import { priceRange } from '@/lib/price-range';
+import { heroSkipReason, logSkippedHeroSlides } from '@/lib/hero-slides';
 import { logger } from '@/lib/logger';
 import { editDistance, normalizeSearch, searchWords } from '@/lib/search/normalize';
 import {
@@ -494,19 +495,20 @@ const LIATEAM_IMAGE = /^https:\/\/s3\.liateam\.ir\//;
  */
 async function loadHeroSlides(): Promise<HeroSlide[]> {
   try {
-    const rows = await catalogRepository.listHeroSlides();
-    return rows
-      .filter((r) => LIATEAM_IMAGE.test(r.image_url))
-      .map((r) => ({
-        href:
-          r.target_type === 'product'
-            ? productPath(r.target_code, r.product_name, r.slug_en)
-            : categoryPath(r.target_code, clean(r.category_name ?? '')),
-        label: clean((r.target_type === 'product' ? r.product_name : r.category_name) ?? ''),
-        image: r.image_url,
-        portrait: r.portrait_url && LIATEAM_IMAGE.test(r.portrait_url) ? r.portrait_url : null,
-        color: r.color && /^#[0-9a-f]{6}$/i.test(r.color) ? r.color : null,
-      }));
+    const all = await catalogRepository.listHeroSlides();
+    // banners the shop cannot show are logged (the bot counts them, the slider does not)
+    logSkippedHeroSlides(all, (msg, fields) => logger.warn(msg, fields));
+    const rows = all.filter((r) => heroSkipReason(r) === null);
+    return rows.map((r) => ({
+      href:
+        r.target_type === 'product'
+          ? productPath(r.target_code, r.product_name, r.slug_en)
+          : categoryPath(r.target_code, clean(r.category_name ?? '')),
+      label: clean((r.target_type === 'product' ? r.product_name : r.category_name) ?? ''),
+      image: r.image_url,
+      portrait: r.portrait_url && LIATEAM_IMAGE.test(r.portrait_url) ? r.portrait_url : null,
+      color: r.color && /^#[0-9a-f]{6}$/i.test(r.color) ? r.color : null,
+    }));
   } catch (e) {
     logger.warn('catalog.hero_slides_unavailable', { err: e });
     return [];
