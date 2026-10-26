@@ -161,10 +161,10 @@ export function DiscountForm({
           <b>پیش‌نمایش اثر: {toFaDigits(state.preview.affected)} محصول</b>
           {state.preview.maxWithoutLoss !== null && (
             <span className={a.hint} data-partner-note>
-              قیمت پایه‌ی مشتری همین حالا روی قیمت خرید است (تخفیف همکاری، حدود{' '}
-              {toFaDigits(Math.round(state.preview.maxWithoutLoss))}٪). هر تخفیفی بیشتر از آن زیر قیمت خرید
-              است و فقط با تیک «اجازه‌ی فروش با زیان» اعمال می‌شود؛ حداکثر تخفیف بدون آن تیک:{' '}
-              {toFaDigits(Math.round(state.preview.maxWithoutLoss))}٪.
+              مشتری همین حالا تخفیف پایه‌ی همکاری (حدود{' '}
+              {toFaDigits(Math.round(state.preview.basePercent ?? 0))}٪) را می‌گیرد. تخفیفی که قیمت را از قیمت
+              خرید پایین‌تر ببرد زیر قیمت خرید است و فقط با تیک «اجازه‌ی فروش با زیان» اعمال می‌شود؛ حداکثر
+              تخفیف بدون آن تیک: {toFaDigits(Math.round(state.preview.maxWithoutLoss))}٪.
             </span>
           )}
           {state.preview.atLoss > 0 && (

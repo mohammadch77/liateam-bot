@@ -118,8 +118,8 @@ try {
   await save('partner'); // saving also makes the shop compute prices again
   const [p1, old1] = await shownPrice(admin);
   check(
-    '3a mode «partner»: the list price struck through, the partner base as the price (cost, rounded up)',
-    p1 === roundUp100(cost) && old1 === price,
+    '3a mode «partner»: Liateam’s own 5% sale (bigger than the 4% base) replaces the base; the list price is struck through',
+    p1 === roundUp100(price * 0.95) && old1 === price,
     `${p1} / ${old1} (list ${price})`,
   );
   await save('consumer');
@@ -135,6 +135,15 @@ try {
     '3c mode «beyond_base»: the partner discount above the base margin (10%)',
     p4 === roundUp100(price * 0.9) && old4 === price,
     `${p4} / ${old4}`,
+  );
+  // no sale, a real 14% partner discount: capped at the announced 4%
+  sql(`update supplier_products set cost_price = ${cost}, consumer_discount_percent = 0 where id = ${id}`);
+  await save('partner');
+  const [pc, oldc] = await shownPrice(admin);
+  check(
+    '3a2 partner: a real 14% partner discount is capped at 4% (OUR_BASE_MARGIN_PERCENT)',
+    pc === roundUp100(price * 0.96) && oldc === price,
+    `${pc} / ${oldc}`,
   );
   // a product with the ordinary 4% partner discount and no sale: partner → 4% off; consumer → no discount at all
   sql(
@@ -183,6 +192,49 @@ try {
     packPrice === sum && total > packPrice,
     `${total} / ${packPrice} / items ${sum}`,
   );
+
+  // ── 4b. every pack is available in partner mode — numbers, not «فعلاً در دسترس نیست» — also when an item's
+  //        purchase price is unknown (a pack without a discount is the sum of its items) ──
+  await save('partner');
+  const packKeys = sql(
+    `select variant_key from ${SCHEMA}.packs p join ${SCHEMA}.pack_collections c on c.id = p.collection_id where c.slug = 'skin-routine' and p.active order by p.sort_order, p.id`,
+  )
+    .split('\n')
+    .filter(Boolean);
+  const oilyItem = Number(
+    one(
+      `select i.product_id from ${SCHEMA}.pack_items i join ${SCHEMA}.packs p on p.id = i.pack_id where p.variant_key = 'oily' and i.product_id is not null order by i.sort_order limit 1 offset 2`,
+    ),
+  );
+  const oilyCost = one(`select cost_price from supplier_products where id = ${oilyItem}`);
+  sql(`update supplier_products set cost_price = 0 where id = ${oilyItem}`); // unknown purchase price
+  await admin.goto(`${BASE}/admin/settings`, { waitUntil: 'load' }); // (a panel request clears the app's caches)
+  try {
+    for (const key of packKeys) {
+      await anon.goto(`${BASE}/packs/skin-routine/${key}`, { waitUntil: 'load' });
+      const txt = (await anon.locator('main').innerText()).replace(/\s+/g, ' ');
+      const t = Number(toLatin(/جمع قیمت محصولات ([۰-۹٬,]+) تومان/.exec(txt)?.[1] ?? ''));
+      const pp = Number(toLatin(/قیمت پک ([۰-۹٬,]+) تومان/.exec(txt)?.[1] ?? ''));
+      check(
+        `4b pack «${key}» in partner mode: the pack price and the struck-through total are numbers (≠ «در دسترس نیست»)`,
+        t > 0 && pp > 0 && t >= pp && !/فعلاً در دسترس نیست/.test(txt),
+        `${t} / ${pp}`,
+      );
+    }
+    await anon.goto(`${BASE}/`, { waitUntil: 'load' });
+    await anon.locator('[data-routine]').first().scrollIntoViewIfNeeded();
+    for (const tab of await anon.locator('[data-routine] [role=tab]').all()) {
+      await tab.click();
+      const sum = (await anon.locator('[data-routine] aside').first().innerText()).replace(/\s+/g, ' ');
+      check(
+        `4c home tab «${(await tab.innerText()).trim()}»: a pack price, not «فعلاً در دسترس نیست»`,
+        /تومان/.test(sum) && !/فعلاً در دسترس نیست/.test(sum),
+        sum.slice(0, 90),
+      );
+    }
+  } finally {
+    sql(`update supplier_products set cost_price = ${oilyCost} where id = ${oilyItem}`);
+  }
 
   // ── 5. nothing about cost or margin leaves the server ──
   const pages = [

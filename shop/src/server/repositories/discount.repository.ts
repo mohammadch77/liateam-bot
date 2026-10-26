@@ -137,8 +137,10 @@ export type OfferPrice = {
   clamped: boolean;
   /** a discount beyond what everybody gets (for «تخفیفات ویژه») */
   special: boolean;
-  /** the partner percent (shown on cards anyway); null when the database function is older */
+  /** the base percent shown on the cards (partner: capped at OUR_BASE_MARGIN_PERCENT); null when the database is older */
   basePct: number | null;
+  /** the biggest discount that needs no «sell at a loss» tick (down to the purchase price); null when older */
+  maxFreePct: number | null;
 };
 
 /** Whether deploy/…-014 (partner pricing) is installed; until then step 12's modes (partner falls back to consumer). */
@@ -320,16 +322,18 @@ export const discountRepository = {
       items.map((i) => i.allowLoss),
     ];
     if (await hasV3Function()) {
+      // t.*: step 14 returns base_pct only, step 15 adds max_pct
       const rows = await query<{
         id: number;
         final_toman: string;
         clamped: boolean;
         special: boolean;
         base_pct: string;
+        max_pct?: string;
       }>(
         'discount.offer_prices_v3',
-        `SELECT id, final_toman, clamped, special, base_pct
-           FROM public.shop_offer_prices_v3($1::int[], $2::numeric[], $3::bigint[], $4::boolean[], $5, $6, $7, $8)`,
+        `SELECT t.*
+           FROM public.shop_offer_prices_v3($1::int[], $2::numeric[], $3::bigint[], $4::boolean[], $5, $6, $7, $8) t`,
         [...args, mode, rules.baseMargin, rules.cap, rules.minMargin],
       );
       return new Map(
@@ -340,6 +344,7 @@ export const discountRepository = {
             clamped: r.clamped,
             special: r.special,
             basePct: Number(r.base_pct),
+            maxFreePct: r.max_pct === undefined ? null : Number(r.max_pct),
           },
         ]),
       );
@@ -362,7 +367,7 @@ export const discountRepository = {
     return new Map(
       rows.map((r) => [
         r.id,
-        { final: Number(r.final_toman), clamped: r.clamped, special: true, basePct: null },
+        { final: Number(r.final_toman), clamped: r.clamped, special: true, basePct: null, maxFreePct: null },
       ]),
     );
   },

@@ -110,6 +110,8 @@ export type DiscountPreview = {
   /** partner mode: the biggest discount (percent) that needs no «sell at a loss» tick — the partner base, which
    *  customers see on every card anyway; null in the other modes */
   maxWithoutLoss: number | null;
+  /** partner mode: the base discount customers get on every card (capped at OUR_BASE_MARGIN_PERCENT) */
+  basePercent: number | null;
   samples: Array<{ id: number; name: string; price: number; final: number }>;
 };
 
@@ -162,6 +164,13 @@ async function check(input: DiscountInput): Promise<DiscountPreview & { unsafe: 
     affected: affected.length,
     atLoss: affected.filter(({ r }) => prices.get(r.id)?.clamped).length,
     maxWithoutLoss:
+      (await siteSettingsService.discountMode()) === 'partner'
+        ? Math.max(
+            0,
+            ...affected.map(({ r }) => prices.get(r.id)?.maxFreePct ?? prices.get(r.id)?.basePct ?? 0),
+          )
+        : null,
+    basePercent:
       (await siteSettingsService.discountMode()) === 'partner'
         ? Math.max(0, ...affected.map(({ r }) => prices.get(r.id)?.basePct ?? 0))
         : null,
@@ -225,8 +234,8 @@ export const discountService = {
     await authorize('admin');
     const input = toInput(raw);
     await validTarget(input.scope, input.targetCode);
-    const { affected, atLoss, maxWithoutLoss, samples } = await check(input);
-    return { affected, atLoss, maxWithoutLoss, samples };
+    const { affected, atLoss, maxWithoutLoss, basePercent, samples } = await check(input);
+    return { affected, atLoss, maxWithoutLoss, basePercent, samples };
   },
 
   /**
