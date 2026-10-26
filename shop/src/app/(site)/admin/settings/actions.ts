@@ -10,7 +10,12 @@ export async function saveSettingsAction(form: FormData): Promise<void> {
   const r = await runAction('settings.save', async () =>
     siteSettingsService.update(
       {
-        discountMode: form.get('discountMode') === 'excess' ? 'excess' : 'liateam',
+        discountMode:
+          form.get('discountMode') === 'consumer'
+            ? 'consumer'
+            : form.get('discountMode') === 'beyond_base'
+              ? 'beyond_base'
+              : 'partner',
         blockIndexing: form.get('blockIndexing') === '1',
       },
       await requestMeta(),

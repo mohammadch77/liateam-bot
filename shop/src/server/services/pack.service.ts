@@ -17,6 +17,7 @@ import { onDataChange } from '@/server/cache-events';
 import type { RequestMeta } from '@/server/http/request';
 import { catalogService, type ProductView } from './catalog.service';
 import { pricingRules } from './pricing.service';
+import { siteSettingsService } from './site-settings.service';
 
 /**
  * Packs («روتین پوستی»): the storefront view (each step's product at its current shop price, the items' total, the
@@ -52,7 +53,7 @@ async function view(collection: CollectionRow, packs: PackRow[], items: PackItem
   const products = await catalogService.productViews(
     items.flatMap((i) => (i.product_id ? [i.product_id] : [])),
   );
-  const minMargin = pricingRules().minMargin;
+  const minMargin = (await siteSettingsService.discountMode()) === 'partner' ? 0 : pricingRules().minMargin;
   return Promise.all(
     packs.map(async (p) => {
       const state = packState(
@@ -64,6 +65,10 @@ async function view(collection: CollectionRow, packs: PackRow[], items: PackItem
           return v ? { price: v.priceToman, inStock: v.stock !== 'out' } : null;
         },
       );
+      const listTotal = state.steps.reduce((n, st) => {
+        const v = st.status === 'ok' && st.productId ? products.get(st.productId) : undefined;
+        return n + (v ? (v.oldPriceToman ?? v.priceToman) : 0);
+      }, 0);
       const priced = state.available
         ? await packRepository.price(
             state.productIds,
@@ -86,9 +91,10 @@ async function view(collection: CollectionRow, packs: PackRow[], items: PackItem
           ...s,
           product: s.productId ? (products.get(s.productId) ?? null) : null,
         })),
-        total: state.total,
+        // struck through: the items' list prices; the pack discount (default none) applies to their final prices
+        total: listTotal,
         final,
-        saving: final !== null ? savingPercent(state.total, final) : 0,
+        saving: final !== null ? savingPercent(listTotal, final) : 0,
         available: final !== null,
       };
     }),
@@ -251,12 +257,16 @@ async function check(p: PackInput): Promise<PackPreview & { unsafe: boolean }> {
       message: `محصول مرحله‌ی «${missing.label}» پیدا نشد یا فروخته نمی‌شود`,
     });
   const total = ids.reduce((n, id) => n + products.get(id)!.priceToman, 0);
+  const listTotal = ids.reduce(
+    (n, id) => n + (products.get(id)!.oldPriceToman ?? products.get(id)!.priceToman),
+    0,
+  );
   const priced = await packRepository.price(
     ids,
     total,
     p.discountKind,
     p.discountValue,
-    pricingRules().minMargin,
+    (await siteSettingsService.discountMode()) === 'partner' ? 0 : pricingRules().minMargin,
     p.allowLoss,
   );
   if (ids.length && !priced)
@@ -266,9 +276,9 @@ async function check(p: PackInput): Promise<PackPreview & { unsafe: boolean }> {
       const v = s.productId ? products.get(s.productId) : undefined;
       return { label: s.label, name: v?.name ?? null, price: v?.priceToman ?? null };
     }),
-    total,
+    total: listTotal,
     final: priced?.final ?? null,
-    saving: priced ? savingPercent(total, priced.final) : 0,
+    saving: priced ? savingPercent(listTotal, priced.final) : 0,
     unavailableNow: ids.some((id) => products.get(id)!.stock === 'out'),
     atLoss: !!priced?.clamped,
     unsafe: !priced || priced.clamped,

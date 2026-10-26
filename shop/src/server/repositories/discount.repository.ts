@@ -125,8 +125,40 @@ async function hasModeFunction(): Promise<boolean> {
   return ok;
 }
 
-/** How Liateam's discount reaches the customer (admin setting): the one liateam.ir shows, or the excess formula. */
-export type DiscountMode = 'liateam' | 'excess';
+/**
+ * How a customer's base discount is made (admin setting): `partner` — Liateam's partner discount (≈ 4%, price down to
+ * the purchase price; any bigger discount replaces it) · `consumer` — only the discount liateam.ir itself shows ·
+ * `beyond_base` — the part of Liateam's discount above our base margin.
+ */
+export type DiscountMode = 'partner' | 'consumer' | 'beyond_base';
+
+export type OfferPrice = {
+  final: number;
+  clamped: boolean;
+  /** a discount beyond what everybody gets (for «تخفیفات ویژه») */
+  special: boolean;
+  /** the partner percent (shown on cards anyway); null when the database function is older */
+  basePct: number | null;
+};
+
+/** Whether deploy/…-014 (partner pricing) is installed; until then step 12's modes (partner falls back to consumer). */
+let v3Ready: { ok: boolean; at: number } | null = null;
+async function hasV3Function(): Promise<boolean> {
+  if (v3Ready && (v3Ready.ok || Date.now() - v3Ready.at < 5 * 60_000)) return v3Ready.ok;
+  const sig =
+    'public.shop_offer_prices_v3(integer[],numeric[],bigint[],boolean[],text,numeric,numeric,numeric)';
+  const row = await queryOne<{ ok: boolean }>(
+    'discount.v3_function_ready',
+    `SELECT to_regprocedure('${sig}') IS NOT NULL AND has_function_privilege('${sig}', 'EXECUTE') AS ok`,
+  );
+  const ok = !!row?.ok;
+  if (!ok && !v3Ready)
+    logger.warn('discount.v3_function_unavailable', {
+      reason: 'run deploy/shop-db-roles-014-partner-pricing.sql (until then: the «consumer» mode)',
+    });
+  v3Ready = { ok, at: Date.now() };
+  return ok;
+}
 
 export const discountRepository = {
   /** Discounts that may still run (switched on, not ended); the service checks start/end against the clock. */
@@ -278,7 +310,7 @@ export const discountRepository = {
     items: ReadonlyArray<{ id: number; percent: number; amount: number; allowLoss: boolean }>,
     rules: { baseMargin: number; cap: number; minMargin: number },
     mode: DiscountMode,
-  ): Promise<Map<number, { final: number; clamped: boolean }> | null> {
+  ): Promise<Map<number, OfferPrice> | null> {
     if (!(await hasOfferFunction())) return null;
     if (!items.length) return new Map();
     const args = [
@@ -287,12 +319,39 @@ export const discountRepository = {
       items.map((i) => Math.round(i.amount)),
       items.map((i) => i.allowLoss),
     ];
+    if (await hasV3Function()) {
+      const rows = await query<{
+        id: number;
+        final_toman: string;
+        clamped: boolean;
+        special: boolean;
+        base_pct: string;
+      }>(
+        'discount.offer_prices_v3',
+        `SELECT id, final_toman, clamped, special, base_pct
+           FROM public.shop_offer_prices_v3($1::int[], $2::numeric[], $3::bigint[], $4::boolean[], $5, $6, $7, $8)`,
+        [...args, mode, rules.baseMargin, rules.cap, rules.minMargin],
+      );
+      return new Map(
+        rows.map((r) => [
+          r.id,
+          {
+            final: Number(r.final_toman),
+            clamped: r.clamped,
+            special: r.special,
+            basePct: Number(r.base_pct),
+          },
+        ]),
+      );
+    }
+    // older databases: step 12's / step 9's functions know the two older modes by their old names
+    const legacy = mode === 'beyond_base' ? 'excess' : 'liateam';
     const rows = (await hasModeFunction())
       ? await query<{ id: number; final_toman: string; clamped: boolean }>(
           'discount.offer_prices_mode',
           `SELECT id, final_toman, clamped
              FROM public.shop_offer_prices_mode($1::int[], $2::numeric[], $3::bigint[], $4::boolean[], $5, $6, $7, $8)`,
-          [...args, mode, rules.baseMargin, rules.cap, rules.minMargin],
+          [...args, legacy, rules.baseMargin, rules.cap, rules.minMargin],
         )
       : await query<{ id: number; final_toman: string; clamped: boolean }>(
           'discount.offer_prices',
@@ -300,6 +359,11 @@ export const discountRepository = {
              FROM public.shop_offer_prices($1::int[], $2::numeric[], $3::bigint[], $4::boolean[], $5, $6, $7)`,
           [...args, rules.baseMargin, rules.cap, rules.minMargin],
         );
-    return new Map(rows.map((r) => [r.id, { final: Number(r.final_toman), clamped: r.clamped }]));
+    return new Map(
+      rows.map((r) => [
+        r.id,
+        { final: Number(r.final_toman), clamped: r.clamped, special: true, basePct: null },
+      ]),
+    );
   },
 };

@@ -41,20 +41,33 @@ export default async function AdminSettingsPage({
               <input
                 type="radio"
                 name="discountMode"
-                value="liateam"
-                defaultChecked={settings.discountMode === 'liateam'}
+                value="partner"
+                defaultChecked={settings.discountMode === 'partner'}
               />
               <span>
-                همان تخفیف لیاتیم (پیش‌فرض) — هر تخفیفی که خود سایت لیاتیم روی محصول نشان می‌دهد، با همان درصد
-                به مشتری می‌رسد؛ محصولی که در لیاتیم تخفیف ندارد با قیمت عادی لیاتیم فروخته می‌شود.
+                تخفیف همکاری به مشتری (پیش‌فرض) — قیمت خط‌خورده همان قیمت لیاتیم است و مشتری تخفیف همکاری
+                لیاتیم (حدود ۴٪) را می‌گیرد؛ قیمت هیچ‌وقت از قیمت خرید پایین‌تر نمی‌رود. تخفیف بزرگ‌تر (دستی،
+                کمپین یا تخفیف خود لیاتیم) جای این تخفیف را می‌گیرد و با آن جمع نمی‌شود.
               </span>
             </label>
             <label className={a.check}>
               <input
                 type="radio"
                 name="discountMode"
-                value="excess"
-                defaultChecked={settings.discountMode === 'excess'}
+                value="consumer"
+                defaultChecked={settings.discountMode === 'consumer'}
+              />
+              <span>
+                فقط تخفیف خط‌خوردنی لیاتیم — هر تخفیفی که خود سایت لیاتیم روی محصول نشان می‌دهد، با همان درصد؛
+                محصولی که در لیاتیم تخفیف ندارد با قیمت عادی فروخته می‌شود.
+              </span>
+            </label>
+            <label className={a.check}>
+              <input
+                type="radio"
+                name="discountMode"
+                value="beyond_base"
+                defaultChecked={settings.discountMode === 'beyond_base'}
               />
               <span>
                 فقط مازاد بر سود پایه — از تخفیفی که لیاتیم به حساب ما می‌دهد، فقط بخشِ بیشتر از سود پایه‌ی ما
@@ -62,8 +75,8 @@ export default async function AdminSettingsPage({
               </span>
             </label>
             <p className={a.hint}>
-              در هر دو حالت تخفیف‌های دستی شما (محصول، دسته، برند یا همه) روی آن اضافه می‌شوند، مجموع تخفیف از
-              سقف تعیین‌شده بیشتر نمی‌شود و قیمت هیچ‌وقت از کف مجاز پایین‌تر نمی‌رود.
+              «تخفیفات ویژه» فقط محصولاتی را نشان می‌دهد که تخفیفی بیشتر از تخفیف پایه دارند. سقف مجموع تخفیف
+              همیشه رعایت می‌شود؛ زیر قیمت خرید فقط با تیک «فروش با ضرر» روی همان تخفیف.
             </p>
           </fieldset>
 

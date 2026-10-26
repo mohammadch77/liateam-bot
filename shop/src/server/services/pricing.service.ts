@@ -25,6 +25,8 @@ export type Offer = {
   final: number;
   /** Liateam's price, shown struck through */
   old: number;
+  /** a discount beyond the base everybody gets (manual / campaign / Liateam's own sale): listed under «تخفیفات ویژه» */
+  special: boolean;
   campaignId: number | null;
 };
 
@@ -120,7 +122,12 @@ async function load(): Promise<State> {
       continue;
     }
     if (p.final < row.price)
-      offers.set(row.id, { final: p.final, old: row.price, campaignId: manual.campaignId });
+      offers.set(row.id, {
+        final: p.final,
+        old: row.price,
+        special: p.special,
+        campaignId: manual.campaignId,
+      });
   }
   if (unpriced) logger.warn('pricing.unpriced_products', { count: unpriced });
   return { offers, rows, campaigns, until: nextChange(discounts, campaigns, now.getTime()) };
@@ -166,7 +173,7 @@ export const pricingService = {
   /** The visible products with a discount, for the offers page (newest first; the service sorts as asked). */
   async discounted(): Promise<Array<PricingRow & Offer>> {
     const s = await safeCurrent();
-    return s.rows.filter((r) => s.offers.has(r.id)).map((r) => ({ ...r, ...s.offers.get(r.id)! }));
+    return s.rows.filter((r) => s.offers.get(r.id)?.special).map((r) => ({ ...r, ...s.offers.get(r.id)! }));
   },
 
   /** The campaign of the header bar and the offers countdown (running, ends soonest), or null. */

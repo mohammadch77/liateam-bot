@@ -44,6 +44,11 @@ export default async function AdminCampaignsPage({
         <h1 id="campaigns-title" className={s.title}>
           کمپین‌ها
         </h1>
+        <p className={a.hint} data-partner-note>
+          این تخفیف زیر قیمت خرید است و فقط با تیک «فروش با ضرر» اعمال می‌شود: تخفیف‌های یک کمپین را در{' '}
+          <Link href="/admin/discounts">تخفیف‌ها</Link> می‌سازید و هر کدام تیک خودش را دارد. بدون تیک، قیمت از
+          قیمت پایه‌ی همکاری (حدود ۴٪ تخفیف) پایین‌تر نمی‌رود.
+        </p>
         <nav className={a.links} aria-label="بخش‌های مدیریت تخفیف">
           <Link href="/admin/discounts">تخفیف‌ها</Link>
           {editing && <Link href="/admin/campaigns">کمپین جدید</Link>}

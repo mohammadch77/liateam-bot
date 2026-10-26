@@ -14,19 +14,30 @@ import { BLOCK_INDEXING_KEY, forgetIndexingPolicy, indexingBlocked } from '@/ser
 const KEYS = { discountMode: 'pricing.discount_mode', blockIndexing: BLOCK_INDEXING_KEY } as const;
 
 export type SiteSettings = {
-  /** how Liateam's discount reaches the customer; default: the discount liateam.ir shows */
+  /** how the customer's base discount is made; default: the partner discount */
   discountMode: DiscountMode;
   /** the admin's switch «جلوگیری از ایندکس شدن»; default on (blocked) */
   blockIndexing: boolean;
 };
 
-const DEFAULTS: SiteSettings = { discountMode: 'liateam', blockIndexing: true };
+const defaults = (): SiteSettings => ({
+  discountMode: getConfig().DEFAULT_DISCOUNT_MODE,
+  blockIndexing: true,
+});
 const MAX_AGE_MS = 60_000;
 let cached: { value: SiteSettings; at: number } | null = null;
 onDataChange(() => (cached = null));
 
+/** the stored mode; the names of the first version ('liateam', 'excess') read as 'consumer' and 'beyond_base' */
+function parseMode(v: unknown): DiscountMode {
+  if (v === undefined || v === null) return getConfig().DEFAULT_DISCOUNT_MODE;
+  if (v === 'consumer' || v === 'liateam') return 'consumer';
+  if (v === 'beyond_base' || v === 'excess') return 'beyond_base';
+  return 'partner';
+}
+
 const parse = (rows: Map<string, unknown>): SiteSettings => ({
-  discountMode: rows.get(KEYS.discountMode) === 'excess' ? 'excess' : 'liateam',
+  discountMode: parseMode(rows.get(KEYS.discountMode)),
   blockIndexing: rows.get(KEYS.blockIndexing) !== false,
 });
 
@@ -43,7 +54,7 @@ export const siteSettingsService = {
       return value;
     } catch (e) {
       logger.warn('site_settings.unavailable', { code: e instanceof AppError ? e.code : 'INTERNAL' });
-      return DEFAULTS;
+      return defaults();
     }
   },
 
@@ -62,7 +73,7 @@ export const siteSettingsService = {
   /** Admins only; audited; prices and pages pick the change up at once. */
   async update(next: SiteSettings, meta: RequestMeta): Promise<void> {
     const admin = await authorize('admin');
-    if (next.discountMode !== 'liateam' && next.discountMode !== 'excess')
+    if (!['partner', 'consumer', 'beyond_base'].includes(next.discountMode))
       throw new AppError('INVALID_DATA', { message: 'روش اعمال تخفیف نامعتبر است.' });
     const before = await this.get();
     await withTransaction(async (db) => {

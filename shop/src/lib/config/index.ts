@@ -48,6 +48,8 @@ const schema = z.object({
   OUR_BASE_MARGIN_PERCENT: z.coerce.number().min(0).max(50).default(4),
   /** The customer's total discount (passed-through + ours) never exceeds this. */
   DISCOUNT_MAX_PERCENT: z.coerce.number().min(0).max(90).default(30),
+  /** the discount mode used until an admin saves one in /admin/settings */
+  DEFAULT_DISCOUNT_MODE: z.enum(['partner', 'consumer', 'beyond_base']).default('partner'),
   /** No discount (and no pack) takes the price under the purchase price plus this margin. */
   DISCOUNT_MIN_MARGIN_PERCENT: z.coerce.number().min(0).max(50).default(1),
 

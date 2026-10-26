@@ -2,8 +2,8 @@
 // discount mode for the test, then restores them):
 //  1. outside production indexing is always blocked: robots.txt «Disallow: /», no sitemap, meta noindex, X-Robots-Tag
 //  2. /admin/settings: customer 403; admin sees both discount modes and the indexing switch with the staging note
-//  3. mode «liateam» (default): the product shows exactly the discount liateam.ir shows (struck-through list price);
-//     mode «excess»: the partner discount above our base margin; back to «liateam»; a product without a Liateam sale
+//  3. mode «partner» (default): the partner discount as the price (struck-through list price); «consumer» and
+//     «beyond_base» as before; a product without a Liateam sale in «consumer»
 //     shows Liateam's regular price (no automatic «1%»)
 //  4. packs: with no discount the pack price is the sum of its products' prices
 //  5. no purchase price or margin in the HTML / JSON
@@ -94,9 +94,9 @@ try {
   await admin.goto(`${BASE}/admin/settings`, { waitUntil: 'load' });
   const form = admin.locator('[data-settings-form]');
   check(
-    '2b two discount modes, «همان تخفیف لیاتیم» chosen by default',
-    (await form.locator('input[name="discountMode"]').count()) === 2 &&
-      (await form.locator('input[value="liateam"]').isChecked()),
+    '2b three discount modes (partner, consumer, beyond_base), one chosen (partner unless DEFAULT_DISCOUNT_MODE says otherwise)',
+    (await form.locator('input[name="discountMode"]').count()) === 3 &&
+      (await form.locator('input[name="discountMode"]:checked').count()) === 1,
   );
   check(
     '2c indexing switch on by default, and the staging note',
@@ -110,36 +110,54 @@ try {
     await admin.getByText('تنظیمات ذخیره شد.').waitFor({ timeout: 20000 });
   };
 
-  // ── 3. prices in both modes ──
-  // partner discount 14% (cost 0.86 × price), Liateam's own sale 5%:
-  //   liateam → 5% off · excess → 14 − 4 = 10% off · floor = cost + 1% (below both)
+  // ── 3. prices in the three modes ──
+  // Liateam's partner discount 14% (cost 0.86 × price), Liateam's own sale 5%:
+  //   partner → the whole base (14% off, down to cost) · consumer → 5% · beyond_base → 14 − 4 = 10%
   const cost = Math.round(price * 0.86);
   sql(`update supplier_products set cost_price = ${cost}, consumer_discount_percent = 5 where id = ${id}`);
-  await save('liateam'); // saving also makes the shop compute prices again
+  await save('partner'); // saving also makes the shop compute prices again
   const [p1, old1] = await shownPrice(admin);
   check(
-    '3a mode «liateam»: exactly Liateam’s 5%, the list price struck through',
-    p1 === roundUp100(price * 0.95) && old1 === price,
+    '3a mode «partner»: the list price struck through, the partner base as the price (cost, rounded up)',
+    p1 === roundUp100(cost) && old1 === price,
     `${p1} / ${old1} (list ${price})`,
   );
-  await save('excess');
+  await save('consumer');
   const [p2, old2] = await shownPrice(admin);
   check(
-    '3b mode «excess»: the partner discount above the base margin (10%)',
-    p2 === roundUp100(price * 0.9) && old2 === price,
+    '3b mode «consumer»: exactly Liateam’s own 5%',
+    p2 === roundUp100(price * 0.95) && old2 === price,
     `${p2} / ${old2}`,
   );
-  await save('liateam');
+  await save('beyond_base');
+  const [p4, old4] = await shownPrice(admin);
+  check(
+    '3c mode «beyond_base»: the partner discount above the base margin (10%)',
+    p4 === roundUp100(price * 0.9) && old4 === price,
+    `${p4} / ${old4}`,
+  );
+  // a product with the ordinary 4% partner discount and no sale: partner → 4% off; consumer → no discount at all
   sql(
     `update supplier_products set cost_price = ${Math.round(price * 0.96)}, consumer_discount_percent = 0 where id = ${id}`,
   );
-  await save('liateam');
+  await save('partner');
+  const [p5, old5] = await shownPrice(admin);
+  check(
+    '3d partner: the ordinary 4% (≈ 4% off, struck list price) — never a «1%»',
+    old5 === price && p5 === roundUp100(price * 0.96),
+    `${p5} / ${old5}`,
+  );
+  await save('consumer');
   const [p3, old3] = await shownPrice(admin);
   check(
-    '3c no sale on Liateam → Liateam’s regular price, no struck price (no «1%»)',
+    '3e consumer, no sale on Liateam → Liateam’s regular price, no struck price',
     p3 === price && old3 === null,
     `${p3} / ${old3}`,
   );
+  // «تخفیفات ویژه» lists only discounts beyond the base: this product (base 4% only) is not on /offers
+  await save('partner');
+  const offers = await (await fetch(`${BASE}/offers`)).text();
+  check('3f the base-only product is not listed under «تخفیفات ویژه»', !offers.includes(`${slug}"`));
   check(
     '3d the audit log has the setting changes',
     Number(
@@ -149,16 +167,21 @@ try {
     ) >= 2,
   );
 
-  // ── 4. a pack without discount costs the sum of its products ──
+  // ── 4. a pack without a pack discount: its price is the sum of its items' final prices (the partner base), and the
+  //       struck-through total is the sum of their list prices ──
   const anon = await (await ctxFor(3)).newPage();
   await anon.goto(`${BASE}/packs/skin-routine/oily`, { waitUntil: 'load' });
   const summary = (await anon.locator('main').innerText()).replace(/\s+/g, ' ');
-  const total = /جمع قیمت محصولات ([۰-۹٬,]+) تومان/.exec(summary)?.[1];
-  const packPrice = /قیمت پک ([۰-۹٬,]+) تومان/.exec(summary)?.[1];
+  const total = Number(toLatin(/جمع قیمت محصولات ([۰-۹٬,]+) تومان/.exec(summary)?.[1] ?? ''));
+  const packPrice = Number(toLatin(/قیمت پک ([۰-۹٬,]+) تومان/.exec(summary)?.[1] ?? ''));
+  const stepPrices = await anon
+    .locator('main ol[class*=steps] > li')
+    .evaluateAll((lis) => lis.map((li) => /([۰-۹٬]+)\s*تومان/.exec(li.innerText)?.[1]).filter(Boolean));
+  const sum = stepPrices.map((t) => Number(toLatin(t))).reduce((n, x) => n + x, 0);
   check(
-    '4 pack «پوست چرب» (0%): pack price = sum of the items, no «صرفه‌جویی»',
-    !!total && total === packPrice && !/صرفه‌جویی/.test(summary),
-    `${total} / ${packPrice}`,
+    '4 pack «پوست چرب» (no pack discount): pack price = sum of the items’ prices, struck total = their list prices',
+    packPrice === sum && total > packPrice,
+    `${total} / ${packPrice} / items ${sum}`,
   );
 
   // ── 5. nothing about cost or margin leaves the server ──
