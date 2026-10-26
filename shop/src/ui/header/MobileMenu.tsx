@@ -6,9 +6,18 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type TouchEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { formatNumber } from '@/lib/format/number';
-import { Icon } from '../icon/Icon';
+import { Icon, type IconName } from '../icon/Icon';
 import type { NavItem } from './Header';
 import s from './MobileMenu.module.css';
+
+/** the info pages of the first level: an icon each, by address (any other page gets a plain arrow) */
+const PAGE_ICON: Record<string, IconName> = {
+  '/offers': 'bolt',
+  '/affiliate': 'trending_up',
+  '/about': 'verified',
+  '/contact': 'call',
+  '/help/faq': 'support_agent',
+};
 
 type Panel = { kind: 'root' } | { kind: 'category'; item: NavItem } | { kind: 'brands' };
 
@@ -207,11 +216,16 @@ export function MobileMenu({
                       </button>
                     </li>
                   </ul>
-                  <ul className={s.pages}>
+                  <span className={s.section}>صفحه‌ها</span>
+                  <ul className={s.list} data-menu-pages>
                     {pages.map((x) => (
                       <li key={x.href}>
-                        <Link href={x.href} className={s.page}>
-                          {x.label}
+                        <Link href={x.href} className={s.row}>
+                          <span className={s.thumb} aria-hidden="true">
+                            <Icon name={PAGE_ICON[x.href] ?? 'chevron_left'} size={20} />
+                          </span>
+                          <span className={s.label}>{x.label}</span>
+                          <Icon name="chevron_left" size={20} className={s.muted} />
                         </Link>
                       </li>
                     ))}

@@ -306,7 +306,7 @@ try {
   const dLinks = (await drawer.locator('a, button').allInnerTexts()).map((t) => t.split('\n')[0].trim());
   check(
     '8 phone drawer: categories, brands, the plain links; no product cards',
-    dLinks.includes('همه‌ی برندها') &&
+    dLinks.some((d) => d.startsWith('همه‌ی برندها')) &&
       dLinks.includes('همکاری در فروش') &&
       (await drawer.locator('[data-nav-product]').count()) === 0,
     dLinks.slice(0, 6).join(' | '),

@@ -84,8 +84,7 @@
   font-weight: 700;
   color: var(--color-muted);
 }
-.list,
-.pages {
+.list {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -178,23 +177,6 @@
   padding: 4px 16px 12px;
   font-size: 19px;
   font-weight: 800;
-}
-.pages {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 18px 16px 0;
-}
-.page {
-  display: inline-flex;
-  align-items: center;
-  min-height: 40px;
-  padding: 0 14px;
-  border: 1px solid var(--color-line);
-  border-radius: 999px;
-  background: var(--color-white);
-  font-size: 13.5px;
-  color: var(--color-ink-2);
 }
 
 /* fixed footer: the account, the wallet, order tracking */

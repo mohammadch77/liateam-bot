@@ -210,7 +210,7 @@ try {
   check(
     '6a drawer: همه‌ی محصولات, categories, برندها, درباره ما, تماس با ما, سوالات متداول',
     dLinks[0] === 'همه‌ی محصولات' &&
-      ['همه‌ی برندها', 'درباره ما', 'تماس با ما', 'سوالات متداول'].every((x) => dLinks.includes(x)),
+      ['همه‌ی برندها', 'درباره ما', 'تماس با ما', 'سوالات متداول'].every((x) => dLinks.some((d) => d.startsWith(x))),
     dLinks.join(' | '),
   );
   await drawer.locator('[data-menu-brands]').click();
