@@ -136,3 +136,24 @@ a:hover {
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * One magnifier per search field: ours. WebKit/Blink draw their own (decoration, results button) and a native «×» on
+ * input[type=search] — switch all of it off for every search field, present and future.
+ */
+input[type='search'] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+input[type='search']::-webkit-search-decoration,
+input[type='search']::-webkit-search-cancel-button,
+input[type='search']::-webkit-search-results-button,
+input[type='search']::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+input[type='search']::-ms-clear,
+input[type='search']::-ms-reveal {
+  display: none;
+}
