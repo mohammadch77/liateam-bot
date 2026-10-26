@@ -2,8 +2,8 @@
 .home {
   padding-block: 16px 24px;
 }
-/* phones: the edge-to-edge banner sits right under the header (and so ends above the tab bar) */
-@media (max-width: 639px) {
+/* below 768px: the edge-to-edge banner sits right under the header */
+@media (max-width: 767px) {
   .home:has([data-hero-link]) {
     padding-top: 0;
   }

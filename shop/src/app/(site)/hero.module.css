@@ -63,24 +63,18 @@
 }
 
 /*
- * Phones: the banner runs edge to edge (no side gutter, no rounded corners) at Liateam's own portrait ratio (3:4,
- * 750×1000), so on a 375px screen it is 500px tall — about three quarters of an iPhone 8 under the header. Same
- * ratio as the photo: nothing is cropped and the space is reserved before it loads (no layout shift). On short
- * screens the height is capped to what is left above the tab bar and the photo is fitted inside (contain) on the
- * slide's own background colour, so its text is never cut.
+ * Below 768px (phones, large phones in landscape, small tablets in portrait) the banner runs truly edge to edge: the
+ * Container's side gutter is cancelled with a negative margin and there are no rounded corners or shadow. On phones
+ * the picture is Liateam's own portrait banner at its own 3:4 ratio (750×1000), so on a 375px screen it is 500px tall
+ * — about three quarters of an iPhone 8 under the header; it is never fitted inside a box (no letterboxing, no side
+ * bars on short screens), so nothing is cropped or scaled down, and the space is reserved before the image loads (no
+ * layout shift). From 768px the rounded banner inside the gutter is unchanged.
  */
-@media (max-width: 639px) {
+@media (max-width: 767px) {
   .slider {
     margin-inline: calc(-1 * var(--gutter));
     border-radius: 0;
     box-shadow: none;
-  }
-  .picture:not(.wideOnly) {
-    max-height: calc(100svh - 160px);
-    width: 100%;
-  }
-  .picture:not(.wideOnly) .image {
-    object-fit: contain;
   }
 }
 
