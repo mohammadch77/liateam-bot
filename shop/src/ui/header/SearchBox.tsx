@@ -44,11 +44,17 @@ export function SearchBox({
   action = '/search',
   query,
   compact,
+  overlay,
+  onNavigate,
   suggestUrl = '/api/search/suggest',
 }: {
   action?: string;
   query?: string;
   compact?: boolean;
+  /** inside the full-screen search dialog: the results fill the room under the field and scroll on their own */
+  overlay?: boolean;
+  /** called when a suggestion is followed or the form is submitted (the dialog closes itself) */
+  onNavigate?: () => void;
   suggestUrl?: string;
 }) {
   const router = useRouter();
@@ -191,6 +197,7 @@ export function SearchBox({
   const go = (href: string) => {
     setOpen(false);
     input.current?.blur();
+    onNavigate?.();
     router.push(href);
   };
 
@@ -220,7 +227,7 @@ export function SearchBox({
       ref={root}
       action={action}
       role="search"
-      className={cx(s.search, compact && s.compact)}
+      className={cx(s.search, compact && s.compact, overlay && s.overlay)}
       onSubmit={(e) => {
         if (!value.trim()) {
           e.preventDefault();
@@ -228,6 +235,7 @@ export function SearchBox({
           return;
         }
         setOpen(false);
+        onNavigate?.();
       }}
     >
       <Icon name="search" size={compact ? 21 : 22} className={s.icon} />
@@ -266,7 +274,11 @@ export function SearchBox({
               role="option"
               aria-selected={i === activeIndex}
               className={cx(o.className, i === activeIndex && s.active)}
-              onPointerDown={(e) => e.preventDefault()} // keep focus in the input
+              // mouse: keep focus in the input. Not for touch: cancelling a touch pointerdown makes WebKit (every iPhone
+              // browser) drop the tap's click, so a tapped suggestion never opened.
+              onPointerDown={(e) => {
+                if (e.pointerType === 'mouse') e.preventDefault();
+              }}
               onPointerEnter={() => setActive(i)}
               onClick={() => go(o.href)}
             >

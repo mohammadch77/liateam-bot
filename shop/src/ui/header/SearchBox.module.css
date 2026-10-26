@@ -231,3 +231,30 @@
     background-position: -200% 0;
   }
 }
+
+/*
+ * Inside the full-screen search dialog (phones): the dialog is the positioned box (its height follows the visible
+ * area, see SearchOverlay), the field stays in the bar at the top, and the results are one panel under it that fills
+ * the rest and scrolls by itself — nothing is sized by the keyboard-less layout viewport, so it never jumps.
+ * 16px text: iOS zooms the page into any field under 16px.
+ */
+.overlay {
+  position: static;
+}
+.overlay .input {
+  font-size: 16px;
+}
+.overlay .popup {
+  position: absolute;
+  top: var(--search-bar-height, 72px);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  max-height: none;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--color-surface);
+  -webkit-overflow-scrolling: touch;
+}

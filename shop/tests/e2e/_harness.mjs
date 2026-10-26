@@ -20,7 +20,7 @@ for (const f of ['.env.local', '.env'])
   if (fs.existsSync(path.join(shopRoot, f))) process.loadEnvFile(path.join(shopRoot, f));
 
 const require = createRequire(path.join(repoRoot, 'package.json'));
-export const { chromium } = require('playwright');
+export const { chromium, webkit, devices } = require('playwright');
 
 export const BASE = (process.env.E2E_BASE_URL ?? `http://127.0.0.1:${process.env.PORT ?? 3850}`).replace(
   /\/$/,
