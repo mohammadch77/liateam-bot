@@ -1,5 +1,6 @@
 import 'server-only';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 import { AppError } from '@/lib/errors';
 import { packLive, packState, savingPercent, type PackStepState } from '@/lib/pricing/packs';
 import { auditRepository } from '@/server/repositories/audit.repository';
@@ -75,7 +76,7 @@ async function view(collection: CollectionRow, packs: PackRow[], items: PackItem
         const v = st.status === 'ok' && st.productId ? products.get(st.productId) : undefined;
         return n + (v ? (v.oldPriceToman ?? v.priceToman) : 0);
       }, 0);
-      const priced = state.available
+      let priced = state.available
         ? await packRepository.price(
             state.productIds,
             state.total,
@@ -85,6 +86,19 @@ async function view(collection: CollectionRow, packs: PackRow[], items: PackItem
             p.allow_loss,
           )
         : null;
+      // no pack discount: the pack is the sum of its items' prices — no purchase price is needed, so an item the
+      // database cannot price (or an older function) never hides a pack that has nothing to protect
+      if (!priced && state.available && p.discount_kind === 'percent' && p.discount_value === 0)
+        priced = { final: state.total, clamped: false };
+      if (!priced)
+        logger.warn('pack.unavailable', {
+          pack: p.variant_key,
+          reason: !state.available
+            ? state.steps.some((st) => st.status === 'out')
+              ? 'an item is out of stock or not sold'
+              : 'no products'
+            : 'the price function returned no row (an item without a purchase price, or the function is missing)',
+        });
       const final = priced?.final ?? null;
       return {
         id: p.id,
@@ -269,7 +283,7 @@ async function check(p: PackInput): Promise<PackPreview & { unsafe: boolean }> {
     (n, id) => n + (products.get(id)!.oldPriceToman ?? products.get(id)!.priceToman),
     0,
   );
-  const priced = await packRepository.price(
+  let priced = await packRepository.price(
     ids,
     total,
     p.discountKind,
@@ -277,6 +291,8 @@ async function check(p: PackInput): Promise<PackPreview & { unsafe: boolean }> {
     (await siteSettingsService.discountMode()) === 'partner' ? 0 : pricingRules().minMargin,
     p.allowLoss,
   );
+  if (!priced && ids.length && p.discountKind === 'percent' && p.discountValue === 0)
+    priced = { final: total, clamped: false }; // no pack discount: the sum of the items, no purchase price needed
   if (ids.length && !priced)
     throw new AppError('INTERNAL', { message: 'محاسبه‌ی قیمت پک هنوز روی سرور نصب نشده است.' });
   return {
