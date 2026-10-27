@@ -5,7 +5,8 @@ import { notFound } from 'next/navigation';
 import { cache, type ReactNode } from 'react';
 import { getConfig } from '@/lib/config';
 import { jsonLd as toJsonLd } from '@/lib/json-ld';
-import { idFromSlug } from '@/lib/catalog-urls';
+import { idFromSlug } from '@/lib/urls';
+import { siteOrigin } from '@/server/http/site-origin';
 import { toAppError } from '@/lib/errors';
 import { discountPercent, formatTomanText, tomanToRial } from '@/lib/format/money';
 import { toFaDigits } from '@/lib/format/number';
@@ -28,7 +29,7 @@ import {
   Saving,
   Section,
 } from '@/ui';
-import { CatalogUnavailable } from '../_catalog/CatalogListing';
+import { CatalogUnavailable } from '@/app/(site)/_catalog/CatalogListing';
 import { ActiveTab } from './ActiveTab';
 import { Gallery } from './Gallery';
 import { VideoFacade } from './VideoFacade';
@@ -111,10 +112,13 @@ export default async function ProductPage({ params, searchParams }: Props) {
   const firstParagraph = description.find((b) => b.kind === 'paragraph');
   // Product structured data for search engines. schema.org needs an ISO 4217 code: IRR (rial), so the stored
   // toman price is converted at this edge only.
+  const origin = await siteOrigin();
+  const abs = (href: string) => origin + encodeURI(href);
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: p.name,
+    url: abs(p.href),
     sku: String(p.id),
     category: main?.name,
     brand: p.brandName ? { '@type': 'Brand', name: p.brandName } : undefined,
@@ -126,6 +130,16 @@ export default async function ProductPage({ params, searchParams }: Props) {
       price: tomanToRial(p.priceToman),
       availability: out ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
     },
+  };
+
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { name: 'خانه', href: '/' },
+      ...trail.map((t) => ({ name: t.name, href: t.href })),
+      { name: p.name, href: p.href },
+    ].map((it, i) => ({ '@type': 'ListItem', position: i + 1, name: it.name, item: abs(it.href) })),
   };
 
   // key features: the summary lines first (Liateam's headline points), then the other features; one product has neither
@@ -165,6 +179,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
   return (
     <Container className={s.page}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: toJsonLd(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: toJsonLd(breadcrumbLd) }} />
       <Breadcrumb
         items={[
           { label: 'خانه', href: '/' },

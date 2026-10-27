@@ -13,6 +13,7 @@ import s from '../../account/account.module.css';
 import a from '../admin-forms.module.css';
 import { toggleDiscountAction } from './actions';
 import { DiscountForm, type DiscountDraft, type Option } from './DiscountForm';
+import { offersPath } from '@/lib/urls';
 
 export const metadata: Metadata = { title: 'تخفیف‌ها', robots: { index: false } };
 
@@ -100,7 +101,7 @@ export default async function AdminDiscountsPage({
         </h1>
         <nav className={a.links} aria-label="بخش‌های مدیریت تخفیف">
           <Link href="/admin/campaigns">کمپین‌ها</Link>
-          <Link href="/offers">صفحه‌ی تخفیفات ویژه</Link>
+          <Link href={offersPath()}>صفحه‌ی تخفیفات ویژه</Link>
           {editing && <Link href="/admin/discounts">تخفیف جدید</Link>}
         </nav>
         {sp.done === 'on' && <Alert tone="success">تخفیف فعال شد.</Alert>}

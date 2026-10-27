@@ -38,26 +38,26 @@ try {
   // ── 1. slides and links ──
   await home();
   const hrefs = await links.evaluateAll((as) => as.map((a) => a.getAttribute('href')));
-  const want = expected.map((e) => (e[0] === 'p' ? `/${e.slice(2)}` : `/c/${e.slice(2)}`)); // p:<slug_en> → /<slug>, c:<code> → /c/<code>-…
+  const want = expected.map((e) => (e[0] === 'p' ? `/shop/product/${e.slice(2)}` : `/shop/category/${e.slice(2)}`)); // p:<slug_en> → /shop/product/<slug>, c:<code> → /shop/category/<code>-…
   check(
     '1a one slide per DB row with a live destination, in DB order',
     hrefs.length === expected.length &&
       hrefs.every((h, i) =>
-        want[i].startsWith('/c/') ? h.startsWith(want[i] + '-') || h === want[i] : h === want[i],
+        want[i].startsWith('/shop/category/') ? h.startsWith(want[i] + '-') || h === want[i] : h === want[i],
       ),
     `${hrefs.length} slides; first ${hrefs[0]}`,
   );
   check(
     '1b product slides link to the English slug',
-    hrefs.filter((h) => !h.startsWith('/c/')).every((h) => /^\/[a-z0-9-]+-\d+$/.test(h)),
+    hrefs.filter((h) => !h.startsWith('/shop/category/')).every((h) => /^\/shop\/product\/[a-z0-9-]+-\d+$/.test(h)),
     hrefs
-      .filter((h) => !h.startsWith('/c/'))
+      .filter((h) => !h.startsWith('/shop/category/'))
       .slice(0, 2)
       .join(' '),
   );
   check(
     '1c category slides link to the category page',
-    hrefs.filter((h) => h.startsWith('/c/')).every((h) => /^\/c\/\d+-/.test(decodeURIComponent(h))),
+    hrefs.filter((h) => h.startsWith('/shop/category/')).every((h) => /^\/shop\/category\/\d+-/.test(decodeURIComponent(h))),
   );
   check('1d the page still has one h1', (await page.locator('h1').count()) === 1);
 

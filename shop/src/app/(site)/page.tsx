@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getConfig } from '@/lib/config';
-import { productPath } from '@/lib/catalog-urls';
+import { categoriesPath, productPath, searchPath, shopPath, withQuery } from '@/lib/urls';
 import { toAppError } from '@/lib/errors';
 import { formatToman } from '@/lib/format/money';
 import { logger } from '@/lib/logger';
@@ -55,7 +55,7 @@ export default async function HomePage() {
   const bestsellerTabs = bestsellerService.tabs.map((t) => ({
     key: t.key,
     label: t.label,
-    href: t.key === 'all' ? '/shop' : `/shop?group=${t.key}`,
+    href: t.key === 'all' ? shopPath() : withQuery(shopPath(), { group: t.key }),
   }));
   const bestsellersFirst: BestsellerCard[] = (
     await bestsellerService.tab('all').catch((e) => {
@@ -127,11 +127,11 @@ export default async function HomePage() {
                 ایران.
               </p>
               <div className={s.heroCtas}>
-                <Link href="/categories" className={s.ctaPrimary}>
+                <Link href={categoriesPath()} className={s.ctaPrimary}>
                   خرید کنید
                   <Icon name="arrow_back" size={20} />
                 </Link>
-                <Link href="/search?sort=newest" className={s.ctaSecondary}>
+                <Link href={withQuery(searchPath(), { sort: 'newest' })} className={s.ctaSecondary}>
                   جدیدترین‌ها
                 </Link>
               </div>

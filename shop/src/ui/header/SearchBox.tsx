@@ -9,6 +9,7 @@ import { highlight, normalizeSearch } from '@/lib/search/normalize';
 import { cx } from '../cx';
 import { Icon } from '../icon/Icon';
 import s from './SearchBox.module.css';
+import { searchPath } from '@/lib/urls';
 
 /** Shape of GET /api/search/suggest (Suggestions in the catalog service). */
 type Suggestions = {
@@ -41,7 +42,7 @@ const MAX_CHARS = 60;
  * the suggestions, Enter opens the highlighted one, Esc closes the list.
  */
 export function SearchBox({
-  action = '/search',
+  action = searchPath(),
   query,
   compact,
   overlay,

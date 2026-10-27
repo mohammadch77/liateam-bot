@@ -1,4 +1,4 @@
-// Products live at the site root (/<slug>). The reserved first segments (src/lib/reserved-slugs.ts) must cover
+// Products live at /shop/product/<slug>; the old root address redirects. The reserved first segments (src/lib/reserved-slugs.ts) must cover
 // every real top-level route of src/app (route groups unwrapped), and no product address may be one of them.
 // The product part reads the local Docker database (skipped when it is not running). Run: npm run test:unit
 import test from 'node:test';

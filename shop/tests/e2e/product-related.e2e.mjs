@@ -30,7 +30,7 @@ const related = (p) =>
 
 try {
   const d = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-  await d.goto(`${BASE}/${slug}`, { waitUntil: 'load' });
+  await d.goto(`${BASE}/shop/product/${slug}`, { waitUntil: 'load' });
   await d.locator('#related').scrollIntoViewIfNeeded();
   const rd = await related(d);
   check('1a exactly 4 related products', rd.length === 4, String(rd.length));
@@ -60,7 +60,7 @@ try {
       isMobile: w < 768,
       hasTouch: w < 768,
     });
-    await m.goto(`${BASE}/${slug}`, { waitUntil: 'load' });
+    await m.goto(`${BASE}/shop/product/${slug}`, { waitUntil: 'load' });
     await m.locator('#related').scrollIntoViewIfNeeded();
     const rm = await related(m);
     check(

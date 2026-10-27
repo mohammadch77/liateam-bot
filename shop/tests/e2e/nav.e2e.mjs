@@ -119,12 +119,12 @@ try {
     .evaluateAll((as) => as.map((a) => a.getAttribute('href')));
   check(
     '4a hover «برندها» lists the brands in Liateam order',
-    JSON.stringify(inMenu) === JSON.stringify(brands.map((b) => `/brands/${b.slug}`)),
+    JSON.stringify(inMenu) === JSON.stringify(brands.map((b) => `/shop/brand/${b.slug}`)),
     `${inMenu.length}: ${inMenu.join(' ')}`,
   );
   await shot(page, 'nav-brands-menu-1440.png');
 
-  await go('/brands');
+  await go('/shop/brands');
   const cards = await page.locator('main ul a').evaluateAll((as) => as.map((a) => a.getAttribute('href')));
   check(
     '4b /brands shows every brand with products',
@@ -150,8 +150,8 @@ try {
 
   const big = brands.reduce((a, b) => (b.n > a.n ? b : a));
   await Promise.all([
-    page.waitForURL(new RegExp(`/brands/${big.slug}$`)),
-    page.locator(`main a[href="/brands/${big.slug}"]`).click(),
+    page.waitForURL(new RegExp(`/shop/brand/${big.slug}$`)),
+    page.locator(`main a[href="/shop/brand/${big.slug}"]`).click(),
   ]);
   await page.waitForSelector('main [role=status]');
   check(
@@ -165,7 +165,7 @@ try {
     .locator('main form[aria-label="فیلترها"] input[name=cat]')
     .first()
     .getAttribute('value');
-  await go(`/brands/${big.slug}?cat=${cat}`, 'main [role=status]');
+  await go(`/shop/brand/${big.slug}?cat=${cat}`, 'main [role=status]');
   const inCat = Number(
     sql(`with recursive t(code) as (select ${Number(cat)} union select c.code from categories c join t on c.parent_code = t.code)
          select count(*) from product_catalog p join brands b on b.code = p.brand_code
@@ -176,9 +176,9 @@ try {
     (await count()) === inCat,
     `cat ${cat}: ${await count()} / ${inCat}`,
   );
-  await go(`/brands/${big.slug}`);
+  await go(`/shop/brand/${big.slug}`);
   await shot(page, 'brand-1440.png');
-  const missing = await page.request.get(BASE + '/brands/no-such-brand');
+  const missing = await page.request.get(BASE + '/shop/brand/no-such-brand');
   check('4h unknown brand is a real 404', missing.status() === 404);
 
   // ── 5. no «/» shortcut; search itself unchanged ──
@@ -228,11 +228,11 @@ try {
 
   for (const width of [390, 768, 1024, 1440, 1920]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const path of ['/shop', '/brands', `/brands/${big.slug}`]) {
+    for (const path of ['/shop', '/shop/brands', `/shop/brand/${big.slug}`]) {
       await go(path);
       const over = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       check(`6 ${width}px ${path}: no horizontal scroll`, over <= 0, `overflow ${over}px`);
-      if (width === 390 && path !== `/brands/${big.slug}`)
+      if (width === 390 && path !== `/shop/brand/${big.slug}`)
         await shot(page, `${path.slice(1)}-390.png`, { fullPage: false });
     }
   }

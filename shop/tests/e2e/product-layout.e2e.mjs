@@ -28,7 +28,7 @@ const SECTIONS = (v) => ['intro', 'specs', ...(v ? ['video'] : []), 'how', 'faq'
 
 const browser = await chromium.launch();
 const open = async (page, id) => {
-  await page.goto(`${BASE}/${slug(id)}`, { waitUntil: 'load', timeout: 120000 });
+  await page.goto(`${BASE}/shop/product/${slug(id)}`, { waitUntil: 'load', timeout: 120000 });
   await page.waitForSelector('[data-section="reviews"]', { timeout: 60000 });
 };
 const heights = { desktop: {}, mobile: {} };
@@ -280,7 +280,7 @@ try {
     await m.locator('[data-section="faq"]').evaluate((e) => e.open),
   );
   // phone: the video is its own accordion section, and a #video link opens it
-  await m.goto(`${BASE}/${slug(ids.rich)}#video`, { waitUntil: 'load', timeout: 120000 });
+  await m.goto(`${BASE}/shop/product/${slug(ids.rich)}#video`, { waitUntil: 'load', timeout: 120000 });
   await m
     .waitForFunction(() => document.getElementById('video')?.open === true, null, { timeout: 15000 })
     .catch(() => {});

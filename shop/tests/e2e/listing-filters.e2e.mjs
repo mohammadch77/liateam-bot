@@ -25,7 +25,7 @@ const toman = (s) => Number(toLatin(s).replace(/[^\d]/g, ''));
 try {
   const home = await (await fetch(`${BASE}/`)).text();
   const firstHref = (prefix) => new RegExp(`href="(${prefix}[^"#?]+)"`).exec(home)?.[1];
-  const listings = { shop: '/shop', category: firstHref('/c/'), brand: firstHref('/brands/') };
+  const listings = { shop: '/shop', category: firstHref('/shop/category/'), brand: firstHref('/shop/brand/') };
 
   for (const [name, path] of Object.entries(listings)) {
     await page.goto(`${BASE}${path}`, { waitUntil: 'load' });
@@ -82,7 +82,7 @@ try {
     await m.locator('details[open] [data-price-filter]').isVisible(),
   );
 
-  await m.goto(`${BASE}/categories`, { waitUntil: 'load' });
+  await m.goto(`${BASE}/shop/categories`, { waitUntil: 'load' });
   const cards = await m
     .locator('[data-category-card]')
     .evaluateAll((els) =>
@@ -99,14 +99,14 @@ try {
     (await m.locator('[data-category-group]').count()) ===
       (await m.getByText('مشاهده‌ی همه‌ی محصولات').count()),
   );
-  await m.goto(`${BASE}/brands`, { waitUntil: 'load' });
+  await m.goto(`${BASE}/shop/brands`, { waitUntil: 'load' });
   const bx = await m
-    .locator('main li > a[href^="/brands/"]') // the brand cards (not the breadcrumb)
+    .locator('main li > a[href^="/shop/brand/"]') // the brand cards (not the breadcrumb)
     .evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().left)));
   check('2d brands: 2 columns on a phone', columns(bx) === 2, JSON.stringify(bx));
 
   // a sub-category: the first category card without sub-categories of its own
-  await m.goto(`${BASE}/c/172`, { waitUntil: 'load' });
+  await m.goto(`${BASE}/shop/category/172`, { waitUntil: 'load' });
   await m.locator('main article').first().waitFor();
   const imgs = await m.locator('main article img').count();
   check(

@@ -1,9 +1,9 @@
 /**
- * Products live at the site root (/<slug>), next to the shop's own top-level pages. These first path segments
- * belong to the shop and can never be a product address. Every top-level folder of src/app (route groups
- * unwrapped) must be listed here — tests/unit/reserved-slugs.test.mjs checks that against the folders and against
- * every product slug in the database. Next.js serves a static segment before the dynamic [slug] anyway; this list
- * makes sure a product never gets an address that would be shadowed by one.
+ * Products now live at /shop/product/<slug>; the old root address /<slug> only redirects there (src/proxy.ts via
+ * legacyRoute in src/lib/urls.ts). These first path segments belong to the shop itself — its pages, its old section
+ * prefixes (/p, /c, /brands, … which redirect under /shop) and its files — and are never looked up as a product.
+ * Every top-level folder of src/app (route groups unwrapped) must be listed here — tests/unit/reserved-slugs.test.ts
+ * checks that against the folders and against every product slug in the database.
  */
 export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   // pages
@@ -15,8 +15,11 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'c',
   'cart',
   'categories',
+  'brand',
+  'category',
   'checkout',
   'contact',
+  'faq',
   'help',
   'legal',
   'login',
@@ -24,8 +27,9 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'newsletter',
   'offers',
   'orders',
-  'p', // the old product prefix: /p/… redirects permanently to /<slug>
+  'p', // the old product prefix: /p/… redirects permanently to /shop/product/<slug>
   'packs',
+  'product',
   'register',
   'search',
   'shop',

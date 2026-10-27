@@ -8,7 +8,7 @@ import { formatToman } from '@/lib/format/money';
 import { toFaDigits } from '@/lib/format/number';
 import { packPath, packService } from '@/server/services/pack.service';
 import { Breadcrumb, Container, Icon, Price } from '@/ui';
-import { CatalogUnavailable } from '../../../_catalog/CatalogListing';
+import { CatalogUnavailable } from '@/app/(site)/_catalog/CatalogListing';
 import s from './pack.module.css';
 
 type Props = { params: Promise<{ collection: string; variant: string }> };

@@ -4,7 +4,7 @@
 import { BASE, check, chromium, finish, SHOTS, shot } from './_harness.mjs';
 
 // a product page: /<english-slug>-<id> or /<id>-<Persian words> at the site root
-const PRODUCT_URL = /^https?:\/\/[^/]+\/(?:[a-z0-9-]+-\d+|\d+(?:-[^/?#]*)?)(?:[?#].*)?$/;
+const PRODUCT_URL = /^https?:\/\/[^/]+\/shop\/product\/(?:[a-z0-9-]+-\d+|\d+(?:-[^/?#]*)?)(?:[?#].*)?$/;
 
 const b = await chromium.launch();
 
@@ -116,7 +116,7 @@ for (const [q, expect] of [
   await p.goto(BASE + '/', { waitUntil: 'load' });
   await box.fill(q);
   await p.keyboard.press('Enter');
-  await p.waitForURL(/\/search\?q=/, { timeout: 30000 });
+  await p.waitForURL(/\/shop\/search\?q=/, { timeout: 30000 });
   await p.waitForSelector('main [role=status], main [class*=empty]', { timeout: 60000 }).catch(() => {});
   const names = await p.locator('main article h3, main [class*=card] [class*=name]').allInnerTexts();
   const count = await p
@@ -132,7 +132,7 @@ for (const [q, expect] of [
   if (q === 'رمل') await shot(p, 'results-desktop.png', { fullPage: false });
 }
 // sort still works on a search
-await p.goto(`${BASE}/search?q=${encodeURIComponent('سرم')}&sort=price_asc`, { waitUntil: 'load' });
+await p.goto(`${BASE}/shop/search?q=${encodeURIComponent('سرم')}&sort=price_asc`, { waitUntil: 'load' });
 await p.waitForSelector('main [role=status]', { timeout: 60000 }).catch(() => {});
 const prices = (await p.locator('main [class*=amount]').allInnerTexts()).map((t) =>
   Number(t.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/\D/g, '')),

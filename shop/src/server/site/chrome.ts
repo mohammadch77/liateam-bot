@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger';
 import { catalogService } from '@/server/services/catalog.service';
 import { pricingService } from '@/server/services/pricing.service';
 import type { BottomNavItem, FooterProps, HeaderProps, NavItem } from '@/ui';
+import { brandsPath, categoriesPath, offersPath, searchPath, shopPath } from '@/lib/urls';
 
 /**
  * Header / footer / tab-bar data for every storefront page. Brand and contact details come from config (the
@@ -65,7 +66,7 @@ export async function headerBrands(): Promise<NavItem[]> {
  * drawer. About / contact / FAQ are placeholders until phase 3.
  */
 const PAGES = [
-  { label: 'تخفیفات ویژه', href: '/offers' },
+  { label: 'تخفیفات ویژه', href: offersPath() },
   { label: 'همکاری در فروش', href: '/affiliate' },
   { label: 'درباره ما', href: '/about' },
   { label: 'تماس با ما', href: '/contact' },
@@ -88,10 +89,10 @@ export function headerProps(
   return {
     brand: { name: c.BRAND_NAME, latin: c.BRAND_LATIN },
     categories,
-    allCategoriesHref: '/categories',
-    shopHref: '/shop',
+    allCategoriesHref: categoriesPath(),
+    shopHref: shopPath(),
     brands,
-    brandsHref: '/brands',
+    brandsHref: brandsPath(),
     pages: PAGES,
     cartCount: 0,
     signedIn: user !== null,
@@ -153,8 +154,8 @@ export function footerProps(): Omit<FooterProps, 'seals'> {
 export function bottomNavItems(user: CurrentUser | null): BottomNavItem[] {
   return [
     { icon: 'home', label: 'خانه', href: '/' },
-    { icon: 'grid_view', label: 'دسته‌ها', href: '/categories' },
-    { icon: 'search', label: 'جست‌وجو', href: '/search', openSearch: true },
+    { icon: 'grid_view', label: 'دسته‌ها', href: categoriesPath() },
+    { icon: 'search', label: 'جست‌وجو', href: searchPath(), openSearch: true },
     { icon: 'shopping_bag', label: 'سبد', href: LINKS.cart },
     { icon: 'person', label: user ? 'حساب' : 'ورود', href: user ? LINKS.account : LINKS.login },
   ];

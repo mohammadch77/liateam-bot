@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Carousel, Icon } from '@/ui';
 import s from './home-sections.module.css';
+import { brandsPath } from '@/lib/urls';
 
 export type BrandTile = {
   code: number;
@@ -44,7 +45,7 @@ export function BrandsRow({ brands }: { brands: BrandTile[] }) {
         <h2 id="brands-title" className={s.title}>
           برندها
         </h2>
-        <Link href="/brands" className={s.more}>
+        <Link href={brandsPath()} className={s.more}>
           همه‌ی برندها
           <Icon name="arrow_back" size={18} />
         </Link>

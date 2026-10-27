@@ -6,12 +6,13 @@ import { toAppError } from '@/lib/errors';
 import { formatNumber } from '@/lib/format/number';
 import { catalogService } from '@/server/services/catalog.service';
 import { Breadcrumb, Container, Icon } from '@/ui';
-import { CatalogUnavailable } from '../_catalog/CatalogListing';
-import s from '../_catalog/catalog.module.css';
+import { CatalogUnavailable } from '@/app/(site)/_catalog/CatalogListing';
+import s from '@/app/(site)/_catalog/catalog.module.css';
 import c from './categories.module.css';
+import { categoriesPath } from '@/lib/urls';
 
 export async function generateMetadata(): Promise<Metadata> {
-  return { title: `دسته‌بندی کالاها | ${getConfig().BRAND_NAME}` };
+  return { title: `دسته‌بندی کالاها | ${getConfig().BRAND_NAME}`, alternates: { canonical: categoriesPath() } };
 }
 
 type Cat = Awaited<ReturnType<typeof catalogService.categoriesWithCovers>>[number];

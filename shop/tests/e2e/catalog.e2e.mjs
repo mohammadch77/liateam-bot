@@ -11,10 +11,10 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const go = async (path) => {
   const res = await page.goto(BASE + path, { waitUntil: 'load', timeout: 120000 });
   // listing pages stream behind a skeleton: wait for the real content (result count or an empty state)
-  if (res?.ok() && /^\/(search|c\/)/.test(path)) {
+  if (res?.ok() && /^\/shop\/(search|category\/)/.test(path)) {
     await page.waitForSelector('main [role=status], main [class*=empty]', { timeout: 60000 }).catch(() => {});
   }
-  if (res?.ok() && /^\/[^/]+$/.test(path) && path !== '/shop' && path !== '/offers') {
+  if (res?.ok() && /^\/shop\/product\/[^/]+$/.test(path)) {
     await page.waitForSelector('[class*=buyBox]', { timeout: 60000 }).catch(() => {});
   }
   return res;
@@ -47,7 +47,7 @@ check(
 );
 
 // ── 2. category: filters, sort, pagination ──
-await go('/c/173');
+await go('/shop/category/173');
 const catUrl = page.url(); // final URL after the canonical redirect
 const catName = await page.locator('main h1').textContent();
 const catTotal = Number(toLatin((await page.locator('main [role=status]').textContent()) ?? ''));
@@ -98,7 +98,7 @@ check('2g «فقط موجود» filter hides out-of-stock', outOnStockFilter ===
 // ── 3. PDP price and stock ──
 const pid = Number(sql(`select id from product_catalog where ${VISIBLE} and stock >= 5 order by id limit 1`));
 const dbPrice = Number(sql(`select price from product_catalog where id=${pid}`));
-await go(`/${pid}`);
+await go(`/shop/product/${pid}`);
 const buyBox = () => page.locator('[class*=buyBox]');
 const shown = (await buyBox().locator('[class*=amount]').first().textContent()).trim();
 check(
@@ -115,16 +115,16 @@ check(
 );
 
 // ── 4. search ──
-await go('/search?q=' + encodeURIComponent('ريمل')); // Arabic yeh, as some keyboards type it
+await go('/shop/search?q=' + encodeURIComponent('ريمل')); // Arabic yeh, as some keyboards type it
 const searchNames = await page.locator('main article h3').allTextContents();
 check(
   '4a search by name (Arabic ي matches Persian ی)',
   searchNames.length > 0 && searchNames.every((n) => n.includes('ریمل')),
   `${searchNames.length} results`,
 );
-await go('/search?q=' + encodeURIComponent('qqzzxx'));
+await go('/shop/search?q=' + encodeURIComponent('qqzzxx'));
 check('4b no results → empty state', (await page.getByText('نتیجه‌ای برای').count()) === 1);
-await go('/search?q=' + encodeURIComponent('شامپو') + '&sort=price_asc&inStock=1');
+await go('/shop/search?q=' + encodeURIComponent('شامپو') + '&sort=price_asc&inStock=1');
 prices = await cardPrices();
 check(
   '4c search keeps filters and sort',
@@ -136,12 +136,12 @@ const orig = sql(`select price || ',' || stock from supplier_products where id=$
   .split(',')
   .map(Number);
 sql(`update supplier_products set price = ${orig[0] + 120000}, stock = 0 where id=${pid}`);
-await go(`/${pid}`);
+await go(`/shop/product/${pid}`);
 const updated =
   (await buyBox().locator('[class*=amount]').count()) === 0 &&
   (await page.getByText('این کالا در حال حاضر موجود نیست').count()) === 1;
 sql(`update supplier_products set stock = ${orig[1]} where id=${pid}`);
-await go(`/${pid}`);
+await go(`/shop/product/${pid}`);
 const newShown = (await buyBox().locator('[class*=amount]').first().textContent()).trim();
 check(
   '5 DB price/stock change appears on the next page view',
@@ -155,7 +155,7 @@ const oos = Number(
   sql(`select id from product_catalog where ${VISIBLE} and stock = 0 order by id limit 1`) || 0,
 );
 if (oos) {
-  await go(`/${oos}`);
+  await go(`/shop/product/${oos}`);
   check(
     '6a out-of-stock product: visible, labelled, cannot be bought',
     (await page.locator('main').getByText('ناموجود').count()) >= 1 &&
@@ -163,9 +163,9 @@ if (oos) {
   );
 } else check('6a out-of-stock product exists to test', false);
 sql(`update supplier_products set price = 0 where id=${pid}`);
-const zero = await go(`/${pid}`);
+const zero = await go(`/shop/product/${pid}`);
 await go(
-  '/search?q=' +
+  '/shop/search?q=' +
     encodeURIComponent(await sql(`select split_part(name,' ',1) from supplier_products where id=${pid}`)),
 );
 const listed = await page.locator(`main a[href^="/${pid}-"], main a[href$="-${pid}"]`).count();
@@ -178,14 +178,14 @@ check(
 const notSellable = Number(
   sql(`select id from supplier_products where not is_sellable and price > 0 limit 1`) || 0,
 );
-const ns = await go(`/${notSellable}`);
+const ns = await go(`/shop/product/${notSellable}`);
 check('6c not-sellable (excluded category) product → 404', ns.status() === 404);
 
 // ── an old/short link with filters keeps them through the canonical redirect ──
-const kept = await fetch(BASE + '/c/173?sort=price_asc&inStock=1', { redirect: 'manual' });
+const kept = await fetch(BASE + '/shop/category/173?sort=price_asc&inStock=1', { redirect: 'manual' });
 check(
   'canonical redirect keeps the query (sort, filters)',
-  kept.status === 308 && (kept.headers.get('location') ?? '').endsWith('?sort=price_asc&inStock=1'),
+  kept.status === 301 && (kept.headers.get('location') ?? '').endsWith('?sort=price_asc&inStock=1'),
   decodeURIComponent(kept.headers.get('location') ?? ''),
 );
 
@@ -198,11 +198,11 @@ check(
   title.includes('آرایشی') && !!canonical,
   `${title} | ${decodeURIComponent(canonical ?? '')}`,
 );
-const r308 = await fetch(`${BASE}/${pid}`, { redirect: 'manual' });
+const r308 = await fetch(`${BASE}/shop/product/${pid}`, { redirect: 'manual' });
 check(
-  'SEO: /<id> without slug → 301 to the English slug at the root',
+  'SEO: /shop/product/<id> without slug → 301 to the English slug',
   r308.status === 301 &&
-    /^\/[a-z0-9-]+-\d+$/.test(new URL(r308.headers.get('location') ?? '/', BASE).pathname),
+    /^\/shop\/product\/[a-z0-9-]+-\d+$/.test(new URL(r308.headers.get('location') ?? '/', BASE).pathname),
   decodeURIComponent(r308.headers.get('location') ?? ''),
 );
 

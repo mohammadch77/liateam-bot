@@ -61,7 +61,7 @@ try {
   );
   check(
     '3d «مشاهده محصولات» → the pack page',
-    /^\/packs\//.test((await routine.getByText('مشاهده محصولات').getAttribute('href')) ?? ''),
+    /^\/shop\/packs\//.test((await routine.getByText('مشاهده محصولات').getAttribute('href')) ?? ''),
   );
   await routine.locator('[role=tab]').nth(1).focus();
   await d.keyboard.press('ArrowLeft');

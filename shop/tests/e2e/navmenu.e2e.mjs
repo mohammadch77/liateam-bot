@@ -142,7 +142,7 @@ try {
 
   // ── 3. empty sub-category (the API answers with no products) ──
   await page.route('**/api/nav/products?cat=153*', (r) =>
-    r.fulfill({ json: { items: [], more: false, allHref: '/c/153' } }),
+    r.fulfill({ json: { items: [], more: false, allHref: '/shop/category/153' } }),
   );
   await page.reload({ waitUntil: 'load' });
   await page

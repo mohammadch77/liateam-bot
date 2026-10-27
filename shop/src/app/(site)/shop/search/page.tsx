@@ -3,9 +3,10 @@ import { getConfig } from '@/lib/config';
 import { toAppError } from '@/lib/errors';
 import { catalogService, parseListParams, type RawSearchParams } from '@/server/services/catalog.service';
 import { Breadcrumb, Button, Container, TextField } from '@/ui';
-import { CatalogListing, CatalogUnavailable, NoResults } from '../_catalog/CatalogListing';
-import { redirectPastEnd } from '../_catalog/listing-url';
-import s from '../_catalog/catalog.module.css';
+import { CatalogListing, CatalogUnavailable, NoResults } from '@/app/(site)/_catalog/CatalogListing';
+import { redirectPastEnd } from '@/app/(site)/_catalog/listing-url';
+import s from '@/app/(site)/_catalog/catalog.module.css';
+import { searchPath } from '@/lib/urls';
 
 type Props = { searchParams: Promise<RawSearchParams> };
 
@@ -35,7 +36,7 @@ export default async function SearchPage({ searchParams }: Props) {
   }
 
   const topLevel = data.categories.filter((c) => c.parentCode === null);
-  redirectPastEnd('/search', data.listing);
+  redirectPastEnd(searchPath(), data.listing);
 
   return (
     <Container className={s.page}>
@@ -46,7 +47,7 @@ export default async function SearchPage({ searchParams }: Props) {
         <h1 className={s.title}>{browseAll ? 'همه‌ی محصولات' : `نتایج «${params.q}»`}</h1>
       </header>
 
-      <form action="/search" method="get" role="search" className={s.searchForm}>
+      <form action={searchPath()} method="get" role="search" className={s.searchForm}>
         <TextField
           name="q"
           type="search"
@@ -64,7 +65,7 @@ export default async function SearchPage({ searchParams }: Props) {
       </form>
 
       <CatalogListing
-        basePath="/search"
+        basePath={searchPath()}
         listing={data.listing}
         filterCategories={topLevel}
         filterTitle="دسته‌بندی"
@@ -75,7 +76,7 @@ export default async function SearchPage({ searchParams }: Props) {
             hint="املای عبارت را بررسی کنید یا کلمه‌ی کوتاه‌تری جست‌وجو کنید."
             clearHref={
               params.cat || params.inStock
-                ? `/search${params.q ? `?q=${encodeURIComponent(params.q)}` : ''}`
+                ? `${searchPath()}${params.q ? `?q=${encodeURIComponent(params.q)}` : ''}`
                 : undefined
             }
           />

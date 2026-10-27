@@ -33,7 +33,7 @@ for (const name of ['iPhone 8', 'iPhone 13']) {
     .catch(() => {});
   check(
     `3c ${name}: tapping a suggestion opens the product page`,
-    /^\/[a-z0-9-]+-\d+$/.test(new URL(p.url()).pathname),
+    /^\/shop\/product\/[a-z0-9-]+-\d+$/.test(new URL(p.url()).pathname),
     p.url(),
   );
   check(
@@ -45,8 +45,8 @@ for (const name of ['iPhone 8', 'iPhone 13']) {
   await p.locator('nav[aria-label="ناوبری اصلی"] [data-open-search]').tap();
   await p.locator('[data-search-overlay] input[role=combobox]').fill('سرم');
   await p.keyboard.press('Enter');
-  await p.waitForURL(/\/search\?q=/, { timeout: 30000 });
-  check(`3e ${name}: Enter → /search?q=…`, decodeURIComponent(p.url()).includes('/search?q=سرم'), p.url());
+  await p.waitForURL(/\/shop\/search\?q=/, { timeout: 30000 });
+  check(`3e ${name}: Enter → /search?q=…`, decodeURIComponent(p.url()).includes('/shop/search?q=سرم'), p.url());
   await ctx.close();
 }
 await wk.close();

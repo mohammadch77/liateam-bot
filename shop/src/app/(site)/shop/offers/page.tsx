@@ -11,8 +11,10 @@ import {
   type RawSearchParams,
 } from '@/server/services/catalog.service';
 import { Breadcrumb, Container, EmptyState, Pagination, ProductCard, ProductGrid } from '@/ui';
-import { CatalogUnavailable } from '../_catalog/CatalogListing';
-import s from '../_catalog/catalog.module.css';
+import { CatalogUnavailable } from '@/app/(site)/_catalog/CatalogListing';
+import s from '@/app/(site)/_catalog/catalog.module.css';
+import { offersPath } from '@/lib/urls';
+import { listingSeo } from '@/lib/urls';
 
 type Props = { searchParams: Promise<RawSearchParams> };
 
@@ -22,12 +24,14 @@ const params = z.object({
   campaign: z.coerce.number().int().positive().optional().catch(undefined),
 });
 
-export async function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const seo = listingSeo(offersPath(), await searchParams);
   const brand = getConfig().BRAND_NAME;
   return {
     title: `تخفیفات ویژه | ${brand}`,
     description: `محصولات آرایشی و بهداشتی اصل با تخفیف ویژه در ${brand}؛ قیمت قبل و بعد از تخفیف، ارسال به سراسر ایران.`,
-    alternates: { canonical: '/offers' },
+    alternates: { canonical: seo.canonical },
+    ...(seo.robots ? { robots: seo.robots } : {}),
   };
 }
 
@@ -37,7 +41,7 @@ function hrefFor(q: { sort: OfferSort; page?: number; campaign?: number }): stri
   if (q.campaign !== undefined) sp.set('campaign', String(q.campaign));
   if (q.page && q.page > 1) sp.set('page', String(q.page));
   const qs = sp.toString();
-  return qs ? `/offers?${qs}` : '/offers';
+  return qs ? `${offersPath()}?${qs}` : offersPath();
 }
 
 /** «تخفیفات ویژه»: every product with a running discount; sort, campaign filter and paging work without JavaScript. */

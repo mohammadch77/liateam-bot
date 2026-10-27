@@ -3,6 +3,7 @@ import type { ProductView } from '@/server/services/catalog.service';
 import { Carousel, Icon, ProductCard } from '@/ui';
 import { Countdown } from './Countdown';
 import s from './offers-rail.module.css';
+import { offersPath } from '@/lib/urls';
 
 /**
  * Home «تخفیفات ویژه» (Homepage.dc.html «پیشنهاد شگفت‌انگیز»): a rail of up to 8 discounted products, the
@@ -35,7 +36,7 @@ export function OffersRail({
         {campaign && items.length > 0 && (
           <Countdown endsAt={campaign.endsAt} label={`زمان باقی‌مانده تا پایان ${campaign.title}`} />
         )}
-        <Link href="/offers" className={s.all}>
+        <Link href={offersPath()} className={s.all}>
           مشاهده همه
           <Icon name="arrow_back" size={18} />
         </Link>

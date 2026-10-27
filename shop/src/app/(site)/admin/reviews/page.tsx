@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { productPath } from '@/lib/catalog-urls';
+import { productPath } from '@/lib/urls';
 import { toFaDigits } from '@/lib/format/number';
 import { requireRole } from '@/server/auth/guards';
 import { reviewService } from '@/server/services/review.service';

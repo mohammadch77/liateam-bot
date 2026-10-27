@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { catalogService } from '@/server/services/catalog.service';
-import { enforceCanonical } from '../../_catalog/canonical';
+import { enforceCanonical } from '@/app/(site)/_catalog/canonical';
 
 export default async function CategoryLayout({
   children,

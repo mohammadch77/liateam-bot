@@ -6,10 +6,12 @@ import { toAppError } from '@/lib/errors';
 import { formatNumber } from '@/lib/format/number';
 import { catalogService, parseListParams, type RawSearchParams } from '@/server/services/catalog.service';
 import { Breadcrumb, Container } from '@/ui';
-import { CatalogListing, CatalogUnavailable, NoResults } from '../../_catalog/CatalogListing';
-import { redirectPastEnd } from '../../_catalog/listing-url';
-import s from '../../_catalog/catalog.module.css';
-import b from '../brands.module.css';
+import { CatalogListing, CatalogUnavailable, NoResults } from '@/app/(site)/_catalog/CatalogListing';
+import { redirectPastEnd } from '@/app/(site)/_catalog/listing-url';
+import s from '@/app/(site)/_catalog/catalog.module.css';
+import b from '../../brands/brands.module.css';
+import { brandsPath } from '@/lib/urls';
+import { listingSeo } from '@/lib/urls';
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<RawSearchParams> };
 
@@ -30,14 +32,16 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const data = await loadBrand(slug, queryString(await searchParams)).catch(() => null);
   if (!data) return { title: 'برند' };
   const site = getConfig().BRAND_NAME;
+  const seo = listingSeo(data.brand.href, await searchParams);
   return {
     title: `محصولات ${data.brand.name} | ${site}`,
     description: `${formatNumber(data.brand.count)} محصول اصل ${data.brand.name} با قیمت به‌روز در ${site}.`,
-    alternates: { canonical: data.brand.href },
+    alternates: { canonical: seo.canonical },
+    ...(seo.robots ? { robots: seo.robots } : {}),
   };
 }
 
-/** /brands/<slug>: one brand's products (slug = the brand's Latin slug the sync bot assigns), filterable. */
+/** /shop/brand/<slug>: one brand's products (slug = the brand's Latin slug the sync bot assigns), filterable. */
 export default async function BrandPage({ params, searchParams }: Props) {
   const { slug } = await params;
   if (!SLUG.test(slug)) notFound();
@@ -60,7 +64,7 @@ export default async function BrandPage({ params, searchParams }: Props) {
   return (
     <Container className={s.page}>
       <Breadcrumb
-        items={[{ label: 'خانه', href: '/' }, { label: 'برندها', href: '/brands' }, { label: brand.name }]}
+        items={[{ label: 'خانه', href: '/' }, { label: 'برندها', href: brandsPath() }, { label: brand.name }]}
       />
       <header className={b.brandHead}>
         {brand.logoUrl && (

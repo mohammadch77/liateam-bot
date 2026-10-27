@@ -3,14 +3,15 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { getConfig } from '@/lib/config';
-import { idFromSlug } from '@/lib/catalog-urls';
+import { idFromSlug } from '@/lib/urls';
 import { toAppError } from '@/lib/errors';
 import { formatNumber } from '@/lib/format/number';
 import { catalogService, parseListParams, type RawSearchParams } from '@/server/services/catalog.service';
 import { Breadcrumb, Container } from '@/ui';
-import { CatalogListing, CatalogUnavailable, NoResults } from '../../_catalog/CatalogListing';
-import { redirectPastEnd } from '../../_catalog/listing-url';
-import s from '../../_catalog/catalog.module.css';
+import { CatalogListing, CatalogUnavailable, NoResults } from '@/app/(site)/_catalog/CatalogListing';
+import { redirectPastEnd } from '@/app/(site)/_catalog/listing-url';
+import s from '@/app/(site)/_catalog/catalog.module.css';
+import { listingSeo } from '@/lib/urls';
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<RawSearchParams> };
 
@@ -29,10 +30,12 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const data = await loadCategory(code, queryString(await searchParams)).catch(() => null);
   if (!data) return { title: 'دسته‌بندی' };
   const brand = getConfig().BRAND_NAME;
+  const seo = listingSeo(data.category.href, await searchParams);
   return {
     title: `خرید ${data.category.name} | ${brand}`,
     description: `${formatNumber(data.category.count)} محصول ${data.category.name} اصل با قیمت به‌روز در ${brand}.`,
-    alternates: { canonical: data.category.href },
+    alternates: { canonical: seo.canonical },
+    ...(seo.robots ? { robots: seo.robots } : {}),
   };
 }
 

@@ -6,18 +6,22 @@ import { toAppError } from '@/lib/errors';
 import { formatNumber } from '@/lib/format/number';
 import { catalogService, parseListParams, type RawSearchParams } from '@/server/services/catalog.service';
 import { Breadcrumb, Container } from '@/ui';
-import { CatalogListing, CatalogUnavailable, NoResults } from '../_catalog/CatalogListing';
-import { redirectPastEnd } from '../_catalog/listing-url';
-import s from '../_catalog/catalog.module.css';
+import { CatalogListing, CatalogUnavailable, NoResults } from '@/app/(site)/_catalog/CatalogListing';
+import { redirectPastEnd } from '@/app/(site)/_catalog/listing-url';
+import s from '@/app/(site)/_catalog/catalog.module.css';
+import { shopPath } from '@/lib/urls';
+import { listingSeo } from '@/lib/urls';
 
 type Props = { searchParams: Promise<RawSearchParams> };
 
-export async function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const seo = listingSeo(shopPath(), await searchParams);
   const brand = getConfig().BRAND_NAME;
   return {
     title: `فروشگاه | ${brand}`,
     description: `همه‌ی محصولات آرایشی، بهداشتی و مراقبتی اصل ${brand} با قیمت به‌روز و ارسال به سراسر ایران.`,
-    alternates: { canonical: '/shop' },
+    alternates: { canonical: seo.canonical },
+    ...(seo.robots ? { robots: seo.robots } : {}),
   };
 }
 
@@ -36,7 +40,7 @@ export default async function ShopPage({ searchParams }: Props) {
     );
   }
   const topLevel = data.categories.filter((c) => c.parentCode === null);
-  redirectPastEnd('/shop', data.listing);
+  redirectPastEnd(shopPath(), data.listing);
   // «مشاهده همه» of a home «پرفروش‌ترین‌ها» tab: the tab's categories
   const group = !params.cat && params.group ? BESTSELLER_TABS.find((t) => t.key === params.group) : undefined;
 
@@ -59,7 +63,7 @@ export default async function ShopPage({ searchParams }: Props) {
       )}
 
       <CatalogListing
-        basePath="/shop"
+        basePath={shopPath()}
         listing={data.listing}
         filterCategories={topLevel}
         filterTitle="دسته‌بندی"
@@ -67,7 +71,7 @@ export default async function ShopPage({ searchParams }: Props) {
           <NoResults
             title="محصولی با این فیلترها نیست"
             hint="«فقط موجود» را بردارید یا دسته‌ی دیگری انتخاب کنید."
-            clearHref={params.cat || params.inStock ? '/shop' : undefined}
+            clearHref={params.cat || params.inStock ? shopPath() : undefined}
           />
         }
       />

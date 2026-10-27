@@ -48,7 +48,7 @@ const go = async (path) => {
 const tabs = () => page.locator('nav[aria-label="بخش‌های صفحه‌ی محصول"] a').allTextContents();
 
 // ── 1. all sections, in Liateam's order ──
-await go(`/${slugOf(full)}`);
+await go(`/shop/product/${slugOf(full)}`);
 
 // JSON-LD: valid JSON (no raw «<» that could end the block), the product's name, the shown price (schema.org: rial)
 const ldText = await page.locator('script[type="application/ld+json"]').first().textContent();
@@ -146,7 +146,7 @@ check(
 await shot(page, 'product-desktop.png', { fullPage: true });
 
 // ── 2. empty sections keep their tab and show an empty state (one template for every product) ──
-await go(`/${slugOf(bare)}`);
+await go(`/shop/product/${slugOf(bare)}`);
 const t2 = await tabs();
 check(
   '2a no FAQ → the FAQ tab stays, with «پرسشی … ثبت نشده» + contact link; no video → a photo instead',
@@ -162,7 +162,7 @@ const noHow = Number(
   ) || 0,
 );
 if (noHow) {
-  await go(`/${slugOf(noHow)}`);
+  await go(`/shop/product/${slugOf(noHow)}`);
   check(
     '2c how-to-use empty or only «.» → tab stays, «اطلاعات تکمیلی … ثبت نشده است»',
     (await tabs()).includes('نحوه مصرف') &&
@@ -174,35 +174,37 @@ const noReviews = Number(
          and not exists (select 1 from product_reviews r where r.product_id = p.id) limit 1`) || 0,
 );
 if (noReviews) {
-  await go(`/${slugOf(noReviews)}`);
+  await go(`/shop/product/${slugOf(noReviews)}`);
   check('2d no reviews → «اولین نفر باشید»', (await page.getByText('اولین نفر باشید').count()) === 1);
 }
 
 // ── 3. nothing internal on the page ──
-const html = await (await fetch(`${BASE}/${slugOf(full)}`)).text();
+const html = await (await fetch(`${BASE}/shop/product/${slugOf(full)}`)).text();
 const cost = one(`select cost_price from supplier_products where id = ${full}`);
 check(
   '3 no cost price on the page (value or field name)',
   !html.includes(cost) && !/cost_price|payable_price|production_price/.test(html),
 );
 
-// ── 4. addresses: old /p/… links, slug_fa, /<id> → 301 → /<slug_en> at the root ──
+// ── 4. addresses: old /p/… and root links, slug_fa, /<id> → 301 → /shop/product/<slug_en> ──
 const name = one(`select name from product_catalog where id = ${full}`);
 const fa = `${full}-${name
   .replace(/[^\p{L}\p{N}]+/gu, '-')
   .replace(/^-|-$/g, '')
   .slice(0, 80)}`;
 for (const [label, path] of [
-  ['old Persian link', `/${encodeURI(fa)}`],
-  ['bare id', `/${full}`],
-  ['outdated English slug', `/some-old-name-${full}`],
+  ['old root Persian link', `/${encodeURI(fa)}`],
+  ['old root English slug', `/${slugOf(full)}`],
+  ['bare id', `/shop/product/${full}`],
+  ['Persian slug', `/shop/product/${encodeURI(fa)}`],
+  ['outdated English slug', `/shop/product/some-old-name-${full}`],
   ['old /p/ address', `/p/${slugOf(full)}`],
   ['old /p/ Persian link', `/p/${encodeURI(fa)}`],
 ]) {
   const r = await fetch(`${BASE}${path}?sort=price_asc`, { redirect: 'manual' });
   check(
     `4 ${label} → 301 to the English slug (query kept)`,
-    r.status === 301 && r.headers.get('location')?.endsWith(`/${slugOf(full)}?sort=price_asc`),
+    r.status === 301 && r.headers.get('location')?.endsWith(`/shop/product/${slugOf(full)}?sort=price_asc`),
     `${r.status} ${r.headers.get('location')}`,
   );
 }
@@ -211,13 +213,13 @@ const canonical = await page.evaluate(() =>
 );
 check(
   '4 canonical link = the English slug of the page',
-  /^\/[a-z0-9-]+-\d+$/.test(new URL(canonical ?? '/', BASE).pathname) &&
+  /^\/shop\/product\/[a-z0-9-]+-\d+$/.test(new URL(canonical ?? '/', BASE).pathname) &&
     new URL(canonical ?? '/', BASE).pathname === new URL(page.url()).pathname,
   canonical,
 );
 
 // ── 5. review form: guests → login; signed in → pending, hidden until approved ──
-await go(`/${slugOf(bare)}`);
+await go(`/shop/product/${slugOf(bare)}`);
 check(
   '5a guest: «ورود و ثبت دیدگاه» instead of the form',
   (await page.locator('#reviews a[href^="/login"]').count()) === 1 &&
@@ -231,7 +233,7 @@ const ctx = await browser.newContext({
 const m = await ctx.newPage();
 await signIn(m, phone);
 const userId = one(`select id from ${SCHEMA}.users where phone = '${phone}'`);
-await m.goto(`${BASE}/${slugOf(bare)}#reviews`, { waitUntil: 'load' });
+await m.goto(`${BASE}/shop/product/${slugOf(bare)}#reviews`, { waitUntil: 'load' });
 const form = m.locator('#reviews form');
 const send = async () =>
   Promise.all([
@@ -286,7 +288,7 @@ check(
 sql(`update ${SCHEMA}.site_reviews set status = 'approved', moderated_at = now() where user_id = ${userId}`);
 await m.reload({ waitUntil: 'load' });
 check('5h approved → shown on the page', (await m.getByText('واقعاً راضی').count()) === 1);
-const anon = await fetch(`${BASE}/${slugOf(bare)}`, { method: 'POST', body: 'x' });
+const anon = await fetch(`${BASE}/shop/product/${slugOf(bare)}`, { method: 'POST', body: 'x' });
 check('5i no session → cannot post a review', anon.status >= 400 || !(await anon.text()).includes('ثبت شد'));
 sql(`delete from ${SCHEMA}.site_reviews where user_id = ${userId}`);
 
@@ -345,7 +347,7 @@ const dbImages = [
   ...sql(`select url from product_images where product_id = ${multi} order by position`).split('\n'),
 ].filter((u, i, a) => u && a.indexOf(u) === i);
 await page.setViewportSize({ width: 1440, height: 900 });
-await go(`/${slugOf(multi)}`);
+await go(`/shop/product/${slugOf(multi)}`);
 const thumbs = page.locator('ul[aria-label="تصاویر محصول"] a');
 const thumbSrcs = await thumbs.locator('img').evaluateAll((imgs) => imgs.map((i) => i.getAttribute('src')));
 check(
@@ -381,7 +383,7 @@ check(
 await photosLoaded();
 await shot(page, 'gallery-desktop.png', { clip: { x: 0, y: 0, width: 1440, height: 900 } });
 // no-JavaScript fallback: the thumbnail links point at ?img=N, and the server renders that photo large
-const njHtml = await (await fetch(`${BASE}/${slugOf(multi)}?img=2`)).text();
+const njHtml = await (await fetch(`${BASE}/shop/product/${slugOf(multi)}?img=2`)).text();
 const njStage = /class="[^"]*stage[^"]*"[\s\S]*?<img[^>]*src="([^"]+)"/
   .exec(njHtml)?.[1]
   ?.replace(/&amp;/g, '&');
@@ -390,21 +392,21 @@ check(
   njHtml.includes('href="?img=2#gallery"') && optimised(njStage ?? '') === dbImages[1],
   optimised(njStage ?? '-'),
 );
-await go(`/${slugOf(single)}`);
+await go(`/shop/product/${slugOf(single)}`);
 check(
   '7e one photo → no thumbnail strip',
   (await page.locator('ul[aria-label="تصاویر محصول"]').count()) === 0 &&
     (await page.locator('#gallery [class*=stage] img').count()) === 1,
 );
 restoreGallery?.();
-const gHtml = await (await fetch(`${BASE}/${slugOf(multi)}`)).text();
+const gHtml = await (await fetch(`${BASE}/shop/product/${slugOf(multi)}`)).text();
 check(
   '7f no cost price in the gallery page output',
   !gHtml.includes(one(`select cost_price from supplier_products where id = ${multi}`)) &&
     !/cost_price|payable_price|production_price/.test(gHtml),
 );
 await page.setViewportSize({ width: 390, height: 844 });
-await go(`/${slugOf(multi)}`);
+await go(`/shop/product/${slugOf(multi)}`);
 await photosLoaded();
 await shot(page, 'gallery-mobile.png');
 
@@ -413,7 +415,7 @@ const overflow = [];
 for (const width of [390, 768, 1024, 1280, 1440, 1920]) {
   await page.setViewportSize({ width, height: 900 });
   for (const id of [full, bare, multi]) {
-    await go(`/${slugOf(id)}`);
+    await go(`/shop/product/${slugOf(id)}`);
     const extra = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
@@ -426,7 +428,7 @@ check(
   overflow.join(', ') || 'none',
 );
 await page.setViewportSize({ width: 390, height: 844 });
-await go(`/${slugOf(full)}`);
+await go(`/shop/product/${slugOf(full)}`);
 await shot(page, 'product-mobile.png', { fullPage: true });
 
 await ctx.close();

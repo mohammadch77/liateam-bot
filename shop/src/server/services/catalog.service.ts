@@ -2,7 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { z } from 'zod';
 import { BESTSELLER_TABS } from '@/lib/bestsellers';
-import { categoryPath, productPath } from '@/lib/catalog-urls';
+import { brandPath, brandsPath, categoryPath, categoriesPath, offersPath, productPath, shopPath } from '@/lib/urls';
 import { toAppError } from '@/lib/errors';
 import { priceRange } from '@/lib/price-range';
 import { heroSkipReason, logSkippedHeroSlides } from '@/lib/hero-slides';
@@ -461,7 +461,6 @@ export type BrandView = {
 };
 
 const BRAND_LOGO = /^https:\/\/s3\.liateam\.ir\/[\w/.%-]+\.(?:svg|png|jpe?g|webp)$/i;
-export const brandPath = (slug: string) => `/brands/${slug}`;
 
 /** Brands with something to sell, in Liateam's order (one query per request). */
 const brandList = cache(async (): Promise<BrandView[]> =>
@@ -788,7 +787,7 @@ export const catalogService = {
       brandList(),
     ]);
     return [
-      ...['/', '/shop', '/offers', '/brands', '/categories'].map((path) => ({ path })),
+      ...['/', shopPath(), offersPath(), brandsPath(), categoriesPath()].map((path) => ({ path })),
       ...list.map((c) => ({ path: c.href })),
       ...brands.map((b) => ({ path: b.href })),
       ...products.map((p) => ({

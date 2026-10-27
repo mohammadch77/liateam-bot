@@ -15,6 +15,7 @@ import { withTransaction } from '@/server/repositories/transaction';
 import { authorize } from '@/server/auth/guards';
 import type { RequestMeta } from '@/server/http/request';
 import { pricingRules, pricingService } from './pricing.service';
+import { offersPath } from '@/lib/urls';
 
 /**
  * Admin side of our discounts and campaigns: validation (Persian messages), the safety check before saving (a
@@ -85,10 +86,10 @@ const campaignSchema = z.object({
   link: z
     .string()
     .trim()
-    .transform((v) => v || '/offers')
+    .transform((v) => v || offersPath())
     .refine(
       (v) => /^\/[A-Za-z0-9/_?=&%.-]*$/.test(v) && v.length <= 200,
-      'پیوند باید یک مسیر داخلی مثل /offers باشد',
+      'پیوند باید یک مسیر داخلی مثل /shop/offers باشد',
     ),
   active: z
     .string()

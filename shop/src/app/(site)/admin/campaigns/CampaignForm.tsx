@@ -6,6 +6,7 @@ import { toFaDigits } from '@/lib/format/number';
 import { Alert, Button } from '@/ui';
 import a from '../admin-forms.module.css';
 import { campaignFormAction, type CampaignFormState } from './actions';
+import { offersPath } from '@/lib/urls';
 
 export type CampaignDraft = {
   id: number | null;
@@ -67,7 +68,7 @@ export function CampaignForm({ draft }: { draft: CampaignDraft }) {
         </label>
         <label className={a.field}>
           <span>پیوند (مسیر داخلی)</span>
-          <input name="link" defaultValue={draft.link} dir="ltr" placeholder="/offers" />
+          <input name="link" defaultValue={draft.link} dir="ltr" placeholder={offersPath()} />
         </label>
         <label className={a.check}>
           <input type="checkbox" name="active" defaultChecked={draft.active} />

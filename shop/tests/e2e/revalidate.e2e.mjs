@@ -38,7 +38,7 @@ check(
   '4 with the secret → 200, exactly the given paths revalidated (unknown pattern ignored)',
   res.status === 200 &&
     JSON.stringify(body.revalidated) ===
-      JSON.stringify(['/serge-riml-abro-mshki-srzhe-541', '/', '/c/[slug] (page)']), // the bot's /p/… → /<slug>
+      JSON.stringify(['/shop/product/serge-riml-abro-mshki-srzhe-541', '/', '/shop/category/[slug] (page)']), // the bot's /p/… and /c/… → the new addresses
   JSON.stringify(body.revalidated),
 );
 res = await post({ paths: [{ path: 'https://evil.example/' }] }, { 'x-revalidate-secret': secret });
@@ -49,7 +49,7 @@ res = await post({ paths: [{ path: '/shop' }] }, { 'x-revalidate-secret': secret
 const listings = (await res.json().catch(() => ({}))).revalidated ?? [];
 check(
   '8 a listing change also refreshes offers, the overviews and the pack pages',
-  ['/offers', '/categories', '/brands', '/packs/[collection]/[variant] (page)'].every((x) =>
+  ['/shop/offers', '/shop/categories', '/shop/brands', '/shop/packs/[collection]/[variant] (page)'].every((x) =>
     listings.includes(x),
   ),
   JSON.stringify(listings),

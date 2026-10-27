@@ -6,16 +6,17 @@ import { toAppError } from '@/lib/errors';
 import { formatNumber } from '@/lib/format/number';
 import { catalogService } from '@/server/services/catalog.service';
 import { Breadcrumb, Container, Icon } from '@/ui';
-import { CatalogUnavailable } from '../_catalog/CatalogListing';
-import s from '../_catalog/catalog.module.css';
+import { CatalogUnavailable } from '@/app/(site)/_catalog/CatalogListing';
+import s from '@/app/(site)/_catalog/catalog.module.css';
 import b from './brands.module.css';
+import { brandsPath } from '@/lib/urls';
 
 export async function generateMetadata(): Promise<Metadata> {
   const site = getConfig().BRAND_NAME;
   return {
     title: `برندها | ${site}`,
     description: `همه‌ی برندهای اصل ${site}، با محصولات هر برند.`,
-    alternates: { canonical: '/brands' },
+    alternates: { canonical: brandsPath() },
   };
 }
 

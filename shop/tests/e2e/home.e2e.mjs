@@ -103,7 +103,7 @@ try {
   );
   check(
     '2b «همه‌ی برندها» → /brands',
-    (await page.locator('[data-home-section="brands"] a[href="/brands"]').count()) === 1,
+    (await page.locator('[data-home-section="brands"] a[href="/shop/brands"]').count()) === 1,
   );
   const brandHref = await brandLinks.first().getAttribute('href');
   await brandLinks.first().click();

@@ -20,7 +20,7 @@ for (const name of ['iPhone 8', 'iPhone 13']) {
   const tag = name;
 
   // ── 1. search → filter → cards ──
-  await p.goto(`${BASE}/search?q=${encodeURIComponent('کرم')}`, { waitUntil: 'load' });
+  await p.goto(`${BASE}/shop/search?q=${encodeURIComponent('کرم')}`, { waitUntil: 'load' });
   await p.locator('main article').first().waitFor({ timeout: 30000 });
   await p.locator('summary', { hasText: 'فیلترها' }).tap();
   const opts = await p.locator('details[open] label:has(input[type=radio])').allInnerTexts();
@@ -47,7 +47,7 @@ for (const name of ['iPhone 8', 'iPhone 13']) {
   );
 
   // ── 2. no result → message + cards ──
-  await p.goto(`${BASE}/search?q=${encodeURIComponent('کرم')}&cat=154`, { waitUntil: 'load' });
+  await p.goto(`${BASE}/shop/search?q=${encodeURIComponent('کرم')}&cat=154`, { waitUntil: 'load' });
   const empty = p.locator('[data-no-results]');
   await empty.waitFor({ timeout: 30000 });
   const sug = await empty.locator('[data-suggested] article').count();
@@ -92,7 +92,7 @@ for (const name of ['iPhone 8', 'iPhone 13']) {
   check(`3c ${tag}: page 2 opens at the top of the list`, top >= -5 && top < 400, `list top at ${top}px`);
 
   // ── 4. brand and category pages ──
-  for (const path of ['/brands/trust-pro', '/c/173']) {
+  for (const path of ['/shop/brand/trust-pro', '/shop/category/173']) {
     await p.goto(`${BASE}${path}`, { waitUntil: 'load' });
     await p.locator('main article').first().waitFor({ timeout: 30000 });
     await p.locator('summary', { hasText: 'فیلترها' }).tap();

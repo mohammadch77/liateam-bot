@@ -16,6 +16,7 @@ import { withTransaction } from '@/server/repositories/transaction';
 import { authorize } from '@/server/auth/guards';
 import { onDataChange } from '@/server/cache-events';
 import type { RequestMeta } from '@/server/http/request';
+import { packPath } from '@/lib/urls';
 import { catalogService, type ProductView } from './catalog.service';
 import { pricingRules } from './pricing.service';
 import { siteSettingsService } from './site-settings.service';
@@ -54,7 +55,7 @@ export type CollectionView = {
   packs: PackView[];
 };
 
-export const packPath = (collection: string, key: string) => `/packs/${collection}/${key}`;
+export { packPath };
 
 async function view(collection: CollectionRow, packs: PackRow[], items: PackItemRow[]): Promise<PackView[]> {
   const products = await catalogService.productViews(

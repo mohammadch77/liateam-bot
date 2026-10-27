@@ -28,11 +28,11 @@ const productSlug = sql(
 const PAGES = {
   home: '/',
   shop: '/shop',
-  category: firstHref('/c/'),
-  brand: firstHref('/brands/'),
+  category: firstHref('/shop/category/'),
+  brand: firstHref('/shop/brand/'),
   product: `/${productSlug}`,
-  offers: '/offers',
-  pack: '/packs/skin-routine/oily',
+  offers: '/shop/offers',
+  pack: '/shop/packs/skin-routine/oily',
   login: '/login',
 };
 check(

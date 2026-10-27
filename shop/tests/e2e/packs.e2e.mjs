@@ -127,7 +127,7 @@ try {
   await shot(anon, 'packs-home-1440.png');
 
   // ── 4. pack page ──
-  await anon.goto(`${BASE}/packs/skin-routine/oily`, { waitUntil: 'load' });
+  await anon.goto(`${BASE}/shop/packs/skin-routine/oily`, { waitUntil: 'load' });
   const steps = anon.locator('main ol[class*=steps] > li');
   check('4a pack page: five steps in order', (await steps.count()) === 5);
   check(
@@ -135,7 +135,7 @@ try {
     (await anon
       .locator('main ol[class*=steps] > li a')
       .evaluateAll(
-        (as) => as.filter((a) => /^\/[^/]+-\d+$|^\/\d+/.test(a.getAttribute('href') ?? '')).length,
+        (as) => as.filter((a) => /^\/shop\/product\/[^/]+-\d+$|^\/shop\/product\/\d+/.test(a.getAttribute('href') ?? '')).length,
       )) === packIds('oily').length,
   );
   const aside = await anon.locator('aside[aria-label="قیمت پک"]').innerText();
@@ -146,8 +146,8 @@ try {
   );
   const packHtml = await anon.content();
   check('4d pack page: no purchase price in the HTML', !leaks(packHtml, packIds('oily')).length);
-  check('4e unknown pack → 404', (await anon.goto(`${BASE}/packs/skin-routine/nope`)).status() === 404);
-  await anon.goto(`${BASE}/packs/skin-routine/oily`, { waitUntil: 'load' });
+  check('4e unknown pack → 404', (await anon.goto(`${BASE}/shop/packs/skin-routine/nope`)).status() === 404);
+  await anon.goto(`${BASE}/shop/packs/skin-routine/oily`, { waitUntil: 'load' });
   await shot(anon, 'packs-page-1440.png', { fullPage: true });
 
   // ── 5. create / edit / switch off from the panel ──
@@ -183,7 +183,7 @@ try {
   );
   await form.getByRole('button', { name: 'ساخت پک' }).click();
   await form.getByText('پک ساخته شد.').waitFor({ timeout: 20000 });
-  await anon.goto(`${BASE}/packs/skin-routine/${KEY}`, { waitUntil: 'load' });
+  await anon.goto(`${BASE}/shop/packs/skin-routine/${KEY}`, { waitUntil: 'load' });
   check(
     '5a3 loss allowed: the pack sells at a real 10% saving',
     /۱۰٪ صرفه‌جویی/.test(await anon.locator('aside[aria-label="قیمت پک"]').innerText()),
@@ -236,7 +236,7 @@ try {
         one(`select count(*) from ${SCHEMA}.audit_log where entity_type = 'pack' and entity_id = '${newId}'`),
       ) >= 2,
   );
-  await anon.goto(`${BASE}/packs/skin-routine/${KEY}`, { waitUntil: 'load' });
+  await anon.goto(`${BASE}/shop/packs/skin-routine/${KEY}`, { waitUntil: 'load' });
   const newAside = await anon.locator('aside[aria-label="قیمت پک"]').innerText();
   check(
     '5e the new pack has its page with a price',
@@ -268,7 +268,7 @@ try {
 
   // ── 7. phones ──
   const m = await (await ctxFor(4, { width: 390, height: 844 })).newPage();
-  for (const path of ['/', '/packs/skin-routine/oily', '/packs/skin-routine/sensitive']) {
+  for (const path of ['/', '/shop/packs/skin-routine/oily', '/shop/packs/skin-routine/sensitive']) {
     await m.goto(`${BASE}${path}`, { waitUntil: 'load' });
     const over = await m.evaluate(() => document.documentElement.scrollWidth - innerWidth);
     check(`7 390px ${path}: no horizontal scroll`, over <= 0, `${over}px`);
@@ -276,7 +276,7 @@ try {
   await m.goto(`${BASE}/`, { waitUntil: 'load' });
   await m.locator('[data-routine]').scrollIntoViewIfNeeded();
   await shot(m, 'packs-home-390.png');
-  await m.goto(`${BASE}/packs/skin-routine/oily`, { waitUntil: 'load' });
+  await m.goto(`${BASE}/shop/packs/skin-routine/oily`, { waitUntil: 'load' });
   await shot(m, 'packs-page-390.png', { fullPage: true });
   void toLatin;
 } finally {

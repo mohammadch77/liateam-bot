@@ -2,7 +2,7 @@ import 'server-only';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { SEARCH_HEADER } from '@/lib/internal-headers';
-import { idFromSlug } from '@/lib/catalog-urls';
+import { idFromSlug } from '@/lib/urls';
 
 /**
  * Runs in the segment layout, i.e. BEFORE loading.tsx starts streaming, so search engines get real status codes:

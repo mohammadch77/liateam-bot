@@ -7,6 +7,7 @@ import { Breadcrumb, Container, EmptyState } from '@/ui';
 import s from '../../account/account.module.css';
 import a from '../admin-forms.module.css';
 import { CampaignForm, type CampaignDraft } from './CampaignForm';
+import { offersPath } from '@/lib/urls';
 
 export const metadata: Metadata = { title: 'کمپین‌ها', robots: { index: false } };
 
@@ -32,7 +33,7 @@ export default async function AdminCampaignsPage({
         link: editing.link,
         active: editing.active,
       }
-    : { id: null, title: '', bannerText: '', endsAt: '', link: '/offers', active: true };
+    : { id: null, title: '', bannerText: '', endsAt: '', link: offersPath(), active: true };
   const now = new Date();
 
   return (

@@ -69,7 +69,7 @@ try {
 
   // ── 1. before ──
   await anon.goto(`${BASE}/`, { waitUntil: 'load' });
-  const headerLink = await anon.locator('header a[href="/offers"]').count();
+  const headerLink = await anon.locator('header a[href="/shop/offers"]').count();
   check('1a header: «تخفیفات ویژه» link to /offers', headerLink >= 1);
   if (leftover === 0) {
     check(
@@ -78,7 +78,7 @@ try {
         (await anon.locator('[data-offers] >> text=به‌زودی').count()) >= 1,
     );
     await shot(anon, 'offers-home-soon-1440.png');
-    await anon.goto(`${BASE}/offers`, { waitUntil: 'load' });
+    await anon.goto(`${BASE}/shop/offers`, { waitUntil: 'load' });
     check('1c /offers empty state', (await anon.getByText('فعلاً محصول تخفیف‌داری نداریم').count()) === 1);
     check('1d no campaign bar without a campaign', (await anon.locator('[data-campaign-bar]').count()) === 0);
   } else check('1b (skipped: other active discounts exist)', true, `${leftover}`);
@@ -205,7 +205,7 @@ try {
   await shot(admin, 'offers-admin-1440.png', { fullPage: true });
 
   // ── 4. the storefront ──
-  await anon.goto(`${BASE}/${slugOf(PRODUCT)}`, { waitUntil: 'load' });
+  await anon.goto(`${BASE}/shop/product/${slugOf(PRODUCT)}`, { waitUntil: 'load' });
   const buy = anon.locator('aside[aria-label="خرید"]');
   const del = toLatin(
     (await buy
@@ -220,14 +220,14 @@ try {
     Number(del) === p426 && Number(now) === final426,
     `${del} → ${now}`,
   );
-  await anon.goto(`${BASE}/${slugOf(LOSS)}`, { waitUntil: 'load' });
+  await anon.goto(`${BASE}/shop/product/${slugOf(LOSS)}`, { waitUntil: 'load' });
   const lossNow = Number(toLatin(await buy.locator('[class*=current] b').first().innerText()));
   check(
     '4a2 loss allowed: the product sells at 25% off (under the purchase price, as the admin chose)',
     lossNow === Math.ceil((priceOf(LOSS) * 0.75) / 100) * 100,
     `${lossNow}`,
   );
-  await anon.goto(`${BASE}/${slugOf(PRODUCT)}`, { waitUntil: 'load' });
+  await anon.goto(`${BASE}/shop/product/${slugOf(PRODUCT)}`, { waitUntil: 'load' });
   const pageHtml = await anon.content();
   check(
     '4b product page: no purchase price / Liateam discount in the HTML',
@@ -236,7 +236,7 @@ try {
   );
   await shot(anon, 'offers-product-1440.png');
 
-  await anon.goto(`${BASE}/offers`, { waitUntil: 'load' });
+  await anon.goto(`${BASE}/shop/offers`, { waitUntil: 'load' });
   const cards = await anon.locator('main article').count();
   const catCount = Number(
     one(
@@ -260,7 +260,7 @@ try {
     !leaks(offersHtml, ids).length,
     leaks(offersHtml, ids).slice(0, 4).join(' '),
   );
-  await anon.goto(`${BASE}/offers?sort=cheapest`);
+  await anon.goto(`${BASE}/shop/offers?sort=cheapest`);
   const cheap = (await anon.locator('main article [class*=current] b').allInnerTexts())
     .map((t) => Number(toLatin(t)))
     .filter(Boolean);
@@ -269,9 +269,9 @@ try {
     cheap.every((v, i) => i === 0 || v >= cheap[i - 1]),
     cheap.slice(0, 5).join(','),
   );
-  await anon.goto(`${BASE}/offers?campaign=${campaignId}`);
+  await anon.goto(`${BASE}/shop/offers?campaign=${campaignId}`);
   check('4g campaign filter: only the campaign product', (await anon.locator('main article').count()) === 1);
-  await anon.goto(`${BASE}/offers`);
+  await anon.goto(`${BASE}/shop/offers`);
   await shot(anon, 'offers-page-1440.png', { fullPage: true });
 
   await anon.goto(`${BASE}/`, { waitUntil: 'load' });
@@ -299,7 +299,7 @@ try {
 
   // ── 5. phones ──
   const m = await (await ctxFor(4, { width: 390, height: 844 })).newPage();
-  for (const path of ['/', '/offers', `/${slugOf(PRODUCT)}`]) {
+  for (const path of ['/', '/shop/offers', `/shop/product/${slugOf(PRODUCT)}`]) {
     await m.goto(`${BASE}${path}`, { waitUntil: 'load' });
     const over = await m.evaluate(() => document.documentElement.scrollWidth - innerWidth);
     check(`5 390px ${path}: no horizontal scroll`, over <= 0, `${over}px`);
@@ -307,7 +307,7 @@ try {
   await m.goto(`${BASE}/`, { waitUntil: 'load' });
   await m.locator('[data-offers]').scrollIntoViewIfNeeded();
   await shot(m, 'offers-home-390.png');
-  await m.goto(`${BASE}/offers`, { waitUntil: 'load' });
+  await m.goto(`${BASE}/shop/offers`, { waitUntil: 'load' });
   await shot(m, 'offers-page-390.png', { fullPage: true });
 
   // ── 6. an ended discount disappears by itself (cache lives at most 30 s) ──
@@ -315,7 +315,7 @@ try {
     `update ${SCHEMA}.shop_discounts set ends_at = now(), starts_at = least(starts_at, now() - interval '1 minute') where label = '${LABEL}' and scope = 'product'`,
   );
   await sleep(31_000);
-  await anon.goto(`${BASE}/${slugOf(PRODUCT)}`, { waitUntil: 'load' });
+  await anon.goto(`${BASE}/shop/product/${slugOf(PRODUCT)}`, { waitUntil: 'load' });
   check("6 ended discount: product page back to Liateam's price", (await buy.locator('del').count()) === 0);
 } finally {
   cleanup();

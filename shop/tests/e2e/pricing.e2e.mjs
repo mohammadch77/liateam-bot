@@ -51,7 +51,7 @@ const ctxFor = (n) =>
   });
 /** [what the customer pays, the struck-through price or null] from the product page's price label */
 async function shownPrice(page) {
-  await page.goto(`${BASE}/${slug}`, { waitUntil: 'load' });
+  await page.goto(`${BASE}/shop/product/${slug}`, { waitUntil: 'load' });
   const label =
     (await page
       .locator('main article')
@@ -165,7 +165,7 @@ try {
   );
   // «تخفیفات ویژه» lists only discounts beyond the base: this product (base 4% only) is not on /offers
   await save('partner');
-  const offers = await (await fetch(`${BASE}/offers`)).text();
+  const offers = await (await fetch(`${BASE}/shop/offers`)).text();
   check('3f the base-only product is not listed under «تخفیفات ویژه»', !offers.includes(`${slug}"`));
   check(
     '3d the audit log has the setting changes',
@@ -179,7 +179,7 @@ try {
   // ── 4. a pack without a pack discount: its price is the sum of its items' final prices (the partner base), and the
   //       struck-through total is the sum of their list prices ──
   const anon = await (await ctxFor(3)).newPage();
-  await anon.goto(`${BASE}/packs/skin-routine/oily`, { waitUntil: 'load' });
+  await anon.goto(`${BASE}/shop/packs/skin-routine/oily`, { waitUntil: 'load' });
   const summary = (await anon.locator('main').innerText()).replace(/\s+/g, ' ');
   const total = Number(toLatin(/جمع قیمت محصولات ([۰-۹٬,]+) تومان/.exec(summary)?.[1] ?? ''));
   const packPrice = Number(toLatin(/قیمت پک ([۰-۹٬,]+) تومان/.exec(summary)?.[1] ?? ''));
@@ -211,7 +211,7 @@ try {
   await admin.goto(`${BASE}/admin/settings`, { waitUntil: 'load' }); // (a panel request clears the app's caches)
   try {
     for (const key of packKeys) {
-      await anon.goto(`${BASE}/packs/skin-routine/${key}`, { waitUntil: 'load' });
+      await anon.goto(`${BASE}/shop/packs/skin-routine/${key}`, { waitUntil: 'load' });
       const txt = (await anon.locator('main').innerText()).replace(/\s+/g, ' ');
       const t = Number(toLatin(/جمع قیمت محصولات ([۰-۹٬,]+) تومان/.exec(txt)?.[1] ?? ''));
       const pp = Number(toLatin(/قیمت پک ([۰-۹٬,]+) تومان/.exec(txt)?.[1] ?? ''));
@@ -238,7 +238,7 @@ try {
 
   // ── 5. nothing about cost or margin leaves the server ──
   const pages = [
-    await (await fetch(`${BASE}/${slug}`)).text(),
+    await (await fetch(`${BASE}/shop/product/${slug}`)).text(),
     await (await fetch(`${BASE}/`)).text(),
     await (await fetch(`${BASE}/api/search/suggest?q=${encodeURIComponent('کرم')}`)).text(),
   ].join('\n');
