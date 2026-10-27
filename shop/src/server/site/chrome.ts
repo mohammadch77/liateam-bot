@@ -6,13 +6,20 @@ import { logger } from '@/lib/logger';
 import { catalogService } from '@/server/services/catalog.service';
 import { pricingService } from '@/server/services/pricing.service';
 import type { BottomNavItem, FooterProps, HeaderProps, NavItem } from '@/ui';
-import { aboutPath, brandsPath, contactPath,categoriesPath, offersPath, searchPath, shopPath } from '@/lib/urls';
+import {
+  aboutPath,
+  brandsPath,
+  contactPath,
+  categoriesPath,
+  offersPath,
+  searchPath,
+  shopPath,
+} from '@/lib/urls';
 
 /**
  * Header / footer / tab-bar data for every storefront page. Brand and contact details come from config (the
- * brand name is not final). Shop settings such as the free-shipping threshold move to the admin panel in phase 3.
+ * brand name is not final). The free-shipping line comes from the order settings (shipping.free_enabled / _from_toman).
  */
-const FREE_SHIPPING_FROM_TOMAN = 999_000;
 
 const LINKS = {
   cart: '/cart',
@@ -84,6 +91,8 @@ export function headerProps(
   categories: NavItem[] = [],
   brands: NavItem[] = [],
   campaign: { text: string; href: string } | null = null,
+  /** «ارسال رایگان از مبلغ X»: the threshold from the settings, null while the switch is off (then nothing is promised) */
+  freeShippingFromToman: number | null = null,
 ): HeaderProps {
   const c = getConfig();
   return {
@@ -97,7 +106,7 @@ export function headerProps(
     cartCount: 0,
     signedIn: user !== null,
     walletToman: null, // wallet arrives in phase 2
-    freeShippingFromToman: FREE_SHIPPING_FROM_TOMAN,
+    freeShippingFromToman,
     campaign,
     supportPhone: c.SUPPORT_PHONE,
     links: LINKS,

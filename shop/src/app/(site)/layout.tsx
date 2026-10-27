@@ -7,6 +7,8 @@ import {
   headerCategories,
   headerProps,
 } from '@/server/site/chrome';
+import { freeShippingFrom } from '@/lib/shipping';
+import { orderSettingsService } from '@/server/services/order-settings.service';
 import { getCurrentUser } from '@/server/services/session.service';
 import { BottomNav, BottomNavSpacer, Footer, Header } from '@/ui';
 
@@ -14,15 +16,16 @@ import { BottomNav, BottomNavSpacer, Footer, Header } from '@/ui';
 export const dynamic = 'force-dynamic';
 
 export default async function SiteLayout({ children }: { children: ReactNode }) {
-  const [user, categories, brands, campaign] = await Promise.all([
+  const [user, categories, brands, campaign, settings] = await Promise.all([
     getCurrentUser(),
     headerCategories(),
     headerBrands(),
     headerCampaign(),
+    orderSettingsService.get(),
   ]);
   return (
     <>
-      <Header {...headerProps(user, categories, brands, campaign)} />
+      <Header {...headerProps(user, categories, brands, campaign, freeShippingFrom(settings.freeShipping))} />
       <main>{children}</main>
       <Footer {...footerProps()} />
       <BottomNavSpacer />

@@ -43,7 +43,8 @@ export type HeaderProps = {
   signedIn: boolean;
   /** wallet balance of a signed-in user; null until the wallet exists */
   walletToman: Toman | null;
-  freeShippingFromToman: Toman;
+  /** «ارسال رایگان از مبلغ X»; null = the shop does not promise free shipping (the line is not shown) */
+  freeShippingFromToman: Toman | null;
   /** a running campaign: a bar above the header (text from the admin panel, a same-site link) */
   campaign?: { text: string; href: string } | null;
   supportPhone: string;
@@ -72,11 +73,13 @@ export function Header(p: HeaderProps) {
         <div className={s.topbar}>
           <Container className={s.topbarInner}>
             <div className={s.topbarGroup}>
-              <span className={s.topbarItem}>
-                <Icon name="local_shipping" size={17} className={s.topbarIcon} />
-                ارسال رایگان برای خریدهای بالای{' '}
-                <b className={s.topbarStrong}>{formatToman(p.freeShippingFromToman)} تومان</b>
-              </span>
+              {p.freeShippingFromToman !== null && (
+                <span className={s.topbarItem}>
+                  <Icon name="local_shipping" size={17} className={s.topbarIcon} />
+                  ارسال رایگان برای خریدهای بالای{' '}
+                  <b className={s.topbarStrong}>{formatToman(p.freeShippingFromToman)} تومان</b>
+                </span>
+              )}
               <span className={`${s.topbarItem} ${s.hideNarrow}`}>
                 <Icon name="verified" size={17} className={s.topbarIcon} />
                 ضمانت اصالت تمام کالاها
@@ -164,10 +167,12 @@ export function Header(p: HeaderProps) {
       </div>
 
       <div className={s.mobile}>
-        <div className={s.promo}>
-          <Icon name="local_shipping" size={16} />
-          ارسال رایگان خریدهای بالای {formatToman(p.freeShippingFromToman)} تومان
-        </div>
+        {p.freeShippingFromToman !== null && (
+          <div className={s.promo}>
+            <Icon name="local_shipping" size={16} />
+            ارسال رایگان خریدهای بالای {formatToman(p.freeShippingFromToman)} تومان
+          </div>
+        )}
         <div className={s.mobileRow}>
           <div className={s.mobileGroup}>
             <MobileMenu

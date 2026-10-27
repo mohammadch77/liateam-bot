@@ -1,4 +1,4 @@
-// Runs the end-to-end tests one after another and prints a summary (README «تست‌های end-to-end»).
+﻿// Runs the end-to-end tests one after another and prints a summary (README Â«ØªØ³Øªâ€ŒÙ‡Ø§ÛŒ end-to-endÂ»).
 //   npm run test:e2e                     all of them
 //   npm run test:e2e -- search megamenu  only these
 import { spawnSync } from 'node:child_process';
@@ -36,21 +36,22 @@ const ALL = [
   'listing-flow',
   'mobile-fixes',
   'urls',
+  'free-shipping',
 ];
 const wanted = process.argv.slice(2);
 const unknown = wanted.filter((n) => !ALL.includes(n));
 if (unknown.length) {
-  console.error(`unknown test(s): ${unknown.join(', ')} — available: ${ALL.join(', ')}`);
+  console.error(`unknown test(s): ${unknown.join(', ')} â€” available: ${ALL.join(', ')}`);
   process.exit(2);
 }
 
 const summary = [];
 for (const name of wanted.length ? wanted : ALL) {
-  console.log(`\n━━ ${name} ━━`);
+  console.log(`\nâ”â” ${name} â”â”`);
   const started = Date.now();
   const r = spawnSync(process.execPath, [path.join(here, `${name}.e2e.mjs`)], { stdio: 'inherit' });
   summary.push({ name, ok: r.status === 0, s: Math.round((Date.now() - started) / 1000) });
 }
-console.log('\n━━ summary ━━');
-for (const t of summary) console.log(`${t.ok ? '✓' : '✗'} ${t.name}  (${t.s}s)`);
+console.log('\nâ”â” summary â”â”');
+for (const t of summary) console.log(`${t.ok ? 'âœ“' : 'âœ—'} ${t.name}  (${t.s}s)`);
 process.exitCode = summary.every((t) => t.ok) ? 0 : 1;

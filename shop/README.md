@@ -820,3 +820,26 @@ npm run grant-role -- 09121234567 admin
 ```bash
 npm run images:warm
 ```
+
+## لایه‌ی دیتابیس سفارش (فاز ۲)
+
+فقط مدل داده، سطح دسترسی، repository و تست؛ هنوز UI یا API ندارد و روی سرور اعمال نشده است.
+
+**ترتیب اعمال روی هر سرور:** ۱) دیپلوی ربات با `needs_review` و ری‌استارت سرویس `liateam-orders` (ستون `shop_orders.origin` را هنگام راه‌اندازی می‌سازد)؛ ۲) `sudo -u postgres psql lia_sync -f shop/deploy/shop-db-roles-016-orders.sql`؛ ۳) `npm run migrate:up`.
+
+| جدول (schema فروشگاه) | کار |
+|---|---|
+| `carts` / `cart_items` | سبد مهمان (هش توکن) و کاربر؛ ادغام بعد از ورود؛ قیمت ذخیره نمی‌شود |
+| `addresses` (ستون‌های تازه) | `province_id`، `city_id` لیاتیم، `plate`، `unit` |
+| `orders` / `order_items` | سفارش، شماره‌ی خوانا `AV-100001`، کلید idempotency، عکس لحظه‌ای قیمت فروش و تخفیف، نتیجه‌ی اعتبارسنجی زنده، `bot_order_id` (یک‌به‌یک با `shop_orders` ربات) |
+| `order_events` | رویدادها، فقط افزودنی |
+| `payments` | هر سفارش فقط یک‌بار تأیید می‌شود (ایندکس یکتا) |
+| `wallet_ledger` | کیف پول: دفتر فقط‌افزودنی؛ موجودی منفی نمی‌شود؛ کلید idempotency هر ردیف |
+| `affiliate_codes` / `affiliate_referrals` / `commission_rules` / `commissions` | معرف، قوانین (خالی)، پورسانت |
+| `shipping_methods` / `shipping_rules` / `sms_log` | برچسب و زمان ارسال، لاگ پیامک (بدون متن) |
+
+وضعیت سفارش: `pending_payment → queued → placing → awaiting_payment → supplier_paid → sent` و `needs_review`، `refunded`، `canceled`. جدول گذارها در `src/lib/orders/status.ts` و تابع `order_status_can_move` است و یک تست آن دو را مقایسه می‌کند.
+
+**تنظیمات** (`site_settings`): `orders.price_tolerance_toman` (۱۰)، `orders.auto_place_enabled` (خاموش)، `orders.auto_place_hours`، `shipping.free_enabled` (خاموش)، `shipping.free_from_toman` (۹۹۹٬۰۰۰). با خاموش بودن ارسال رایگان، خط «ارسال رایگان…» در هدر نمایش داده نمی‌شود. وقتی روشن باشد و جمع کالا به آستانه برسد، مشتری ارسال را ۰ می‌بیند ولی سفارش `shipping_supplier_price` (قیمت لیاتیم)، `shipping_charged` و `shipping_absorbed` را جدا نگه می‌دارد.
+
+**صف ربات:** نقش اپ به جدول‌های ربات دسترسی مستقیم ندارد؛ فقط توابع `shop_enqueue_review`، `shop_review_result`، `shop_enqueue_create`، `shop_create_result`، `shop_enqueue_place` و `SELECT` روی چند ستون `public.shop_orders` و `public.shop_order_items` (بدون `unit_cost`، `liateam_total`، `last_error`، `dry_run_result` و بدون `shop_order_events`).
