@@ -151,7 +151,7 @@ const t2 = await tabs();
 check(
   '2a no FAQ → the FAQ tab stays, with «پرسشی … ثبت نشده» + contact link; no video → a photo instead',
   t2.length === 5 &&
-    (await page.locator('#faq a[href="/contact"]').count()) === 1 &&
+    (await page.locator('#faq a[href="/contact-us"]').count()) === 1 &&
     (await page.locator('figure[data-media=video] iframe').count()) === 0 &&
     (await page.locator('figure[data-media=photo] img').count()) === 1,
   t2.join(' | '),

@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import { cache, type ReactNode } from 'react';
 import { getConfig } from '@/lib/config';
 import { jsonLd as toJsonLd } from '@/lib/json-ld';
-import { idFromSlug } from '@/lib/urls';
+import { contactPath, idFromSlug } from '@/lib/urls';
 import { siteOrigin } from '@/server/http/site-origin';
 import { toAppError } from '@/lib/errors';
 import { discountPercent, formatTomanText, tomanToRial } from '@/lib/format/money';
@@ -447,7 +447,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
             </div>
           ) : (
             <EmptyNote>
-              پرسشی برای این محصول ثبت نشده است. <Link href="/contact">سؤالی دارید؟ با ما در تماس باشید</Link>
+              پرسشی برای این محصول ثبت نشده است. <Link href={contactPath()}>سؤالی دارید؟ با ما در تماس باشید</Link>
             </EmptyNote>
           )}
         </ProductSection>

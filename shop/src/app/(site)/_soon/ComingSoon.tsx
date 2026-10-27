@@ -5,9 +5,10 @@ import s from '../_catalog/catalog.module.css';
 import { COMING_SOON, type ComingSoonKey } from './sections';
 
 /** Title for a placeholder page; never indexed (the real page will be). */
-export function comingSoonMetadata(key: ComingSoonKey): Metadata {
+export function comingSoonMetadata(key: ComingSoonKey, canonical?: string): Metadata {
   return {
     title: `${COMING_SOON[key].title} | ${getConfig().BRAND_NAME}`,
+    ...(canonical ? { alternates: { canonical } } : {}),
     robots: { index: false, follow: true },
   };
 }

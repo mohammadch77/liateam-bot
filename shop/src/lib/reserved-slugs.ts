@@ -7,7 +7,8 @@
  */
 export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   // pages
-  'about',
+  'about', // old address: redirects to /about-us
+  'about-us',
   'account',
   'admin',
   'affiliate',
@@ -18,7 +19,8 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'brand',
   'category',
   'checkout',
-  'contact',
+  'contact', // old address: redirects to /contact-us
+  'contact-us',
   'faq',
   'help',
   'legal',

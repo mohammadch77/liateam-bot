@@ -43,7 +43,7 @@ try {
     '1a one slide per DB row with a live destination, in DB order',
     hrefs.length === expected.length &&
       hrefs.every((h, i) =>
-        want[i].startsWith('/shop/category/') ? h.startsWith(want[i] + '-') || h === want[i] : h === want[i],
+        want[i].startsWith('/shop/category/') ? h.endsWith('-' + want[i].split('/').pop()) || h === want[i] : h === want[i],
       ),
     `${hrefs.length} slides; first ${hrefs[0]}`,
   );
@@ -57,7 +57,7 @@ try {
   );
   check(
     '1c category slides link to the category page',
-    hrefs.filter((h) => h.startsWith('/shop/category/')).every((h) => /^\/shop\/category\/\d+-/.test(decodeURIComponent(h))),
+    hrefs.filter((h) => h.startsWith('/shop/category/')).every((h) => /^\/shop\/category\/[a-z0-9-]+-\d+$/.test(h)),
   );
   check('1d the page still has one h1', (await page.locator('h1').count()) === 1);
 

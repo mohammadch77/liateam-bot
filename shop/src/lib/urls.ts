@@ -1,10 +1,13 @@
+import { finglish } from './finglish.ts';
 import { isReservedSlug } from './reserved-slugs.ts';
 
 /**
  * Every internal address of the shop is built here — no page, component or service writes a path by hand.
  *
  *   /shop                               the whole catalog (filters, sort and ?page=N are query parameters)
- *   /shop/category/<code>-<words>       a category (the supplier code first; the words are for people and search engines)
+ *   /shop/category/<finglish>-<code>    a category (Finglish words from src/lib/finglish.ts, the supplier code LAST: only the
+ *                                       code finds it, so a renamed category or wrong words are redirected to the right address)
+ *   /about-us, /contact-us              the fixed pages (the old /about and /contact redirect)
  *   /shop/product/<slug>                a product: the English slug the sync bot assigns (ends with the code), or
  *                                       <code>-<Persian words> until it has one
  *   /shop/brand/<slug>                  a brand (the Latin slug the sync bot assigns)
@@ -44,7 +47,13 @@ export const offersPath = () => '/shop/offers';
 export const searchPath = () => '/shop/search';
 export const brandPath = (slug: string) => `${BRAND_BASE}/${slug}`;
 export const packPath = (collection: string, key: string) => `/shop/packs/${collection}/${key}`;
-export const categoryPath = (code: number, name: string | null) => withSlug(CATEGORY_BASE, code, name);
+/** A category's address: /shop/category/<finglish>-<code>. Only the code (last) finds the category; the words can change. */
+export const categoryPath = (code: number, name: string | null) => {
+  const words = name ? finglish(name) : '';
+  return `${CATEGORY_BASE}/${words ? `${words}-` : ''}${code}`;
+};
+export const aboutPath = () => '/about-us';
+export const contactPath = () => '/contact-us';
 
 /** A product's address: /shop/product/<slug_en> when the bot has assigned one (it always ends with "-<id>"), else /shop/product/<id>-<Persian words>. */
 export const productPath = (id: number, name: string | null, slugEn?: string | null) =>
@@ -55,7 +64,9 @@ export const productPath = (id: number, name: string | null, slugEn?: string | n
 /** `path` + a query string made of the given parameters (empty values are left out). */
 export function withQuery(path: string, params: Record<string, string | number | undefined | null>): string {
   const qs = new URLSearchParams(
-    Object.entries(params).flatMap(([k, v]) => (v === undefined || v === null || v === '' ? [] : [[k, String(v)]])),
+    Object.entries(params).flatMap(([k, v]) =>
+      v === undefined || v === null || v === '' ? [] : [[k, String(v)]],
+    ),
   ).toString();
   return qs ? `${path}?${qs}` : path;
 }
@@ -98,6 +109,8 @@ const MOVED_PAGES: Record<string, string> = {
   '/categories': '/shop/categories',
   '/offers': '/shop/offers',
   '/search': '/shop/search',
+  '/about': '/about-us',
+  '/contact': '/contact-us',
 };
 
 /**
@@ -111,6 +124,8 @@ export function legacyRoute(pathname: string): LegacyTarget | null {
   let m = /^\/p\/([^/]+)$/.exec(p);
   if (m) return { kind: 'product', segment: m[1]! };
   m = /^\/c\/([^/]+)$/.exec(p);
+  if (m) return { kind: 'category', segment: m[1]! };
+  m = /^\/categories\/([^/]+)$/.exec(p);
   if (m) return { kind: 'category', segment: m[1]! };
   m = /^\/brands\/([^/]+)$/.exec(p);
   if (m) return { kind: 'path', path: brandPath(m[1]!) };

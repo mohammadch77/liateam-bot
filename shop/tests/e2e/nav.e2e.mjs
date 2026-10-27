@@ -50,8 +50,8 @@ try {
     items.join(' | '),
   );
   for (const [label, path] of [
-    ['درباره ما', '/about'],
-    ['تماس با ما', '/contact'],
+    ['درباره ما', '/about-us'],
+    ['تماس با ما', '/contact-us'],
     ['سوالات متداول', '/help/faq'],
   ]) {
     const href = await bar.getByRole('link', { name: label, exact: true }).getAttribute('href');

@@ -189,7 +189,7 @@ try {
     if (kind === 'low') {
       check(
         '3a low: FAQ empty state + contact link',
-        (await d.locator('#faq a[href="/contact"]').count()) === 1 &&
+        (await d.locator('#faq a[href="/contact-us"]').count()) === 1 &&
           (await d.getByText('پرسشی برای این محصول ثبت نشده است').count()) === 1,
       );
       check(

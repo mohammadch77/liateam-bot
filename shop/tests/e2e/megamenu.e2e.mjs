@@ -103,7 +103,7 @@ await panel.getByRole('link', { name: /^کرم تخصصی صورت/ }).click();
 await p.waitForURL(/\/shop\/category\//);
 check(
   'sub-category link navigates and menu closes',
-  /\/shop\/category\/165/.test(p.url()) && !(await panel.isVisible()),
+  /\/shop\/category\/[a-z0-9-]*-?165$/.test(p.url()) && !(await panel.isVisible()),
   decodeURI(p.url()),
 );
 const h1 = await p.locator('h1').first().innerText();
@@ -160,7 +160,7 @@ check('tap on backdrop closes', !(await drawer.isVisible()));
 await m.getByRole('button', { name: 'منو' }).click();
 await drawer.getByText('ضد آفتاب', { exact: true }).click();
 await drawer.getByRole('link', { name: /^رنگی/ }).click();
-await m.waitForURL(/\/shop\/category\/172/);
+await m.waitForURL(/\/shop\/category\/[a-z0-9-]*-?172/);
 check('drawer link navigates and drawer closes', !(await drawer.isVisible()), decodeURI(m.url()));
 await m.close();
 

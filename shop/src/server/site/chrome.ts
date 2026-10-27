@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger';
 import { catalogService } from '@/server/services/catalog.service';
 import { pricingService } from '@/server/services/pricing.service';
 import type { BottomNavItem, FooterProps, HeaderProps, NavItem } from '@/ui';
-import { brandsPath, categoriesPath, offersPath, searchPath, shopPath } from '@/lib/urls';
+import { aboutPath, brandsPath, contactPath,categoriesPath, offersPath, searchPath, shopPath } from '@/lib/urls';
 
 /**
  * Header / footer / tab-bar data for every storefront page. Brand and contact details come from config (the
@@ -68,8 +68,8 @@ export async function headerBrands(): Promise<NavItem[]> {
 const PAGES = [
   { label: 'تخفیفات ویژه', href: offersPath() },
   { label: 'همکاری در فروش', href: '/affiliate' },
-  { label: 'درباره ما', href: '/about' },
-  { label: 'تماس با ما', href: '/contact' },
+  { label: 'درباره ما', href: aboutPath() },
+  { label: 'تماس با ما', href: contactPath() },
   { label: 'سوالات متداول', href: '/help/faq' },
 ];
 
@@ -138,8 +138,8 @@ export function footerProps(): Omit<FooterProps, 'seals'> {
       {
         title: c.BRAND_NAME,
         links: [
-          { label: 'درباره ما', href: '/about' },
-          { label: 'تماس با ما', href: '/contact' },
+          { label: 'درباره ما', href: aboutPath() },
+          { label: 'تماس با ما', href: contactPath() },
           { label: 'همکاری در فروش', href: '/affiliate?from=footer' },
         ],
       },

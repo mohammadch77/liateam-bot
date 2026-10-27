@@ -20,7 +20,10 @@ test('the new addresses: /shop/product, /shop/category, /shop/brand, the pages u
   assert.equal(productPath(541, 'ریمل', 'serge-rimel-541'), '/shop/product/serge-rimel-541');
   assert.equal(productPath(541, 'ریمل ابرو'), '/shop/product/541-ریمل-ابرو');
   assert.equal(productPath(541, null, 'serge-rimel-999'), '/shop/product/541'); // a slug that does not end with the id
-  assert.equal(categoryPath(173, 'مراقبت پوست'), '/shop/category/173-مراقبت-پوست');
+  assert.equal(categoryPath(179, 'ماسک مو'), '/shop/category/mask-moo-179');
+  assert.equal(categoryPath(180, 'ماسک صورت'), '/shop/category/mask-soorat-180');
+  assert.equal(categoryPath(7, null), '/shop/category/7'); // no name: the code alone
+  assert.equal(categoryPath(7, '؟؟'), '/shop/category/7'); // nothing usable in the name
   assert.equal(brandPath('trust-pro'), '/shop/brand/trust-pro');
   assert.equal(packPath('skin-routine', 'oily'), '/shop/packs/skin-routine/oily');
   assert.equal(withQuery('/shop', { group: 'care', page: 1, q: '' }), '/shop?group=care&page=1');
@@ -39,6 +42,9 @@ test('old address → new address (the full map)', () => {
     ['/541-ریمل', { kind: 'product', segment: '541-ریمل' }],
     ['/541', { kind: 'product', segment: '541' }],
     ['/c/173-مراقبت-پوست', { kind: 'category', segment: '173-مراقبت-پوست' }],
+    ['/categories/179-ماسک-مو', { kind: 'category', segment: '179-ماسک-مو' }],
+    ['/about', { kind: 'path', path: '/about-us' }],
+    ['/contact', { kind: 'path', path: '/contact-us' }],
     ['/brands/trust-pro', { kind: 'path', path: '/shop/brand/trust-pro' }],
     ['/brands', { kind: 'path', path: '/shop/brands' }],
     ['/categories', { kind: 'path', path: '/shop/categories' }],
@@ -60,8 +66,8 @@ test('addresses that are not old ones are left alone: the new ones, the fixed pa
     '/shop/brands',
     '/shop/search',
     '/shop/packs/skin-routine/oily',
-    '/about',
-    '/contact',
+    '/about-us',
+    '/contact-us',
     '/faq',
     '/cart',
     '/admin',
@@ -87,7 +93,7 @@ test('reserved slugs: the shop\'s own pages and old prefixes are never looked up
   for (const s of ['about', 'contact', 'help', 'cart', 'faq', 'product', 'category', 'brand', 'shop', 'p', 'c', 'brands', 'categories', 'offers', 'search', 'packs', 'api']) {
     assert.ok(isReservedSlug(s), s);
   }
-  assert.equal(legacyRoute('/about'), null);
+  assert.equal(legacyRoute('/about-us'), null);
   assert.equal(legacyRoute('/help'), null);
 });
 
