@@ -381,7 +381,7 @@ async function onCallback(client, cb) {
   if (cmd === 'op') {
     const orderId = Number(arg);
     const [o] = await q('SELECT status FROM shop_orders WHERE id = $1', [orderId]);
-    if (!o || o.status !== 'queued') return send(client, chat.chat_id, `سفارش #${orderId} دیگر در صف ثبت نیست (${o?.status ?? 'پیدا نشد'}).`);
+    if (!o || !['queued', 'needs_review'].includes(o.status)) return send(client, chat.chat_id, `سفارش #${orderId} دیگر در صف ثبت نیست (${o?.status ?? 'پیدا نشد'}).`);
     const [pending] = await q(`SELECT 1 FROM order_jobs WHERE kind = 'place' AND done_at IS NULL AND payload->>'order_id' = $1`, [String(orderId)]);
     if (!pending) {
       await q(`INSERT INTO order_jobs (kind, payload, requested_by) VALUES ('place', $1, $2)`, [{ order_id: orderId }, `${chat.platform}:${chat.display_name}`]);
@@ -703,7 +703,7 @@ ${T.time(a.at)}`;
 // ---------------------------------------------------------------- shop orders (written by src/orders.mjs)
 // Events go to admins only (they contain customer orders and our margin). A new or waiting order
 // carries the «ثبت و پرداخت» button; a placed one carries the Liateam payment link.
-const ORDER_PLACE_KINDS = new Set(['new', 'reminder', 'canceled']);
+const ORDER_PLACE_KINDS = new Set(['new', 'reminder', 'canceled', 'needs_review']);
 async function notifyShopOrders() {
   // Claim atomically: the 30 s loop and LISTEN may run this at the same time.
   const events = await q(`WITH claimed AS (
@@ -716,7 +716,7 @@ async function notifyShopOrders() {
   const admins = platforms.length ? await q(`SELECT * FROM messenger_chats WHERE role = 'admin' AND platform = ANY($1)`, [platforms]) : [];
   for (const e of events) {
     let rows = [];
-    if (e.order_id && ORDER_PLACE_KINDS.has(e.kind) && e.order_status === 'queued') {
+    if (e.order_id && ORDER_PLACE_KINDS.has(e.kind) && ['queued', 'needs_review'].includes(e.order_status)) {
       rows = [[{ text: '✅ ثبت و پرداخت', callback_data: `op:${e.order_id}` }]];
     } else if (e.kind === 'placed' && e.data?.payment_url) {
       rows = [[{ text: '💳 پرداخت در لیاتیم', url: e.data.payment_url }]];

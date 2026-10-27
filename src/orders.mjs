@@ -18,6 +18,7 @@ import { openPool, applySettings, setStatus } from './db.mjs';
 import { inQuietHours } from './schedule.mjs';
 import { AuthError } from './auth.mjs';
 import * as L from './liateam-api.mjs';
+import { assessPlacement, botWalletApplies, originOf, toleranceFrom } from './order-guard.mjs';
 
 const REVIEW_TTL_MS = 15 * 60_000;      // a review is valid this long for creating an order
 const REMIND_AFTER_MS = 2 * 3600_000;   // queued this long -> remind admins (outside quiet hours)
@@ -167,6 +168,9 @@ async function create(payload, requestedBy) {
     plate: text(a.plate, 'پلاک', 20), unit: String(a.unit ?? '').trim().slice(0, 20),
   };
   if (!/^\d{10}$/.test(address.postal_code)) throw new InputError('کد پستی باید ۱۰ رقم باشد');
+  const origin = originOf(requestedBy);
+  // The shop keeps its own wallet ledger: a shop order never touches this one.
+  if (origin === 'shop' && payload.payment === 'wallet') throw new InputError('سفارش فروشگاه از کیف پول ربات پرداخت نمی‌شود');
   const method = payload.payment === 'wallet' ? 'wallet' : 'gateway';
 
   const client = await pool.connect();
@@ -189,10 +193,10 @@ async function create(payload, requestedBy) {
     }
     const { rows: [order] } = await client.query(
       `INSERT INTO shop_orders (urgent, customer_first_name, customer_last_name, customer_mobile, province_id, city_id,
-                                postal_code, address, plate, unit, items_total, shipping_price)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
+                                postal_code, address, plate, unit, items_total, shipping_price, origin)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
       [r.urgent, customer.first_name, customer.last_name, customer.mobile, address.province_id, address.city_id,
-        address.postal_code, address.address, address.plate, address.unit || null, r.items_total, r.shipping.price]);
+        address.postal_code, address.address, address.plate, address.unit || null, r.items_total, r.shipping.price, origin]);
     for (const it of r.items.filter((i) => i.quantity > 0)) {
       await client.query('INSERT INTO shop_order_items (order_id, product_id, name, quantity, unit_price) VALUES ($1,$2,$3,$4,$5)',
         [order.id, it.product_id, it.name, it.quantity, it.unit_price]);
@@ -221,14 +225,22 @@ async function create(payload, requestedBy) {
 // ---------------------------------------------------------------- refunds
 async function refund(order, amount, reason) {
   if (amount <= 0) return;
-  await q(`INSERT INTO wallet_ledger (customer_mobile, amount, reason, order_id) VALUES ($1,$2,$3,$4)`, [order.customer_mobile, amount, reason, order.id]);
+  // Shop orders are refunded by the shop in its own ledger (from its own price snapshot); only the supplier-price total is kept here.
+  if (botWalletApplies(order.origin)) {
+    await q(`INSERT INTO wallet_ledger (customer_mobile, amount, reason, order_id) VALUES ($1,$2,$3,$4)`, [order.customer_mobile, amount, reason, order.id]);
+  }
   await q('UPDATE shop_orders SET refunded_total = refunded_total + $2 WHERE id = $1', [order.id, amount]);
 }
 
 // ---------------------------------------------------------------- place (admin pressed the button)
 async function place(payload, requestedBy) {
   const orderId = int(payload.order_id, 'شماره‌ی سفارش');
-  const [order] = await q(`UPDATE shop_orders SET status = 'placing', last_error = NULL WHERE id = $1 AND status = 'queued' RETURNING *`, [orderId]);
+  // `expected_total` (shop orders): what the customer was shown, in Liateam's prices incl. shipping. When present, the
+  // order stops in needs_review if the fresh basket differs by more than the tolerance or an item is short.
+  const expectedTotal = payload.expected_total == null ? null : int(payload.expected_total, 'جمع مورد انتظار', 0);
+  const tolerance = toleranceFrom(payload.max_diff, config.ordersPriceTolerance);
+  // needs_review is placeable again: an admin pressing the button (no expected_total) accepts the current numbers.
+  const [order] = await q(`UPDATE shop_orders SET status = 'placing', last_error = NULL WHERE id = $1 AND status IN ('queued','needs_review') RETURNING *`, [orderId]);
   if (!order) {
     const [cur] = await q('SELECT status, payment_url FROM shop_orders WHERE id = $1', [orderId]);
     if (!cur) throw new InputError(`سفارش #${orderId} پیدا نشد`);
@@ -244,6 +256,20 @@ async function place(payload, requestedBy) {
     if (!ship) throw new L.LiateamError('لیاتیم دیگر به این شهر ارسال پستی ندارد');
     await pause();
     const live = await L.validateBasket(items, ship.warehouse_code);
+
+    // Guard for shop orders: a moved price or a missing item stops here, before any address or order exists at Liateam.
+    const verdict = assessPlacement({ expectedTotal, tolerance, items, liveProducts: live.products, shippingPrice: ship.price });
+    if (!verdict.ok) {
+      const why = verdict.reason === 'unavailable'
+        ? `کالای ناموجود یا کمتر از تعداد سفارش (کد ${verdict.missing.join('، ')})`
+        : `جمع لیاتیم ${verdict.diff > 0 ? 'بالاتر' : 'پایین‌تر'} از جمع نشان‌داده‌شده به مشتری: ${toman(verdict.liveTotal)} در برابر ${toman(expectedTotal)}`;
+      await q(`UPDATE shop_orders SET status = 'needs_review', last_error = $2 WHERE id = $1`, [orderId, why]);
+      await event(orderId, 'needs_review', [`🛑 سفارش #${orderId} ثبت نشد و نیاز به بررسی دارد:`, why,
+        'هیچ آدرس یا سفارشی در لیاتیم ساخته نشد. بعد از بررسی می‌توانید «ثبت و پرداخت» را دوباره بزنید.'].join('\n'),
+        { reason: verdict.reason, live_total: verdict.liveTotal, expected_total: expectedTotal, missing: verdict.missing });
+      log.info(`orders: #${orderId} needs review (${verdict.reason})`);
+      return { order_id: orderId, status: 'needs_review', reason: verdict.reason };
+    }
 
     // Place what is in stock; refund the rest to the customer's wallet.
     const toPlace = [], refunds = [];

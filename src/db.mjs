@@ -357,6 +357,10 @@ CREATE TABLE IF NOT EXISTS shop_orders (
   last_error          TEXT,
   dry_run_result      JSONB
 );
+-- origin: 'shop' = created from the shop site (requested_by = 'shop'; paid and refunded in the shop's own wallet),
+-- 'bot' = dashboard / messenger. needs_review (a status, like the others above): a shop order whose live Liateam
+-- total or stock moved before placing - nothing was placed; an admin decides.
+ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS origin TEXT NOT NULL DEFAULT 'bot';
 CREATE TABLE IF NOT EXISTS shop_order_items (
   id          SERIAL PRIMARY KEY,
   order_id    INTEGER NOT NULL REFERENCES shop_orders(id) ON DELETE CASCADE,
@@ -390,7 +394,7 @@ CREATE TABLE IF NOT EXISTS shop_order_events (
   id          SERIAL PRIMARY KEY,
   at          TIMESTAMPTZ NOT NULL DEFAULT now(),
   order_id    INTEGER REFERENCES shop_orders(id) ON DELETE CASCADE,
-  kind        TEXT NOT NULL,                   -- new | placed | paid | sent | refund | price | reminder | error | canceled
+  kind        TEXT NOT NULL,                   -- new | placed | paid | sent | refund | price | reminder | error | canceled | needs_review
   message     TEXT NOT NULL,
   data        JSONB,
   notified_at TIMESTAMPTZ

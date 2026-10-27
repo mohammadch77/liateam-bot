@@ -46,6 +46,9 @@ export const config = {
   // Orders (src/orders.mjs). Dry run stays on until switched off in the dashboard.
   ordersDryRun: true,
   limitedStock: 5,
+  // A shop order stops in needs_review when Liateam's live total differs from the one the customer saw by more than
+  // this many TOMAN (the shop may send its own max_diff from its settings).
+  ordersPriceTolerance: Number(env.ORDERS_PRICE_TOLERANCE || 10),
   // Liateam bank gateway used for supplier payments (id from GET /payment/payments); empty = first one.
   ordersPaymentId: env.ORDERS_PAYMENT_ID || '',
 };
