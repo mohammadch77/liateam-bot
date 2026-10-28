@@ -6,10 +6,13 @@ import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import { formatToman } from '@/lib/format/money';
 import { toFaDigits } from '@/lib/format/number';
 import { Carousel, Icon, ProductCard } from '@/ui';
+import { AddPackButton } from './_cart/AddPackButton';
 import s from './skin-routine.module.css';
 
 /** Only what the section shows (no ids beyond the pack key, no purchase price). */
 export type RoutinePack = {
+  /** the collection's slug, with the key it finds the pack (the browser sends only these to add it) */
+  collection: string;
   key: string;
   variantTitle: string;
   title: string;
@@ -22,12 +25,9 @@ export type RoutinePack = {
     label: string;
     status: 'soon' | 'out' | 'ok';
     price: number | null;
-    product: { name: string; href: string; brand: string | null; imageUrl: string | null } | null;
+    product: { id: number; name: string; href: string; brand: string | null; imageUrl: string | null } | null;
   }>;
 };
-
-/** The cart arrives in phase 2: the same placeholder as the product page's add-to-cart button. */
-const SOON = 'به‌زودی فعال می‌شود';
 
 /**
  * Home «روتین پوستی» (Homepage.dc.html): one tab per skin type (a segmented control that scrolls on phones) and one
@@ -151,6 +151,7 @@ export function SkinRoutine({
                 {st.product && st.status !== 'soon' ? (
                   <ProductCard
                     product={{
+                      id: st.product.id,
                       href: st.product.href,
                       name: st.product.name,
                       brand: st.product.brand,
@@ -190,17 +191,13 @@ export function SkinRoutine({
             )}
           </div>
           <div className={s.actions}>
-            <button
-              type="button"
+            <AddPackButton
+              collection={pack.collection}
+              variant={pack.key}
               className={s.add}
-              aria-disabled="true"
-              title={SOON}
-              aria-label={`افزودن پک به سبد خرید (${SOON})`}
-              data-routine-add
-            >
-              <Icon name="add_shopping_cart" size={20} />
-              افزودن پک به سبد خرید
-            </button>
+              disabled={!pack.available}
+              dataAttr="data-routine-add"
+            />
             <Link href={pack.href} className={s.view}>
               مشاهده محصولات
               <Icon name="arrow_back" size={18} />

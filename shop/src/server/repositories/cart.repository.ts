@@ -9,10 +9,12 @@ export type CartRow = {
   id: string;
   user_id: string | null;
   status: 'open' | 'merged' | 'ordered' | 'abandoned';
+  /** the live check (public.order_jobs id) this cart waits on or holds */
+  review_id: number | null;
 };
 export type CartItemRow = { product_id: number; quantity: number };
 
-const COLS = 'id::text, user_id::text, status';
+const COLS = 'id::text, user_id::text, status, review_id';
 export const MAX_QUANTITY = 50;
 
 export const cartRepository = {
@@ -80,27 +82,32 @@ export const cartRepository = {
     await query('cart.touch', 'UPDATE carts SET updated_at = now() WHERE id = $1', [cartId], db);
   },
 
-  /**
-   * After sign-in: the guest cart's items are added to the user's cart (quantities add up, capped at the limit) and the
-   * guest cart is closed as 'merged'. Run inside one transaction. Returns how many products were moved.
-   */
-  async mergeGuestIntoUser(guestCartId: string, userCartId: string, db?: Queryable): Promise<number> {
-    const moved = await query<{ product_id: number }>(
-      'cart.merge_items',
-      `INSERT INTO cart_items (cart_id, product_id, quantity)
-         SELECT $2, g.product_id, g.quantity FROM cart_items g WHERE g.cart_id = $1 AND g.quantity > 0
-       ON CONFLICT (cart_id, product_id) DO UPDATE SET quantity = LEAST(${MAX_QUANTITY}, cart_items.quantity + EXCLUDED.quantity)
-       RETURNING product_id`,
-      [guestCartId, userCartId],
-      db,
-    );
+  /** After sign-in the guest cart is closed as merged into the user's (its items were added by the service). */
+  async closeMerged(guestCartId: string, userCartId: string, db?: Queryable): Promise<void> {
     await query(
       'cart.merge_close',
       `UPDATE carts SET status = 'merged', merged_into_id = $2 WHERE id = $1 AND status = 'open'`,
       [guestCartId, userCartId],
       db,
     );
-    return moved.length;
+  },
+
+  /** Units in the cart that can still be bought (the header badge): products no longer sold or out of stock are not counted. */
+  async units(cartId: string, db?: Queryable): Promise<number> {
+    const row = await queryOne<{ n: number }>(
+      'cart.units',
+      `SELECT coalesce(sum(i.quantity), 0)::int AS n
+         FROM cart_items i JOIN public.product_catalog p ON p.id = i.product_id
+        WHERE i.cart_id = $1 AND i.quantity > 0 AND p.is_sellable AND p.price > 0 AND p.missing_since IS NULL AND p.stock > 0`,
+      [cartId],
+      db,
+    );
+    return row?.n ?? 0;
+  },
+
+  /** Remembers the live check the cart is on (null forgets it). */
+  async setReview(cartId: string, reviewId: number | null, db?: Queryable): Promise<void> {
+    await query('cart.set_review', 'UPDATE carts SET review_id = $2 WHERE id = $1', [cartId, reviewId], db);
   },
 
   /** The cart became an order (it is not shown again). */

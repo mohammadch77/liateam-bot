@@ -5,7 +5,9 @@ import { runAction, type ActionResult } from '@/server/http/action';
 import { requestMeta } from '@/server/http/request';
 import { writeSessionCookie } from '@/server/auth/cookie';
 import { safeNextPath } from '@/server/auth/guards';
+import { logger } from '@/lib/logger';
 import { authService, type OtpRequested } from '@/server/services/auth.service';
+import { cartService } from '@/server/services/cart.service';
 
 export type RequestCodeState = ActionResult<
   Pick<OtpRequested, 'phone' | 'masked' | 'resendAfterSeconds'>
@@ -29,6 +31,12 @@ export async function verifyCodeAction(_prev: VerifyCodeState, form: FormData): 
       await requestMeta(),
     );
     await writeSessionCookie(s.token, s.expiresAt);
+    // what the guest put in the cart before signing in joins the user's own cart (never blocks the sign-in)
+    try {
+      await cartService.mergeGuestIntoUser(s.userId);
+    } catch (e) {
+      logger.warn('cart.merge_failed', { err: e });
+    }
     return null;
   });
   if (!result.ok) return result;

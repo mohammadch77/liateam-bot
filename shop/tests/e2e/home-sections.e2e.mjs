@@ -54,10 +54,10 @@ try {
   );
   const add = routine.locator('[data-routine-add]');
   check(
-    '3c «افزودن پک به سبد خرید»: present, a placeholder like the product page (aria-disabled, به‌زودی)',
+    '3c «افزودن پک به سبد خرید»: present and working (an enabled button that adds the pack to the cart; checkout.e2e covers the adding)',
     (await add.innerText()).includes('افزودن پک به سبد خرید') &&
-      (await add.getAttribute('aria-disabled')) === 'true' &&
-      /به‌زودی/.test((await add.getAttribute('title')) ?? ''),
+      (await add.isEnabled()) &&
+      (await add.getAttribute('aria-disabled')) === null,
   );
   check(
     '3d «مشاهده محصولات» → the pack page',

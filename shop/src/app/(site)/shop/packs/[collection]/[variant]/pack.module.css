@@ -199,3 +199,27 @@
   line-height: 1.9;
   color: #cfc8d4;
 }
+
+.addPack {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--control-lg);
+  padding: 8px 20px;
+  border: 0;
+  border-radius: var(--radius-button);
+  background: var(--color-primary);
+  color: var(--color-white);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.addPack:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+.addPack:disabled {
+  background: var(--color-disabled-bg);
+  color: var(--color-disabled-text);
+  cursor: not-allowed;
+}

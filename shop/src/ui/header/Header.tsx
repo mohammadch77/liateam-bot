@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { formatToman, formatTomanShort, type Toman } from '@/lib/format/money';
-import { formatNumber, toFaDigits } from '@/lib/format/number';
+import { toFaDigits } from '@/lib/format/number';
 import { Icon } from '../icon/Icon';
 import { Container } from '../layout/Layout';
 import { BrandMenu, MegaMenu } from './MegaMenu';
@@ -8,6 +8,7 @@ import { MobileMenu } from './MobileMenu';
 import { SearchBox } from './SearchBox';
 import { SearchOverlay } from './SearchOverlay';
 import s from './Header.module.css';
+import { CartLink } from './CartLink';
 
 export type Brand = { name: string; latin: string; homeHref?: string };
 export type NavItem = {
@@ -252,24 +253,6 @@ function Logo({ brand, href }: { brand: Brand; href: string }) {
         <span className={s.logoDot}>.</span>
       </span>
       <span className={s.logoLatin}>{brand.latin}</span>
-    </Link>
-  );
-}
-
-function CartLink({ href, count }: { href: string; count: number }) {
-  return (
-    <Link
-      href={href}
-      className={s.iconLink}
-      aria-label={count > 0 ? `سبد خرید، ${formatNumber(count)} کالا` : 'سبد خرید'}
-      data-header-action="cart"
-    >
-      <Icon name="shopping_bag" size={24} />
-      {count > 0 && (
-        <span className={s.count} aria-hidden="true">
-          {formatNumber(count)}
-        </span>
-      )}
     </Link>
   );
 }

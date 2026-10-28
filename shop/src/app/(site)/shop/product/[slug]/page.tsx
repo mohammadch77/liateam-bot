@@ -6,6 +6,7 @@ import { cache, type ReactNode } from 'react';
 import { getConfig } from '@/lib/config';
 import { jsonLd as toJsonLd } from '@/lib/json-ld';
 import { contactPath, idFromSlug } from '@/lib/urls';
+import { ProductBuy } from '@/app/(site)/_cart/ProductBuy';
 import { siteOrigin } from '@/server/http/site-origin';
 import { toAppError } from '@/lib/errors';
 import { discountPercent, formatTomanText, tomanToRial } from '@/lib/format/money';
@@ -290,13 +291,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
                     <Saving toman={p.priceToman} oldToman={p.oldPriceToman} />
                   </span>
                 )}
-                {/* cart slot: the cart arrives in phase 2 */}
-                <Button size="lg" block icon="add_shopping_cart" disabled aria-describedby="cart-soon">
-                  افزودن به سبد
-                </Button>
-                <span id="cart-soon" className={s.soon}>
-                  خرید آنلاین به‌زودی فعال می‌شود.
-                </span>
+                <ProductBuy productId={p.id} maxQuantity={p.stockCount} />
               </>
             )}
           </div>
@@ -321,9 +316,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
         ) : (
           <Price toman={p.priceToman} oldToman={p.oldPriceToman} />
         )}
-        <Button size="md" icon="add_shopping_cart" disabled tabIndex={-1}>
-          افزودن به سبد
-        </Button>
+        {!out && <ProductBuy productId={p.id} maxQuantity={p.stockCount} compact />}
       </div>
 
       {/* in-page tabs: always the same five, sticky while scrolling (desktop) */}

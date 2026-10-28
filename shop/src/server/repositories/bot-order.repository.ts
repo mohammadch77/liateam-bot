@@ -1,5 +1,6 @@
 import 'server-only';
 import { query, queryOne, type Queryable } from '@/lib/db';
+import type { ReviewResult } from '@/lib/orders/review';
 import type { OrderStatus } from '@/lib/orders/status';
 
 /**
@@ -10,28 +11,7 @@ import type { OrderStatus } from '@/lib/orders/status';
  */
 export type JobResult = { done: boolean; ok: boolean; result: unknown };
 
-/** The bot's answer to a live check (src/orders.mjs review): what Liateam can supply now, at Liateam's prices. */
-export type ReviewResult = {
-  ok: boolean;
-  reason: string | null;
-  city_id: number;
-  items: Array<{
-    product_id: number;
-    name: string | null;
-    requested: number;
-    quantity: number;
-    status: 'ok' | 'adjusted' | 'unavailable';
-    unit_price?: number;
-    line_total?: number;
-    price_changed?: { old: number; new: number } | null;
-    limited?: boolean;
-  }>;
-  shipping: { price: number; title: string } | null;
-  items_total: number;
-  total: number;
-  urgent: boolean;
-  expires_at: string;
-};
+export type { ReviewResult };
 
 /** The bot's order as the shop may see it. */
 export type BotOrderRow = {

@@ -78,6 +78,7 @@ export default async function HomePage() {
     subtitle: c.subtitle,
     variantLabel: c.variantLabel,
     packs: c.packs.map((p): RoutinePack => ({
+      collection: c.slug,
       key: p.key,
       variantTitle: p.variantTitle,
       title: p.title,
@@ -92,6 +93,7 @@ export default async function HomePage() {
         price: st.price,
         product: st.product
           ? {
+              id: st.product.id,
               name: st.product.name,
               href: st.product.href,
               brand: st.product.brandName,

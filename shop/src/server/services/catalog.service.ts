@@ -2,7 +2,15 @@ import 'server-only';
 import { cache } from 'react';
 import { z } from 'zod';
 import { BESTSELLER_TABS } from '@/lib/bestsellers';
-import { brandPath, brandsPath, categoryPath, categoriesPath, offersPath, productPath, shopPath } from '@/lib/urls';
+import {
+  brandPath,
+  brandsPath,
+  categoryPath,
+  categoriesPath,
+  offersPath,
+  productPath,
+  shopPath,
+} from '@/lib/urls';
 import { toAppError } from '@/lib/errors';
 import { priceRange } from '@/lib/price-range';
 import { heroSkipReason, logSkippedHeroSlides } from '@/lib/hero-slides';

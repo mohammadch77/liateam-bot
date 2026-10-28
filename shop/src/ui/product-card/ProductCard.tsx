@@ -7,7 +7,8 @@ import { Badge, DiscountRibbon } from '../badge/Badge';
 import { Icon } from '../icon/Icon';
 import { Price } from '../price/Price';
 import { Skeleton } from '../skeleton/Skeleton';
-import { Spinner } from '../spinner/Spinner';
+import { AddToCartButton } from './AddToCartButton';
+import { CartAddButton } from './CartAddButton';
 import { cx } from '../cx';
 import s from './ProductCard.module.css';
 
@@ -15,6 +16,8 @@ export type StockState = 'in' | 'limited' | 'out';
 
 /** Display data only — the catalog service (tick 5) maps database rows to this shape. */
 export type ProductCardData = {
+  /** the product's code: with it the card's add button works (a card without one shows the static button) */
+  id?: number;
   href: string;
   name: string;
   brand?: string | null;
@@ -36,7 +39,7 @@ type ProductCardProps = {
   priority?: boolean;
 };
 
-/** Until the cart and favourites exist (phase 2) the default controls are visible placeholders. */
+/** Until favourites exist the heart is a visible placeholder. */
 const SOON = 'به‌زودی فعال می‌شود';
 
 export function ProductCard({ product: p, action, favorite, priority }: ProductCardProps) {
@@ -109,43 +112,18 @@ export function ProductCard({ product: p, action, favorite, priority }: ProductC
             <>
               <Price toman={p.priceToman} oldToman={p.oldPriceToman} size="md" />
               <span className={s.action}>
-                {action ?? <AddToCartButton state="idle" unavailableReason={SOON} />}
+                {action ??
+                  (p.id !== undefined ? (
+                    <CartAddButton productId={p.id} name={p.name} />
+                  ) : (
+                    <AddToCartButton state="idle" />
+                  ))}
               </span>
             </>
           )}
         </div>
       </div>
     </article>
-  );
-}
-
-/** Visual add-to-cart button in its three design states. */
-export function AddToCartButton({
-  state,
-  unavailableReason,
-}: {
-  state: 'idle' | 'loading' | 'done';
-  /** placeholder until the cart exists: looks like the design, announces why it does nothing */
-  unavailableReason?: string;
-}) {
-  const cls = state === 'loading' ? s.addLoading : state === 'done' ? s.addDone : s.addIdle;
-  const label =
-    state === 'loading' ? 'در حال افزودن' : state === 'done' ? 'به سبد افزوده شد' : 'افزودن به سبد خرید';
-  return (
-    <button
-      type="button"
-      className={cx(s.iconButton, cls, unavailableReason && s.placeholder)}
-      aria-label={unavailableReason ? `${label} (${unavailableReason})` : label}
-      aria-disabled={unavailableReason ? true : undefined}
-      title={unavailableReason}
-      aria-busy={state === 'loading'}
-    >
-      {state === 'loading' ? (
-        <Spinner />
-      ) : (
-        <Icon name={state === 'done' ? 'check' : 'add_shopping_cart'} size={21} />
-      )}
-    </button>
   );
 }
 
@@ -187,3 +165,5 @@ export function ProductCardSkeleton() {
     </div>
   );
 }
+
+export { AddToCartButton };

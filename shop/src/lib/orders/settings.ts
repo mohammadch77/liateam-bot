@@ -10,6 +10,7 @@ export const ORDER_SETTING_KEYS = {
   autoPlaceHours: 'orders.auto_place_hours',
   freeShippingEnabled: 'shipping.free_enabled',
   freeShippingFrom: 'shipping.free_from_toman',
+  deliveryExtraDays: 'shipping.extra_days',
 } as const;
 
 export type AutoPlaceHours = { from: string; to: string }; // 'HH:MM' Asia/Tehran
@@ -21,6 +22,8 @@ export type OrderSettings = {
   autoPlaceEnabled: boolean;
   autoPlaceHours: AutoPlaceHours;
   freeShipping: FreeShipping;
+  /** days added to the shop's own delivery range (the admin's N) */
+  deliveryExtraDays: number;
 };
 
 export const DEFAULT_ORDER_SETTINGS: OrderSettings = {
@@ -28,6 +31,7 @@ export const DEFAULT_ORDER_SETTINGS: OrderSettings = {
   autoPlaceEnabled: false,
   autoPlaceHours: { from: '09:00', to: '21:00' },
   freeShipping: { enabled: false, fromToman: 999_000 },
+  deliveryExtraDays: 1,
 };
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -53,6 +57,7 @@ export function parseOrderSettings(raw: ReadonlyMap<string, unknown>): OrderSett
       enabled: bool(raw.get(k.freeShippingEnabled), d.freeShipping.enabled),
       fromToman: num(raw.get(k.freeShippingFrom), 1, d.freeShipping.fromToman),
     },
+    deliveryExtraDays: num(raw.get(k.deliveryExtraDays), 0, d.deliveryExtraDays),
   };
 }
 

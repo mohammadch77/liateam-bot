@@ -9,6 +9,7 @@ import { toFaDigits } from '@/lib/format/number';
 import { packPath, packService } from '@/server/services/pack.service';
 import { Breadcrumb, Container, Icon, Price } from '@/ui';
 import { CatalogUnavailable } from '@/app/(site)/_catalog/CatalogListing';
+import { AddPackButton } from '@/app/(site)/_cart/AddPackButton';
 import s from './pack.module.css';
 
 type Props = { params: Promise<{ collection: string; variant: string }> };
@@ -27,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 /**
  * One pack: its steps in order (product, its current price, a link to it), the items' total struck through, the pack
- * price and the saving; the other variants of the collection as chips. Buying the whole pack comes with the cart.
+ * price and the saving; the other variants of the collection as chips. «افزودن پک به سبد خرید» adds every available item.
  */
 export default async function PackPage({ params }: Props) {
   const { collection, variant } = await params;
@@ -118,9 +119,13 @@ export default async function PackPage({ params }: Props) {
           ) : (
             <b className={s.unavailable}>این پک فعلاً در دسترس نیست</b>
           )}
-          <p className={s.note}>
-            خرید یک‌جای پک با فعال شدن سبد خرید ممکن می‌شود؛ تا آن موقع هر محصول را از صفحه‌ی خودش ببینید.
-          </p>
+          <AddPackButton
+            collection={collection}
+            variant={variant}
+            className={s.addPack}
+            disabled={!p.available}
+            dataAttr="data-pack-add"
+          />
         </aside>
       </div>
     </Container>

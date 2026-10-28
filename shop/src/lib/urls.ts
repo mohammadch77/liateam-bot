@@ -52,6 +52,11 @@ export const categoryPath = (code: number, name: string | null) => {
   const words = name ? finglish(name) : '';
   return `${CATEGORY_BASE}/${words ? `${words}-` : ''}${code}`;
 };
+export const cartPath = () => '/cart';
+export const checkoutPath = () => '/checkout';
+export const ordersPath = () => '/account/orders';
+/** An order's page by its readable number (AV-100001); only its owner can open it. */
+export const orderPath = (number: string) => `/account/orders/${number}`;
 export const aboutPath = () => '/about-us';
 export const contactPath = () => '/contact-us';
 

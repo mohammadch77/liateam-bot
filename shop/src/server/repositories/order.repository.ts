@@ -37,6 +37,8 @@ export type OrderRow = {
   bot_order_id: number | null;
   needs_review_reason: string | null;
   referrer_user_id: string | null;
+  delivery_eta_min_days: number | null;
+  delivery_eta_max_days: number | null;
   paid_at: Date | null;
   placed_at: Date | null;
   supplier_paid_at: Date | null;
@@ -92,6 +94,13 @@ export type NewOrder = {
   shippingSupplierPrice: number;
   shippingCharged: number;
   referrerUserId?: string | null;
+  /** the live check this order was made from (the bot's review job), Liateam-priced goods + shipping, and its hold */
+  reviewId: number;
+  liveTotal: number;
+  liveExpiresAt: Date;
+  /** the delivery window shown to the customer (null = none was known) */
+  deliveryEtaMinDays?: number | null;
+  deliveryEtaMaxDays?: number | null;
   items: readonly NewOrderItem[];
 };
 
@@ -109,7 +118,7 @@ const COLS = `id::text, number, user_id::text, status, payment_method, recipient
   items_total::float8, discount_total::float8, shipping_supplier_price::float8, shipping_charged::float8,
   shipping_absorbed::float8, total_payable::float8, refunded_total::float8,
   review_id, live_checked_at, live_ok, live_total::float8, live_expires_at, bot_order_id, needs_review_reason,
-  referrer_user_id::text, paid_at, placed_at, supplier_paid_at, sent_at, canceled_at, created_at`;
+  referrer_user_id::text, delivery_eta_min_days, delivery_eta_max_days, paid_at, placed_at, supplier_paid_at, sent_at, canceled_at, created_at`;
 const ITEM_COLS = `id::text, order_id::text, product_id, name, quantity, unit_list_price::float8, unit_price::float8,
   discount_percent::float8, discount_label, pricing_mode, line_total::float8, bot_status, refunded_quantity,
   refunded_amount::float8`;
@@ -124,8 +133,9 @@ export const orderRepository = {
       'order.create',
       `INSERT INTO orders (user_id, idempotency_key, payment_method, recipient_name, recipient_phone, province, city,
                            province_id, city_id, postal_code, line, plate, unit, items_total, discount_total,
-                           shipping_supplier_price, shipping_charged, referrer_user_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+                           shipping_supplier_price, shipping_charged, referrer_user_id, review_id, live_checked_at, live_ok,
+                           live_total, live_expires_at, delivery_eta_min_days, delivery_eta_max_days)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19, now(), true, $20, $21, $22, $23)
        ON CONFLICT (idempotency_key) DO NOTHING RETURNING id::text`,
       [
         o.userId,
@@ -146,6 +156,11 @@ export const orderRepository = {
         o.shippingSupplierPrice,
         o.shippingCharged,
         o.referrerUserId ?? null,
+        o.reviewId,
+        o.liveTotal,
+        o.liveExpiresAt,
+        o.deliveryEtaMinDays ?? null,
+        o.deliveryEtaMaxDays ?? null,
       ],
       db,
     );
@@ -188,6 +203,16 @@ export const orderRepository = {
       'order.find_number',
       `SELECT ${COLS} FROM orders WHERE number = $1`,
       [number],
+      db,
+    );
+  },
+
+  /** An order of this user by its number (AV-100001); another user's number is not found. */
+  async findByNumberForUser(number: string, userId: string, db?: Queryable): Promise<OrderRow | null> {
+    return queryOne<OrderRow>(
+      'order.find_number_user',
+      `SELECT ${COLS} FROM orders WHERE number = $1 AND user_id = $2`,
+      [number, userId],
       db,
     );
   },

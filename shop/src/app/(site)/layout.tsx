@@ -7,6 +7,8 @@ import {
   headerCategories,
   headerProps,
 } from '@/server/site/chrome';
+import { CartProvider } from './_cart/CartProvider';
+import { cartService } from '@/server/services/cart.service';
 import { freeShippingFrom } from '@/lib/shipping';
 import { orderSettingsService } from '@/server/services/order-settings.service';
 import { getCurrentUser } from '@/server/services/session.service';
@@ -16,20 +18,32 @@ import { BottomNav, BottomNavSpacer, Footer, Header } from '@/ui';
 export const dynamic = 'force-dynamic';
 
 export default async function SiteLayout({ children }: { children: ReactNode }) {
-  const [user, categories, brands, campaign, settings] = await Promise.all([
+  const [user, categories, brands, campaign, settings, cartCount] = await Promise.all([
     getCurrentUser(),
     headerCategories(),
     headerBrands(),
     headerCampaign(),
     orderSettingsService.get(),
+    cartService.badge(),
   ]);
   return (
     <>
-      <Header {...headerProps(user, categories, brands, campaign, freeShippingFrom(settings.freeShipping))} />
-      <main>{children}</main>
-      <Footer {...footerProps()} />
-      <BottomNavSpacer />
-      <BottomNav items={bottomNavItems(user)} />
+      <CartProvider initialUnits={cartCount}>
+        <Header
+          {...headerProps(
+            user,
+            categories,
+            brands,
+            campaign,
+            freeShippingFrom(settings.freeShipping),
+            cartCount,
+          )}
+        />
+        <main>{children}</main>
+        <Footer {...footerProps()} />
+        <BottomNavSpacer />
+        <BottomNav items={bottomNavItems(user, cartCount)} />
+      </CartProvider>
     </>
   );
 }

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { formatNumber } from '@/lib/format/number';
 import { Icon, type IconName } from '../icon/Icon';
+import { BottomNavCount } from './BottomNavCount';
 import s from './BottomNav.module.css';
 
 export type BottomNavItem = {
@@ -11,6 +12,8 @@ export type BottomNavItem = {
   count?: number;
   /** opens the full-screen search (SearchOverlay) instead of following the link, when JavaScript runs */
   openSearch?: boolean;
+  /** the cart tab: its number follows the cart of the page */
+  cart?: boolean;
 };
 
 /** Mobile tab bar «ناوبری اصلی» (Homepage mobile frame); hidden from 1024px where the header has everything. */
@@ -23,15 +26,19 @@ export function BottomNav({ items }: { items: readonly BottomNavItem[] }) {
           href={t.href}
           className={s.item}
           aria-current={t.current ? 'page' : undefined}
-          aria-label={t.count ? `${t.label}، ${formatNumber(t.count)} کالا` : undefined}
+          aria-label={!t.cart && t.count ? `${t.label}، ${formatNumber(t.count)} کالا` : undefined}
           data-open-search={t.openSearch ? '' : undefined}
         >
           <Icon name={t.icon} size={25} filled={t.current} />
           {t.label}
-          {!!t.count && (
-            <span className={s.count} aria-hidden="true">
-              {formatNumber(t.count)}
-            </span>
+          {t.cart ? (
+            <BottomNavCount initial={t.count ?? 0} />
+          ) : (
+            !!t.count && (
+              <span className={s.count} aria-hidden="true">
+                {formatNumber(t.count)}
+              </span>
+            )
           )}
         </Link>
       ))}

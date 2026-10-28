@@ -9,9 +9,11 @@ import type { BottomNavItem, FooterProps, HeaderProps, NavItem } from '@/ui';
 import {
   aboutPath,
   brandsPath,
+  cartPath,
   contactPath,
   categoriesPath,
   offersPath,
+  ordersPath,
   searchPath,
   shopPath,
 } from '@/lib/urls';
@@ -22,11 +24,11 @@ import {
  */
 
 const LINKS = {
-  cart: '/cart',
+  cart: cartPath(),
   account: '/account',
   wallet: '/account/wallet',
   login: '/login',
-  orders: '/account/orders',
+  orders: ordersPath(),
   favorites: '/account/favorites',
 } as const;
 
@@ -93,6 +95,7 @@ export function headerProps(
   campaign: { text: string; href: string } | null = null,
   /** «ارسال رایگان از مبلغ X»: the threshold from the settings, null while the switch is off (then nothing is promised) */
   freeShippingFromToman: number | null = null,
+  cartCount = 0,
 ): HeaderProps {
   const c = getConfig();
   return {
@@ -103,7 +106,7 @@ export function headerProps(
     brands,
     brandsHref: brandsPath(),
     pages: PAGES,
-    cartCount: 0,
+    cartCount,
     signedIn: user !== null,
     walletToman: null, // wallet arrives in phase 2
     freeShippingFromToman,
@@ -160,12 +163,12 @@ export function footerProps(): Omit<FooterProps, 'seals'> {
   };
 }
 
-export function bottomNavItems(user: CurrentUser | null): BottomNavItem[] {
+export function bottomNavItems(user: CurrentUser | null, cartCount = 0): BottomNavItem[] {
   return [
     { icon: 'home', label: 'خانه', href: '/' },
     { icon: 'grid_view', label: 'دسته‌ها', href: categoriesPath() },
     { icon: 'search', label: 'جست‌وجو', href: searchPath(), openSearch: true },
-    { icon: 'shopping_bag', label: 'سبد', href: LINKS.cart },
+    { icon: 'shopping_bag', label: 'سبد', href: LINKS.cart, cart: true, count: cartCount },
     { icon: 'person', label: user ? 'حساب' : 'ورود', href: user ? LINKS.account : LINKS.login },
   ];
 }

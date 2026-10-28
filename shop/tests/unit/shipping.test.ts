@@ -80,6 +80,7 @@ test('settings: the starting values; a missing or malformed value falls back to 
       ['orders.auto_place_hours', { from: '9am', to: '21:00' }],
       ['shipping.free_enabled', 1],
       ['shipping.free_from_toman', 'x'],
+      ['shipping.extra_days', -2],
     ]),
   );
   assert.deepEqual(bad, DEFAULT_ORDER_SETTINGS);
@@ -90,6 +91,7 @@ test('settings: the starting values; a missing or malformed value falls back to 
       ['orders.auto_place_hours', { from: '08:30', to: '20:00' }],
       ['shipping.free_enabled', true],
       ['shipping.free_from_toman', 1_500_000],
+      ['shipping.extra_days', 3],
     ]),
   );
   assert.deepEqual(set, {
@@ -97,6 +99,7 @@ test('settings: the starting values; a missing or malformed value falls back to 
     autoPlaceEnabled: true,
     autoPlaceHours: { from: '08:30', to: '20:00' },
     freeShipping: { enabled: true, fromToman: 1_500_000 },
+    deliveryExtraDays: 3,
   });
 });
 
