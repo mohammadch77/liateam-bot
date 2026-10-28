@@ -9,6 +9,7 @@ import { SearchBox } from './SearchBox';
 import { SearchOverlay } from './SearchOverlay';
 import s from './Header.module.css';
 import { CartLink } from './CartLink';
+import { StickyBar } from './StickyBar';
 
 export type Brand = { name: string; latin: string; homeHref?: string };
 export type NavItem = {
@@ -166,6 +167,8 @@ export function Header(p: HeaderProps) {
           </Container>
         </nav>
       </div>
+
+      <StickyBar brandName={p.brand.name} homeHref={home} cartHref={p.links.cart} cartCount={p.cartCount} />
 
       <div className={s.mobile}>
         {p.freeShippingFromToman !== null && (

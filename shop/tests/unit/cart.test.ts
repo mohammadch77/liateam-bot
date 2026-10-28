@@ -245,3 +245,63 @@ test("a shop price above Liateam's list price is held at the list price (never c
   assert.ok(r.ok);
   if (r.ok) assert.equal(r.draft.items[0]!.unitPrice, 1_000_000);
 });
+
+// ── the one snapshot every cart view shares (src/lib/cart/snapshot.ts) ──
+import { EMPTY_SNAPSHOT, newer, snapshotOf, withQuantity, type SnapshotLine } from '../../src/lib/cart/snapshot.ts';
+
+const sl = (over: Partial<SnapshotLine> = {}): SnapshotLine => ({
+  productId: 1,
+  name: 'Item',
+  href: '/shop/product/item-1',
+  imageUrl: null,
+  quantity: 2,
+  maxQuantity: 5,
+  unitPrice: 960_000,
+  unitListPrice: 1_000_000,
+  discountPercent: 4,
+  lineTotal: 1_920_000,
+  ...over,
+});
+
+test('snapshot: the totals follow the lines', () => {
+  const snap = snapshotOf(10, [sl(), sl({ productId: 2, quantity: 1, unitPrice: 500_000, unitListPrice: 500_000, lineTotal: 500_000 })]);
+  assert.deepEqual([snap.units, snap.lines, snap.itemsTotal, snap.listTotal, snap.discountTotal], [3, 2, 2_420_000, 2_500_000, 80_000]);
+  assert.deepEqual(EMPTY_SNAPSHOT.items, []);
+});
+
+test('snapshot: the newer one wins (a tie goes to the first: the one carrying an optimistic change)', () => {
+  const a = snapshotOf(5, [sl()]);
+  const b = snapshotOf(9, []);
+  assert.equal(newer(a, b), b);
+  assert.equal(newer(b, a), b);
+  const tieA = snapshotOf(5, [sl({ quantity: 3 })]);
+  assert.equal(newer(tieA, a), tieA);
+  assert.equal(newer(null, a), a);
+  assert.equal(newer(a, undefined), a);
+  assert.equal(newer(null, null), null);
+});
+
+test('optimistic change: + / − / remove / the stock cap, totals recomputed, rev kept', () => {
+  const base = snapshotOf(7, [sl(), sl({ productId: 2, quantity: 1, maxQuantity: 1, unitPrice: 100, unitListPrice: 100, lineTotal: 100 })]);
+  const up = withQuantity(base, 1, 3);
+  assert.deepEqual([up.rev, up.units, up.items[0]!.quantity, up.items[0]!.lineTotal, up.itemsTotal], [7, 4, 3, 2_880_000, 2_880_100]);
+  assert.equal(withQuantity(base, 1, 99).items[0]!.quantity, 5); // held at that line's maximum
+  const gone = withQuantity(base, 1, 0);
+  assert.deepEqual([gone.items.map((i) => i.productId), gone.units, gone.itemsTotal], [[2], 1, 100]);
+  assert.equal(withQuantity(base, 2, 2).items[1]!.quantity, 1); // its maximum is 1
+  assert.equal(withQuantity(base, 77, 3).items.length, 2); // an unknown product changes nothing
+  assert.equal(base.items[0]!.quantity, 2); // the base is not modified
+});
+
+test('mini-cart and cart page agree: the same lines give the same total however they are reached', () => {
+  // the scenario of the report: toner 2 (not 1), no gel — one snapshot, one answer
+  const server = snapshotOf(20, [sl({ productId: 10, quantity: 2, unitPrice: 2_000_000, unitListPrice: 2_000_000, lineTotal: 4_000_000 })]);
+  const stale = snapshotOf(10, [
+    sl({ productId: 10, quantity: 1, unitPrice: 2_000_000, unitListPrice: 2_000_000, lineTotal: 2_000_000 }),
+    sl({ productId: 11, quantity: 1, unitPrice: 500_000, unitListPrice: 500_000, lineTotal: 500_000 }),
+  ]);
+  for (const [a, b] of [[stale, server], [server, stale]] as const) {
+    const shown = newer(a, b)!;
+    assert.deepEqual([shown.units, shown.itemsTotal], [2, 4_000_000]);
+  }
+});

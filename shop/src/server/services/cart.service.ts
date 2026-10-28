@@ -11,6 +11,7 @@ import {
   type CartTotals,
   type PricedLine,
 } from '@/lib/cart/totals';
+import { snapshotOf, type CartSnapshot, type SnapshotLine } from '@/lib/cart/snapshot';
 import { clearCartToken, hashCartToken, issueCartToken, readCartToken } from '@/server/cart/cookie';
 import { rateLimit } from '@/server/http/rate-limit';
 import { cartRepository, type CartRow } from '@/server/repositories/cart.repository';
@@ -33,13 +34,17 @@ export type CartLine = PricedLine & {
   lineTotal: number;
 };
 
-export type CartView = CartTotals & { cartId: string | null; items: CartLine[]; empty: boolean };
+export type CartView = CartTotals & { cartId: string | null; items: CartLine[]; empty: boolean; rev: number };
 
-/** What the page needs after a change: the new badge and the line that changed. */
-export type CartChange = { units: number; quantity: number; capped: boolean };
+/**
+ * What the page needs after a change: the new badge, the line that changed and the whole cart as it is now — every
+ * view (header, mini-cart, cart page) takes this one snapshot, so none of them can show an older cart than another.
+ */
+export type CartChange = { units: number; quantity: number; capped: boolean; snapshot: CartSnapshot };
 
 const EMPTY: CartView = {
   cartId: null,
+  rev: 0,
   items: [],
   empty: true,
   units: 0,
@@ -99,27 +104,55 @@ async function lines(cart: CartRow): Promise<CartLine[]> {
   return out;
 }
 
+/** Only what the views show (no stock number, nothing else of the product). */
+const toSnapshotLine = (l: CartLine): SnapshotLine => ({
+  productId: l.productId,
+  name: l.name,
+  href: l.href,
+  imageUrl: l.imageUrl,
+  quantity: l.quantity,
+  maxQuantity: l.maxQuantity,
+  unitPrice: l.unitPrice,
+  unitListPrice: l.unitListPrice,
+  discountPercent: l.discountPercent,
+  lineTotal: l.lineTotal,
+});
+
+/** The cart as it is NOW (not the request's memoised view: this is used right after a change). */
+async function freshSnapshot(cart: CartRow): Promise<CartSnapshot> {
+  const [items, rev] = await Promise.all([lines(cart), cartRepository.rev(cart.id)]);
+  return snapshotOf(rev, items.map(toSnapshotLine));
+}
+
 export const cartService = {
   /** The cart of this request, priced now (an empty view when there is none). */
   view: cache(async (): Promise<CartView> => {
     try {
       const cart = await existingCart(await owner());
       if (!cart) return EMPTY;
-      const items = await lines(cart);
-      return { cartId: cart.id, items, empty: items.length === 0, ...totalsOf(items) };
+      const [items, rev] = await Promise.all([lines(cart), cartRepository.rev(cart.id)]);
+      return { cartId: cart.id, rev, items, empty: items.length === 0, ...totalsOf(items) };
     } catch (e) {
       logger.warn('cart.view_failed', { err: e });
       return EMPTY; // a page never fails because of the badge
     }
   }),
 
-  /** The header badge: units that can still be bought. 0 on any failure. */
-  badge: cache(async (): Promise<number> => {
+  /** The cart of this request as the one snapshot every view shares. */
+  snapshot: cache(async (): Promise<CartSnapshot> => {
+    const v = await cartService.view();
+    return snapshotOf(v.rev, v.items.map(toSnapshotLine));
+  }),
+
+  /** The header badge: units that can still be bought, and the cart's change time. Zeros on any failure. */
+  badge: cache(async (): Promise<{ units: number; rev: number }> => {
     try {
       const cart = await existingCart(await owner());
-      return cart ? await cartRepository.units(cart.id) : 0;
+      if (!cart) return { units: 0, rev: 0 };
+      const [units, rev] = await Promise.all([cartRepository.units(cart.id), cartRepository.rev(cart.id)]);
+      return { units, rev };
     } catch {
-      return 0;
+      return { units: 0, rev: 0 };
     }
   }),
 
@@ -142,7 +175,12 @@ export const cartService = {
       throw new AppError('INVALID_DATA', { message: 'به سقف موجودی این کالا رسیده‌اید.' });
     }
     await cartRepository.setQuantity(cart.id, productId, next);
-    return { units: await cartRepository.units(cart.id), quantity: next, capped: have + q > next };
+    return {
+      units: await cartRepository.units(cart.id),
+      quantity: next,
+      capped: have + q > next,
+      snapshot: await freshSnapshot(cart),
+    };
   },
 
   /** Sets a line's quantity (0 takes it out); never above the stock. */
@@ -164,6 +202,7 @@ export const cartService = {
       units: await cartRepository.units(cart.id),
       quantity: next,
       capped: quantity > next && next > 0,
+      snapshot: await freshSnapshot(cart),
     };
   },
 
@@ -172,7 +211,9 @@ export const cartService = {
   },
 
   /** Adds each product once (a pack's items); products that cannot be added are skipped. Returns how many were added. */
-  async addMany(productIds: readonly number[]): Promise<{ added: number; skipped: number; units: number }> {
+  async addMany(
+    productIds: readonly number[],
+  ): Promise<{ added: number; skipped: number; units: number; snapshot: CartSnapshot }> {
     let added = 0;
     let skipped = 0;
     let units = 0;
@@ -186,7 +227,9 @@ export const cartService = {
       }
     }
     if (!added) throw new AppError('INVALID_DATA', { message: 'هیچ‌کدام از اقلام این پک قابل افزودن نبود.' });
-    return { added, skipped, units: units || (await this.badge()) };
+    const cart = await existingCart(await owner());
+    const snapshot = cart ? await freshSnapshot(cart) : snapshotOf(0, []);
+    return { added, skipped, units: units || snapshot.units, snapshot };
   },
 
   /**

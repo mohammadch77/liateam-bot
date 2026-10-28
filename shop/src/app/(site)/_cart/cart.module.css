@@ -4,7 +4,7 @@
   position: fixed;
   inset-inline: 0;
   bottom: calc(76px + env(safe-area-inset-bottom, 0px)); /* above the tab bar on phones */
-  z-index: 60;
+  z-index: 80;
   display: flex;
   justify-content: center;
   padding-inline: var(--gutter);
@@ -39,105 +39,6 @@
   white-space: nowrap;
   text-decoration: underline;
   text-underline-offset: 3px;
-}
-
-.mini {
-  position: fixed;
-  top: 92px;
-  inset-inline-end: var(--gutter);
-  z-index: 55;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: min(380px, calc(100vw - 2 * var(--gutter)));
-  max-height: calc(100vh - 120px);
-  overflow: auto;
-  padding: 16px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-line);
-  background: var(--color-white);
-  box-shadow: var(--shadow-lg);
-}
-.miniHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: var(--type-h3-size);
-}
-.close {
-  display: inline-grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  margin: -8px;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--color-ink-2);
-}
-.miniEmpty {
-  display: grid;
-  place-items: center;
-  min-height: 96px;
-  color: var(--color-muted);
-}
-.miniList {
-  display: flex;
-  flex-direction: column;
-}
-.miniItem {
-  display: grid;
-  grid-template-columns: 56px 1fr;
-  grid-template-areas: 'thumb name' 'thumb qty';
-  column-gap: 12px;
-  row-gap: 2px;
-  align-items: center;
-  padding-block: 10px;
-  border-bottom: 1px solid var(--color-line-row);
-}
-.miniThumb {
-  grid-area: thumb;
-  position: relative;
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-sm);
-  background: var(--color-stage-mid);
-  overflow: hidden;
-}
-.miniThumb img {
-  object-fit: contain;
-}
-.miniName {
-  grid-area: name;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  color: var(--color-ink);
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.7;
-  text-decoration: none;
-}
-.miniQty {
-  grid-area: qty;
-  color: var(--color-muted);
-  font-size: 12.5px;
-}
-.miniMore {
-  color: var(--color-muted);
-  font-size: 12.5px;
-}
-.miniTotal {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  font-size: 14px;
-}
-.miniActions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
 }
 
 /* product page: quantity + add button */

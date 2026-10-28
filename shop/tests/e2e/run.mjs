@@ -38,6 +38,8 @@ const ALL = [
   'urls',
   'checkout',
   'checkout-mobile',
+  'mini-cart',
+  'mini-cart-mobile',
   'free-shipping',
 ];
 const wanted = process.argv.slice(2);

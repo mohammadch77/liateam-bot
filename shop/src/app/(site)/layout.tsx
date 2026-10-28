@@ -18,7 +18,7 @@ import { BottomNav, BottomNavSpacer, Footer, Header } from '@/ui';
 export const dynamic = 'force-dynamic';
 
 export default async function SiteLayout({ children }: { children: ReactNode }) {
-  const [user, categories, brands, campaign, settings, cartCount] = await Promise.all([
+  const [user, categories, brands, campaign, settings, cart] = await Promise.all([
     getCurrentUser(),
     headerCategories(),
     headerBrands(),
@@ -28,7 +28,7 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
   ]);
   return (
     <>
-      <CartProvider initialUnits={cartCount}>
+      <CartProvider initial={cart}>
         <Header
           {...headerProps(
             user,
@@ -36,13 +36,13 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
             brands,
             campaign,
             freeShippingFrom(settings.freeShipping),
-            cartCount,
+            cart.units,
           )}
         />
         <main>{children}</main>
         <Footer {...footerProps()} />
         <BottomNavSpacer />
-        <BottomNav items={bottomNavItems(user, cartCount)} />
+        <BottomNav items={bottomNavItems(user, cart.units)} />
       </CartProvider>
     </>
   );

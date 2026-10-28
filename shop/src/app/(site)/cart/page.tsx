@@ -1,13 +1,12 @@
 import type { Metadata } from 'next';
-import { formatToman } from '@/lib/format/money';
-import { toFaDigits } from '@/lib/format/number';
-import { checkoutPath, shopPath } from '@/lib/urls';
+import { shopPath } from '@/lib/urls';
 import { logger } from '@/lib/logger';
 import { bestsellerService } from '@/server/services/bestseller.service';
 import { cartService } from '@/server/services/cart.service';
 import { orderSettingsService } from '@/server/services/order-settings.service';
 import { Breadcrumb, Button, Carousel, Container, EmptyState, ProductCard } from '@/ui';
-import { CartLines } from './CartLines';
+import { CartView } from './CartView';
+import { freeShippingFrom } from '@/lib/shipping';
 import s from './cart.module.css';
 
 export const metadata: Metadata = { title: 'سبد خرید', robots: { index: false, follow: false } };
@@ -57,64 +56,10 @@ export default async function CartPage() {
     );
   }
 
-  const free = settings.freeShipping;
-  const remaining = free.enabled ? Math.max(0, free.fromToman - cart.itemsTotal) : null;
-
   return (
     <Container className={s.page}>
       <Breadcrumb items={[{ label: 'خانه', href: '/' }, { label: 'سبد خرید' }]} />
-      <h1 className={s.title}>
-        سبد خرید <span className={s.count}>({toFaDigits(cart.units)} کالا)</span>
-      </h1>
-      <div className={s.layout}>
-        <CartLines
-          items={cart.items.map((i) => ({
-            productId: i.productId,
-            name: i.name,
-            href: i.href,
-            imageUrl: i.imageUrl,
-            quantity: i.quantity,
-            maxQuantity: i.maxQuantity,
-            unitPrice: i.unitPrice,
-            unitListPrice: i.unitListPrice,
-            discountPercent: i.discountPercent,
-            lineTotal: i.lineTotal,
-          }))}
-        />
-        <aside className={s.summary} aria-label="خلاصه‌ی سبد" data-cart-summary>
-          <dl className={s.rows}>
-            <div>
-              <dt>جمع کالاها (قیمت لیاتیم)</dt>
-              <dd className="tnum">{formatToman(cart.listTotal)} تومان</dd>
-            </div>
-            {cart.discountTotal > 0 && (
-              <div className={s.off}>
-                <dt>تخفیف</dt>
-                <dd className="tnum" data-cart-discount>
-                  − {formatToman(cart.discountTotal)} تومان
-                </dd>
-              </div>
-            )}
-            <div className={s.total}>
-              <dt>جمع کل</dt>
-              <dd className="tnum" data-cart-total>
-                {formatToman(cart.itemsTotal)} تومان
-              </dd>
-            </div>
-          </dl>
-          <p className={s.note}>هزینه‌ی ارسال در مرحله‌ی بعد، بر اساس آدرس شما محاسبه می‌شود.</p>
-          {remaining !== null && (
-            <p className={s.free} data-free-shipping>
-              {remaining > 0
-                ? `با ${formatToman(remaining)} تومان خرید بیشتر، ارسال رایگان می‌شود.`
-                : 'ارسال این سفارش رایگان است.'}
-            </p>
-          )}
-          <Button href={checkoutPath()} size="lg" block iconEnd="arrow_back">
-            ادامه و ثبت سفارش
-          </Button>
-        </aside>
-      </div>
+      <CartView initial={await cartService.snapshot()} freeFromToman={freeShippingFrom(settings.freeShipping)} />
     </Container>
   );
 }

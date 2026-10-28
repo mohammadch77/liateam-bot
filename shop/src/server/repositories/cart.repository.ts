@@ -105,6 +105,18 @@ export const cartRepository = {
     return row?.n ?? 0;
   },
 
+  /** The cart's last change (ms since 1970): the newest of the cart and its lines. Views compare it to know which data is newer. */
+  async rev(cartId: string, db?: Queryable): Promise<number> {
+    const row = await queryOne<{ rev: number }>(
+      'cart.rev',
+      `SELECT floor(extract(epoch FROM greatest(c.updated_at, coalesce(max(i.updated_at), c.updated_at))) * 1000)::float8 AS rev
+         FROM carts c LEFT JOIN cart_items i ON i.cart_id = c.id WHERE c.id = $1 GROUP BY c.id`,
+      [cartId],
+      db,
+    );
+    return row?.rev ?? 0;
+  },
+
   /** Remembers the live check the cart is on (null forgets it). */
   async setReview(cartId: string, reviewId: number | null, db?: Queryable): Promise<void> {
     await query('cart.set_review', 'UPDATE carts SET review_id = $2 WHERE id = $1', [cartId, reviewId], db);

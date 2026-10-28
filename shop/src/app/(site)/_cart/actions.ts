@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { AppError } from '@/lib/errors';
 import { runAction, type ActionResult } from '@/server/http/action';
+import type { CartSnapshot } from '@/lib/cart/snapshot';
 import { cartService, type CartChange } from '@/server/services/cart.service';
 import { packService } from '@/server/services/pack.service';
 
@@ -13,13 +14,6 @@ import { packService } from '@/server/services/pack.service';
 const id = z.number().int().positive();
 const qty = z.number().int().min(0).max(50);
 const bad = () => new AppError('INVALID_DATA');
-
-export type MiniCart = {
-  units: number;
-  itemsTotal: number;
-  items: Array<{ productId: number; name: string; href: string; imageUrl: string | null; quantity: number; unitPrice: number; lineTotal: number }>;
-  more: number;
-};
 
 export async function addToCartAction(productId: number, quantity = 1): Promise<ActionResult<CartChange>> {
   return runAction('cart.add', async () => {
@@ -53,23 +47,7 @@ export async function removeFromCartAction(productId: number): Promise<ActionRes
   return setCartQuantityAction(productId, 0);
 }
 
-/** The mini-cart: the first five lines and the totals, priced now. */
-export async function miniCartAction(): Promise<ActionResult<MiniCart>> {
-  return runAction('cart.mini', async () => {
-    const v = await cartService.view();
-    return {
-      units: v.units,
-      itemsTotal: v.itemsTotal,
-      items: v.items.slice(0, 5).map((i) => ({
-        productId: i.productId,
-        name: i.name,
-        href: i.href,
-        imageUrl: i.imageUrl,
-        quantity: i.quantity,
-        unitPrice: i.unitPrice,
-        lineTotal: i.lineTotal,
-      })),
-      more: Math.max(0, v.items.length - 5),
-    };
-  });
+/** The cart as it is now: the one snapshot the header, the mini-cart and the cart page all show (read again whenever a view opens). */
+export async function cartSnapshotAction(): Promise<ActionResult<CartSnapshot>> {
+  return runAction('cart.snapshot', () => cartService.snapshot());
 }

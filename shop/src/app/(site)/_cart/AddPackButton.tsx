@@ -38,7 +38,7 @@ export function AddPackButton({
         start(async () => {
           const r = await addPackToCartAction(collection, variant);
           if (!r.ok) return cart?.notify(r.error, false);
-          cart?.setUnits(r.data.units);
+          cart?.adopt(r.data.snapshot);
           cart?.notify(r.data.skipped ? `${r.data.added} کالا افزوده شد؛ ${r.data.skipped} کالا قابل افزودن نبود.` : 'همه‌ی اقلام پک به سبد افزوده شد.', true);
           setDone(true);
           setTimeout(() => setDone(false), 1800);

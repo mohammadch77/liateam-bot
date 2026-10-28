@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { formatNumber } from '@/lib/format/number';
 import { Icon, type IconName } from '../icon/Icon';
 import { BottomNavCount } from './BottomNavCount';
+import { CartTabLink } from './CartTabLink';
 import s from './BottomNav.module.css';
 
 export type BottomNavItem = {
@@ -20,28 +21,42 @@ export type BottomNavItem = {
 export function BottomNav({ items }: { items: readonly BottomNavItem[] }) {
   return (
     <nav aria-label="ناوبری اصلی" className={s.bar}>
-      {items.map((t) => (
-        <Link
-          key={t.href}
-          href={t.href}
-          className={s.item}
-          aria-current={t.current ? 'page' : undefined}
-          aria-label={!t.cart && t.count ? `${t.label}، ${formatNumber(t.count)} کالا` : undefined}
-          data-open-search={t.openSearch ? '' : undefined}
-        >
-          <Icon name={t.icon} size={25} filled={t.current} />
-          {t.label}
-          {t.cart ? (
-            <BottomNavCount initial={t.count ?? 0} />
-          ) : (
-            !!t.count && (
-              <span className={s.count} aria-hidden="true">
-                {formatNumber(t.count)}
-              </span>
-            )
-          )}
-        </Link>
-      ))}
+      {items.map((t) => {
+        const inner = (
+          <>
+            <Icon name={t.icon} size={25} filled={t.current} />
+            {t.label}
+            {t.cart ? (
+              <BottomNavCount initial={t.count ?? 0} />
+            ) : (
+              !!t.count && (
+                <span className={s.count} aria-hidden="true">
+                  {formatNumber(t.count)}
+                </span>
+              )
+            )}
+          </>
+        );
+        if (t.cart) {
+          return (
+            <CartTabLink key={t.href} href={t.href} className={s.item} current={!!t.current}>
+              {inner}
+            </CartTabLink>
+          );
+        }
+        return (
+          <Link
+            key={t.href}
+            href={t.href}
+            className={s.item}
+            aria-current={t.current ? 'page' : undefined}
+            aria-label={t.count ? `${t.label}، ${formatNumber(t.count)} کالا` : undefined}
+            data-open-search={t.openSearch ? '' : undefined}
+          >
+            {inner}
+          </Link>
+        );
+      })}
     </nav>
   );
 }
