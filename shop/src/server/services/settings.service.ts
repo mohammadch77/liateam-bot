@@ -1,4 +1,5 @@
 import 'server-only';
+import { getConfig } from '@/lib/config';
 import { AppError } from '@/lib/errors';
 import {
   SETTINGS,
@@ -91,6 +92,14 @@ export const settingsService = {
       if (!r.ok) throw new AppError('INVALID_DATA', { message: r.error });
       next.set(key, r.value);
     }
+    // the simulators (payment gateway, SMS) are for staging and development only
+    if (
+      getConfig().APP_ENV === 'production' &&
+      (next.get('payment.provider') === 'dev' || next.get('sms.provider') === 'dev')
+    )
+      throw new AppError('INVALID_DATA', {
+        message: 'شبیه‌ساز (آزمایشی) روی سایت اصلی مجاز نیست؛ سرویس واقعی را انتخاب کنید.',
+      });
     const before = await settingsRead.fresh();
     const changed = keys.filter((k) => !same(before.get(k), next.get(k)));
     if (!changed.length) {

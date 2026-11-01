@@ -114,7 +114,7 @@ test('every setting has a Persian label, a group and a default that passes its o
     }
     assert.equal(validateSetting(k, d.default).ok, true, `${k} default is valid`);
   }
-  assert.deepEqual([...SECRET_KEYS].sort(), ['payment.merchant_id', 'sms.api_key']);
+  assert.deepEqual([...SECRET_KEYS].sort(), ['payment.api_key', 'payment.merchant_id', 'sms.api_key']);
 });
 
 test('the settings that already existed are registered with their old defaults', () => {

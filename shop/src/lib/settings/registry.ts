@@ -78,6 +78,27 @@ const secretSchema = z
   .max(300, 'مقدار خیلی بلند است.')
   .refine((v) => !/[\s\u0000-\u001f]/.test(v), 'مقدار نباید فاصله یا خط جدید داشته باشد.');
 
+const templateSchema = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z0-9_.-]{0,64}$/, 'کد الگو فقط حرف لاتین، رقم و - _ . است (خالی = تنظیم نشده).');
+
+/** any https URL (host + optional path), no credentials, query or hash; '' = not set */
+const httpsUrlSchema = z
+  .string()
+  .trim()
+  .max(200)
+  .refine((v) => {
+    if (v === '') return true;
+    try {
+      const u = new URL(v);
+      return u.protocol === 'https:' && !u.username && !u.password && !u.search && !u.hash;
+    } catch {
+      return false;
+    }
+  }, 'آدرس باید با https:// شروع شود و بدون کلید و پارامتر باشد.')
+  .transform((v) => v.replace(/\/$/, ''));
+
 const make = <T>(d: Omit<SettingDef<T>, 'exposure'> & { exposure?: Exposure }): SettingDef<T> => ({
   exposure: 'internal',
   ...d,
@@ -192,15 +213,76 @@ export const SETTINGS = {
     default: 1,
   }),
 
-  'commission.default_percent': make({
-    key: 'commission.default_percent',
-    group: 'commission',
-    label: 'درصد پیش‌فرض پورسانت همکاران فروش',
-    kind: 'integer',
-    unit: 'درصد',
-    schema: integer(0, 50, 'عدد بین ۰ و ۵۰ وارد کنید.'),
-    default: 0,
+  'payment.enabled': make({
+    key: 'payment.enabled',
+    group: 'payment',
+    label: 'پرداخت آنلاین فعال باشد',
+    hint: 'خاموش: تسویه پرداخت آنلاین را پیشنهاد نمی‌کند.',
+    kind: 'boolean',
+    schema: z.boolean(),
+    default: false,
     placeholder: true,
+  }),
+  'payment.provider': make({
+    key: 'payment.provider',
+    group: 'payment',
+    label: 'درگاه پرداخت فعال',
+    hint: 'شبیه‌ساز فقط روی نسخه‌ی آزمایشی کار می‌کند و روی سایت اصلی رد می‌شود.',
+    kind: 'enum',
+    schema: z.enum(['dev', 'zarinpal']) as z.ZodType<'dev' | 'zarinpal'>,
+    default: 'zarinpal' as 'dev' | 'zarinpal',
+    options: [
+      { value: 'zarinpal', label: 'زرین‌پال (تأییدنشده: هنوز با سرویس واقعی آزمایش نشده)' },
+      { value: 'dev', label: 'شبیه‌ساز (فقط آزمایشی)' },
+    ],
+    placeholder: true,
+  }),
+  'payment.sandbox': make({
+    key: 'payment.sandbox',
+    group: 'payment',
+    label: 'حالت آزمایشی (sandbox) درگاه',
+    kind: 'boolean',
+    schema: z.boolean(),
+    default: true,
+    placeholder: true,
+  }),
+  'payment.merchant_id': make({
+    key: 'payment.merchant_id',
+    group: 'payment',
+    label: 'شناسه‌ی پذیرنده‌ی درگاه پرداخت (merchant id)',
+    kind: 'secret',
+    exposure: 'secret',
+    schema: secretSchema,
+    default: '',
+    placeholder: true,
+  }),
+  'payment.api_key': make({
+    key: 'payment.api_key',
+    group: 'payment',
+    label: 'کلید API درگاه (برای درگاه‌هایی که می‌خواهند)',
+    kind: 'secret',
+    exposure: 'secret',
+    schema: secretSchema,
+    default: '',
+    placeholder: true,
+  }),
+
+  'sms.provider': make({
+    key: 'sms.provider',
+    group: 'sms',
+    label: 'سرویس پیامک',
+    hint: '«تنظیم سرور» یعنی همان SMS_PROVIDER فایل .env (رفتار قبلی). سرویس آزمایشی روی سایت اصلی رد می‌شود.',
+    kind: 'enum',
+    schema: z.enum(['env', 'dev', 'kavenegar', 'ippanel']) as z.ZodType<
+      'env' | 'dev' | 'kavenegar' | 'ippanel'
+    >,
+    default: 'env' as 'env' | 'dev' | 'kavenegar' | 'ippanel',
+    options: [
+      { value: 'env', label: 'تنظیم سرور (.env)' },
+      { value: 'kavenegar', label: 'کاوه‌نگار' },
+      { value: 'ippanel', label: 'فراز اس‌ام‌اس (ippanel؛ تأییدنشده)' },
+      { value: 'dev', label: 'آزمایشی (لاگ سرور)' },
+    ],
   }),
   'sms.api_key': make({
     key: 'sms.api_key',
@@ -210,17 +292,121 @@ export const SETTINGS = {
     exposure: 'secret',
     schema: secretSchema,
     default: '',
-    placeholder: true,
   }),
-  'payment.merchant_id': make({
-    key: 'payment.merchant_id',
-    group: 'payment',
-    label: 'شناسه‌ی پذیرنده‌ی درگاه پرداخت',
-    kind: 'secret',
-    exposure: 'secret',
-    schema: secretSchema,
+  'sms.sender': make({
+    key: 'sms.sender',
+    group: 'sms',
+    label: 'شماره‌ی خط ارسال‌کننده',
+    hint: 'برای سرویس‌هایی که خط می‌خواهند (فراز اس‌ام‌اس). خالی = بدون خط.',
+    kind: 'text',
+    schema: z
+      .string()
+      .trim()
+      .regex(/^(\+?\d{3,20})?$/, 'شماره‌ی خط فقط رقم است (مثل 3000505).'),
     default: '',
-    placeholder: true,
+  }),
+  'sms.otp_template': make({
+    key: 'sms.otp_template',
+    group: 'sms',
+    label: 'کد الگوی پیامک ورود (OTP)',
+    hint: 'الگوی تأییدشده‌ی سرویس‌دهنده که کد ورود را می‌فرستد (متغیر: کد).',
+    kind: 'text',
+    schema: templateSchema,
+    default: '',
+  }),
+  'sms.endpoint': make({
+    key: 'sms.endpoint',
+    group: 'sms',
+    label: 'آدرس API سرویس (فقط فراز اس‌ام‌اس)',
+    hint: 'آدرس پایه‌ی https سرویس‌دهنده؛ حدس زده نمی‌شود. برای کاوه‌نگار لازم نیست.',
+    kind: 'url',
+    schema: httpsUrlSchema,
+    default: '',
+  }),
+  'sms.event.order_placed.enabled': make({
+    key: 'sms.event.order_placed.enabled',
+    group: 'sms',
+    label: 'پیامک «ثبت سفارش»',
+    kind: 'boolean',
+    schema: z.boolean(),
+    default: false,
+  }),
+  'sms.event.order_placed.template': make({
+    key: 'sms.event.order_placed.template',
+    group: 'sms',
+    label: 'کد الگوی «ثبت سفارش»',
+    hint: 'متغیرهای مجاز (به همین ترتیب به الگوی سرویس‌دهنده داده می‌شوند): {order_no} {total}',
+    kind: 'text',
+    schema: templateSchema,
+    default: '',
+  }),
+  'sms.event.payment_ok.enabled': make({
+    key: 'sms.event.payment_ok.enabled',
+    group: 'sms',
+    label: 'پیامک «پرداخت موفق»',
+    kind: 'boolean',
+    schema: z.boolean(),
+    default: false,
+  }),
+  'sms.event.payment_ok.template': make({
+    key: 'sms.event.payment_ok.template',
+    group: 'sms',
+    label: 'کد الگوی «پرداخت موفق»',
+    hint: 'متغیرهای مجاز (به همین ترتیب به الگوی سرویس‌دهنده داده می‌شوند): {order_no} {total}',
+    kind: 'text',
+    schema: templateSchema,
+    default: '',
+  }),
+  'sms.event.needs_review.enabled': make({
+    key: 'sms.event.needs_review.enabled',
+    group: 'sms',
+    label: 'پیامک «نیاز به بررسی»',
+    kind: 'boolean',
+    schema: z.boolean(),
+    default: false,
+  }),
+  'sms.event.needs_review.template': make({
+    key: 'sms.event.needs_review.template',
+    group: 'sms',
+    label: 'کد الگوی «نیاز به بررسی»',
+    hint: 'متغیرهای مجاز (به همین ترتیب به الگوی سرویس‌دهنده داده می‌شوند): {order_no}',
+    kind: 'text',
+    schema: templateSchema,
+    default: '',
+  }),
+  'sms.event.shipped.enabled': make({
+    key: 'sms.event.shipped.enabled',
+    group: 'sms',
+    label: 'پیامک «ارسال شد (با کد رهگیری)»',
+    kind: 'boolean',
+    schema: z.boolean(),
+    default: false,
+  }),
+  'sms.event.shipped.template': make({
+    key: 'sms.event.shipped.template',
+    group: 'sms',
+    label: 'کد الگوی «ارسال شد (با کد رهگیری)»',
+    hint: 'متغیرهای مجاز (به همین ترتیب به الگوی سرویس‌دهنده داده می‌شوند): {order_no} {tracking}',
+    kind: 'text',
+    schema: templateSchema,
+    default: '',
+  }),
+  'sms.event.canceled.enabled': make({
+    key: 'sms.event.canceled.enabled',
+    group: 'sms',
+    label: 'پیامک «لغو سفارش / بازگشت وجه»',
+    kind: 'boolean',
+    schema: z.boolean(),
+    default: false,
+  }),
+  'sms.event.canceled.template': make({
+    key: 'sms.event.canceled.template',
+    group: 'sms',
+    label: 'کد الگوی «لغو سفارش / بازگشت وجه»',
+    hint: 'متغیرهای مجاز (به همین ترتیب به الگوی سرویس‌دهنده داده می‌شوند): {order_no} {total}',
+    kind: 'text',
+    schema: templateSchema,
+    default: '',
   }),
 } as const;
 
@@ -236,7 +422,7 @@ export const GROUPS: ReadonlyArray<{ id: SettingGroup; label: string; placeholde
   { id: 'orders', label: 'سفارش و ثبت خودکار' },
   { id: 'shipping', label: 'ارسال' },
   { id: 'commission', label: 'پورسانت', placeholder: true },
-  { id: 'sms', label: 'پیامک', placeholder: true },
+  { id: 'sms', label: 'پیامک' },
   { id: 'payment', label: 'پرداخت', placeholder: true },
 ];
 

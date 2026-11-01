@@ -1,13 +1,29 @@
 // The settings screen on WebKit phones (iPhone 8 and iPhone 13 profiles), by TAP: the section tabs scroll inside their own
 // strip (the page never scrolls sideways), every control is 44px, a setting is saved by tapping, a secret is written and
 // shown masked, the shipping ranges are edited and applied in bulk. Needs the app running locally like admin.e2e.mjs.
-import { SCHEMA as S, check, devices, finish, requireLocalApp, sql, webkit } from './_harness.mjs';
+import {
+  BASE,
+  SCHEMA as S,
+  check,
+  devices,
+  finish,
+  requireLocalApp,
+  sql,
+  toLatin,
+  webkit,
+} from './_harness.mjs';
 import { NET, RUN, ensureProvinces, makeAdmin, signIn, snapshotSettings } from './_admin-login.mjs';
 
 requireLocalApp();
 if (Number(sql(`select count(*) from ${S}.secret_settings`)) > 0) {
   console.error(
     'secret_settings is not empty in the local database; this test replaces its rows. Empty it first.',
+  );
+  process.exit(2);
+}
+if (Number(sql(`select count(*) from ${S}.commission_rules`)) > 0) {
+  console.error(
+    'commission_rules is not empty in the local database; this test replaces its rows. Empty it first.',
   );
   process.exit(2);
 }
@@ -145,6 +161,85 @@ try {
       `4c ${name}: bulk by tap sets 2–5 days on all ${total} provinces`,
       all === `${total}/${total}`,
       all,
+    );
+
+    // ── payment test, sms test and commission rules by tap ──
+    const toSection = async (g) => {
+      await p.locator(`[data-settings-tabs] [data-section="${g}"]`).tap();
+      await p.waitForURL(new RegExp(`section=${g}`));
+    };
+    const post = (tapIt) => Promise.all([p.waitForResponse((r) => r.request().method() === 'POST'), tapIt]);
+    const tooSmall = (sel) =>
+      p.evaluate(
+        (q) =>
+          [...document.querySelectorAll(q)].filter((e) => {
+            const r = e.getBoundingClientRect();
+            return r.width > 0 && r.height > 0 && r.height < 43.5;
+          }).length,
+        sel,
+      );
+
+    await toSection('payment');
+    const merchant = p.locator('[data-secret="payment.merchant_id"]');
+    await merchant.locator('input[name=value]').fill('3f2b8c1e-5a47-4d0e-9c1a-0b7e6d5f4a32');
+    await post(merchant.getByRole('button', { name: /ذخیره|تعویض/ }).tap());
+    await p.waitForLoadState('load');
+    await p.goto(`${BASE}/admin/settings?section=payment`);
+    check(
+      `5a ${name}: the payment section fits the screen; the key shows masked after a tap-save`,
+      (await flat()) &&
+        (await p.locator('[data-secret-state]').first().innerText()).includes('••••') &&
+        !(await p.content()).includes('3f2b8c1e-5a47'),
+    );
+    await p.locator('[data-payment-test] button').tap();
+    await p.waitForURL(/test=/);
+    check(
+      `5b ${name}: «تست اتصال» by tap shows its result`,
+      (await p.locator('[data-test-result]').count()) === 1 && (await flat()),
+    );
+
+    await toSection('sms');
+    await p.locator('[data-settings-form="sms"] label', { hasText: 'آزمایشی (لاگ سرور)' }).tap();
+    await p.locator('[data-settings-form="sms"]').getByRole('button', { name: 'ذخیره' }).tap();
+    await p.waitForURL(/done=1/);
+    await toSection('sms');
+    await p.locator('[data-sms-test] button').tap();
+    await p.waitForURL(/test=/);
+    check(
+      `5c ${name}: «ارسال آزمایشی» by tap reaches the admin's own number`,
+      (await p.locator('[data-test-result="ok"]').innerText()).includes('•••') &&
+        (await tooSmall(
+          '[data-settings-form="sms"] input:not([type=hidden]):not([type=radio]):not([type=checkbox])',
+        )) === 0 &&
+        (await flat()),
+    );
+
+    await toSection('commission');
+    const rf = p.locator('[data-rule-form]');
+    await rf.locator('[name="name"]').fill('قاعده‌ی موبایل');
+    await rf.locator('[name="level"]').fill('1');
+    await rf.locator('[name="value"]').fill('5');
+    await rf.locator('[name="minOrderTotal"]').fill('0');
+    await rf.locator('[name="holdDays"]').fill('3');
+    await rf.locator('[name="active"]').check();
+    check(
+      `5d ${name}: the rule form's fields, selects and buttons are 44px; the page does not scroll sideways`,
+      (await tooSmall(
+        '[data-rule-form] input:not([type=hidden]):not([type=checkbox]), [data-rule-form] select, [data-rule-form] button, [data-simulator] input, [data-simulator] select, [data-simulator] button',
+      )) === 0 && (await flat()),
+    );
+    await rf.getByRole('button', { name: 'افزودن قاعده' }).tap();
+    await p.waitForURL(/done=1/);
+    const sim = p.locator('[data-simulator]');
+    await sim.locator('[name="l1.total"]').fill('1000000');
+    await sim.locator('[name="depth"]').selectOption('1');
+    await sim.getByRole('button', { name: 'محاسبه' }).tap();
+    await p.locator('[data-sim-result]').waitFor();
+    const amount = Number(toLatin(await p.locator('[data-sim-level="1"] [data-sim-amount]').innerText()));
+    check(
+      `5e ${name}: the rule is listed and the simulator by tap gives 5% of 1,000,000 = 50,000`,
+      (await p.locator('[data-rules] [data-rule]').count()) >= 1 && amount === 50_000 && (await flat()),
+      String(amount),
     );
     await ctx.close();
   }

@@ -43,6 +43,7 @@ const ALL = [
   'free-shipping',
   'admin',
   'admin-mobile',
+  'admin-integrations',
 ];
 const wanted = process.argv.slice(2);
 const unknown = wanted.filter((n) => !ALL.includes(n));

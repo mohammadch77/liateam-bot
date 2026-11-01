@@ -59,7 +59,7 @@ export async function signIn(page, phone, next = '/admin') {
   await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 20000 }).catch(() => {});
 }
 
-const KEYS = `'orders.price_tolerance_toman','orders.auto_place_enabled','orders.auto_place_hours','shipping.free_enabled','shipping.free_from_toman','shipping.extra_days','seo.block_indexing','pricing.discount_mode','site.base_url','security.admin_session_hours','commission.default_percent'`;
+const KEYS = `'orders.price_tolerance_toman','orders.auto_place_enabled','orders.auto_place_hours','shipping.free_enabled','shipping.free_from_toman','shipping.extra_days','seo.block_indexing','pricing.discount_mode','site.base_url','security.admin_session_hours','payment.enabled','payment.provider','payment.sandbox','sms.provider','sms.sender','sms.otp_template','sms.endpoint','sms.event.order_placed.enabled','sms.event.order_placed.template','sms.event.payment_ok.enabled','sms.event.payment_ok.template','sms.event.needs_review.enabled','sms.event.needs_review.template','sms.event.shipped.enabled','sms.event.shipped.template','sms.event.canceled.enabled','sms.event.canceled.template'`;
 
 /** Remembers the settings, the «post» method with its rules and the secrets; returns a function that puts them back. */
 export function snapshotSettings() {
@@ -90,6 +90,7 @@ export function snapshotSettings() {
       );
     }
     sql(`delete from ${SCHEMA}.secret_settings`);
+    sql(`delete from ${SCHEMA}.commission_rules`);
     sql(`delete from ${SCHEMA}.geo_provinces where id in (9001, 9002, 9003)`);
     // the bot's endpoint drops the shop's settings cache, so the next test sees the restored values at once
     const secret = process.env.E2E_REVALIDATE_SECRET;

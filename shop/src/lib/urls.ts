@@ -58,6 +58,8 @@ export const ordersPath = () => '/account/orders';
 /** An order's page by its readable number (AV-100001); only its owner can open it. */
 export const orderPath = (number: string) => `/account/orders/${number}`;
 export const adminPath = () => '/admin';
+/** where the payment gateway sends the buyer back (the page comes with the checkout step) */
+export const paymentCallbackPath = () => '/payment/callback';
 /** a page of the admin panel; the settings page's sections are ?section=<group> */
 export const adminSettingsPath = (section?: string) =>
   section ? `/admin/settings?section=${section}` : '/admin/settings';

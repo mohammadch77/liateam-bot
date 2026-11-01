@@ -18,6 +18,10 @@ const user = (phone) => sql(`select id from ${S}.users where phone = '${phone}' 
 const setting = (key) => sql(`select value::text from ${S}.site_settings where key = '${key}'`);
 const headerHasFree = async (page) => (await page.content()).includes('ارسال رایگان برای خریدهای بالای');
 
+if (Number(sql(`select count(*) from ${S}.commission_rules`)) > 0) {
+  console.error('commission_rules is not empty in the local database; the admin tests replace its rows. Empty it first.');
+  process.exit(2);
+}
 if (Number(sql(`select count(*) from ${S}.secret_settings`)) > 0) {
   console.error(
     'secret_settings is not empty in the local database; this test replaces its rows. Empty it first.',
@@ -136,8 +140,8 @@ try {
   await page.goto(`${BASE}/admin/settings`);
   const tabs = await page.locator('[data-settings-tabs] a').allInnerTexts();
   check(
-    '4a six sections; the last three are S2 placeholders',
-    tabs.length === 6 && tabs.slice(3).every((t) => t.includes('S2')),
+    '4a six sections; commission and payment are marked as not wired yet (S2), sms is live',
+    tabs.length === 6 && tabs[3].includes('S2') && !tabs[4].includes('S2') && tabs[5].includes('S2'),
     tabs.join(' | '),
   );
   check(

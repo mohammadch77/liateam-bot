@@ -3,13 +3,17 @@ import Link from 'next/link';
 import { GROUPS, type SettingGroup } from '@/lib/settings/registry';
 import { adminPath, adminSettingsPath } from '@/lib/urls';
 import { requireRole } from '@/server/auth/guards';
+import { commissionService, parseSimulator } from '@/server/services/commission.service';
+import { PAYMENT_PROVIDERS } from '@/lib/payment/registry';
+import { SMS_PROVIDERS } from '@/lib/sms/registry';
 import { settingsService, type FieldView } from '@/server/services/settings.service';
 import { shippingAdminService } from '@/server/services/shipping-admin.service';
 import { siteSettingsService } from '@/server/services/site-settings.service';
 import { Alert, Breadcrumb, Button, Container } from '@/ui';
 import s from '../../account/account.module.css';
 import a from '../admin-forms.module.css';
-import { saveGroupAction, setSecretAction } from './actions';
+import { saveGroupAction, setSecretAction, testPaymentAction, testSmsAction } from './actions';
+import { CommissionPanel } from './CommissionPanel';
 import t from './settings.module.css';
 import { ShippingForm } from './ShippingForm';
 
@@ -103,7 +107,9 @@ function PlainField({ f }: { f: FieldView }) {
           dir="ltr"
           {...(isNumber
             ? { inputMode: 'numeric' as const, autoComplete: 'off' }
-            : { type: 'url', placeholder: 'https://shop.example.com' })}
+            : f.kind === 'url'
+              ? { type: 'url', placeholder: 'https://shop.example.com' }
+              : { type: 'text', autoComplete: 'off' })}
         />
         {f.unit && <span className={t.unit}>{f.unit}</span>}
       </div>
@@ -170,6 +176,12 @@ export default async function AdminSettingsPage({
   const { fields, secretsEnabled } = await settingsService.group(group);
   const plain = fields.filter((f) => !f.secret);
   const secrets = fields.filter((f) => f.secret);
+  const isCommission = group === 'commission';
+  const rules = isCommission ? await commissionService.rules() : [];
+  const editId = /^\d+$/.test(one('edit')) ? Number(one('edit')) : null;
+  const editing = isCommission && editId ? await commissionService.rule(editId) : null;
+  const sim = isCommission ? parseSimulator({ get: (k: string) => sp[k] }) : null;
+  const simResult = sim ? await commissionService.simulate(sim) : null;
   const shipping = group === 'shipping' ? await shippingAdminService.view().catch(() => null) : null;
   const forced = group === 'general' && siteSettingsService.indexingForcedByEnvironment();
 
@@ -206,6 +218,11 @@ export default async function AdminSettingsPage({
         {one('shipped') && <Alert tone="success">تنظیمات ارسال ذخیره شد.</Alert>}
         {one('secret') && <Alert tone="success">مقدار جدید به‌صورت رمزنگاری‌شده ذخیره شد.</Alert>}
         {one('error') && <Alert tone="danger">{one('error')}</Alert>}
+        {one('test') && (
+          <div data-test-result={one('test')}>
+            <Alert tone={one('test') === 'ok' ? 'success' : 'danger'}>{one('msg')}</Alert>
+          </div>
+        )}
         {meta.placeholder && (
           <p className={t.banner}>
             این بخش برای مرحله‌ی بعد (S2) آماده شده است: مقدارها ذخیره و ثبت می‌شوند ولی هنوز در جریان سفارش و
@@ -249,6 +266,40 @@ export default async function AdminSettingsPage({
           </>
         )}
 
+        {group === 'payment' && (
+          <form action={testPaymentAction} className={t.secret} data-payment-test>
+            <span className={t.rowLabel}>تست اتصال</span>
+            <p className={a.hint}>
+              فقط تنظیمات ذخیره‌شده را بدون هیچ تراکنشی بررسی می‌کند. وضعیت درگاه‌ها:{' '}
+              {Object.values(PAYMENT_PROVIDERS)
+                .map((p) => `${p.label}: ${p.verified ? 'تأییدشده' : 'تأییدنشده'}`)
+                .join('، ')}
+            </p>
+            <div className={a.actions}>
+              <Button type="submit" variant="outline">
+                تست اتصال
+              </Button>
+            </div>
+          </form>
+        )}
+        {group === 'sms' && (
+          <form action={testSmsAction} className={t.secret} data-sms-test>
+            <span className={t.rowLabel}>ارسال آزمایشی</span>
+            <p className={a.hint}>
+              یک پیامک آزمایشی فقط به شماره‌ی خود شما فرستاده می‌شود (حداکثر ۳ بار در ۱۰ دقیقه). وضعیت
+              سرویس‌ها:{' '}
+              {Object.values(SMS_PROVIDERS)
+                .map((p) => `${p.label}: ${p.verified ? 'تأییدشده' : 'تأییدنشده'}`)
+                .join('، ')}
+            </p>
+            <div className={a.actions}>
+              <Button type="submit" variant="outline">
+                ارسال آزمایشی
+              </Button>
+            </div>
+          </form>
+        )}
+        {isCommission && <CommissionPanel rules={rules} editing={editing} sim={sim} simResult={simResult} />}
         {group === 'shipping' &&
           (shipping ? (
             <ShippingForm view={shipping} />

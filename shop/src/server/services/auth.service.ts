@@ -16,7 +16,7 @@ import {
   hmacOtp,
   safeEqualHex,
 } from '@/server/security/crypto';
-import { getSmsProvider } from '@/server/sms';
+import { smsService } from './sms.service';
 
 /** Security policy for sign-in. All limits in one place. */
 export const OTP_POLICY = {
@@ -84,8 +84,8 @@ export const authService = {
     });
 
     // Sent after COMMIT: a stored code always counts toward the limits, even if the gateway fails.
-    await getSmsProvider().sendOtp(phone, code);
-    logger.info('auth.otp_sent', { to: maskMobile(phone), provider: getSmsProvider().name });
+    const provider = await smsService.sendOtp(phone, code);
+    logger.info('auth.otp_sent', { to: maskMobile(phone), provider });
     return {
       phone,
       masked: maskMobile(phone),

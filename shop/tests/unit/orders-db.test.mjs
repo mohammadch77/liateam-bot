@@ -182,7 +182,7 @@ scenario(
   UPDATE commissions SET status = 'approved' WHERE order_id = o;
   UPDATE commissions SET status = 'paid', paid_at = now() WHERE order_id = o;
   ${mustRaise('check_violation', `UPDATE commissions SET status = 'cancelled' WHERE order_id = o;`)}
-  ${mustRaise('check_violation', `INSERT INTO commission_rules (name, kind, value) VALUES ('x', 'percent', 101);`)}
+  ${mustRaise('check_violation', `INSERT INTO commission_rules (name, kind, value, scope_type, level, hold_days) VALUES ('x', 'percent', 101, 'all', 1, 0);`)}
 `,
 );
 
