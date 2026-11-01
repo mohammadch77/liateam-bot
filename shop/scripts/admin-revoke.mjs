@@ -4,7 +4,7 @@
 // Removing a role row is a DELETE, which the shop's app role does not have (by design). So this script uses
 // MIGRATION_DATABASE_URL (the schema owner), exactly like `npm run migrate`; run it on the server where that variable is
 // set. Recorded in audit_log. The account itself and its customer role stay.
-import { maskMobile } from '../src/lib/phone.ts';
+import { maskMobile } from '../src/lib/phone.mjs';
 import { connect, fail, readArgs, scrub } from './_admin-db.mjs';
 
 const NAME = 'admin:revoke';

@@ -630,6 +630,23 @@ read -rs MPW; sudo -u avina env MIGRATION_DATABASE_URL="postgres://<نقش migra
 - **ترتیب:** بیلد ← بکاپ اسکیما ← این دستور ← `restart`. اگر انتشار مایگریشن تازه ندارد، `npm run migrate:status` (به همین شکل) هیچ ردیف `… pending` نشان نمی‌دهد و این قدم لازم نیست.
 - **بازگشت:** همین دستور با `migrate:down` (یک مایگریشن؛ `-- 2` یعنی دو تا)، و در صورت نیاز بکاپ.
 
+### چک‌لیست اسکریپت‌های سرور
+
+همه روی **Node 20 بدون loader تایپ‌اسکریپت** و بدون devDependencies اجرا می‌شوند (فقط `.mjs` و پکیج‌های `dependencies` را import می‌کنند؛ منطق مشترک موبایل و نرمال‌سازی جست‌وجو در `src/lib/phone.mjs` و `src/lib/search/normalize-core.mjs` است و فایل‌های `.ts` همان را re-export می‌کنند). تست `tests/unit/server-scripts.test.mjs` گراف import هر اسکریپت را می‌خواند و با رسیدن به `.ts` یا پکیج غیر production شکست می‌خورد، و اسکریپت‌های ادمین را با `--help` و type stripping خاموش واقعاً اجرا می‌کند. روی Node 20 واقعی هنوز اجرا نشده (فقط شبیه‌سازی با Node ۲۴ و `--no-experimental-strip-types`)؛ بعد از اولین دیپلوی همین چک‌لیست را با `--help` روی سرور اجرا کنید.
+
+| اسکریپت                 | دستور                                                    | متغیرهای لازم                                    |
+| ----------------------- | -------------------------------------------------------- | ------------------------------------------------ |
+| ساخت/ارتقای ادمین       | `npm run admin:create -- --mobile=09…`                   | `DATABASE_URL`، `DB_SCHEMA`                      |
+| لغو ادمین               | `npm run admin:revoke -- --mobile=09… [--allow-last]`    | `MIGRATION_DATABASE_URL`، `DB_SCHEMA`            |
+| اعطای نقش               | `npm run grant-role -- 09… <نقش>`                        | `DATABASE_URL`، `DB_SCHEMA`                      |
+| مایگریشن                | `npm run migrate:up` / `migrate:down` / `migrate:status` | `MIGRATION_DATABASE_URL`، `DB_SCHEMA`، `APP_ENV` |
+| پک‌های اولیه            | `npm run seed:packs`                                     | `DATABASE_URL`، `DB_SCHEMA`                      |
+| صفر کردن تخفیف پک‌ها    | `npm run packs:reset-discount`                           | `DATABASE_URL`، `DB_SCHEMA`                      |
+| گرم کردن تصویرها        | `npm run images:warm`                                    | `DATABASE_URL` (و آدرس سرویس در حال اجرا)        |
+| بررسی قیمت‌ها / جست‌وجو | `npm run check:prices` / `check:search`                  | `DATABASE_URL`                                   |
+
+فقط روی ماشین توسعه: `icons`، `check:responsive`، `font:check`، `perf`، `load-test` (Playwright/Lighthouse/ابزار فونت). همه‌ی اسکریپت‌ها فقط از `.env` / `MIGRATION_DATABASE_URL` می‌خوانند، شماره را ماسک‌شده (`0912•••4567`) چاپ می‌کنند و تکرارپذیرند.
+
 ### دیپلوی بعدی و بازگشت نسخه
 
 ```bash

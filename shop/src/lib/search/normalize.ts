@@ -4,34 +4,9 @@
  * tatweel and harakat removed; anything that is not a letter or digit → space; spaces collapsed.
  * Shared by the server (query words) and the browser (highlighting the matched part of a suggestion).
  */
-// written as code points: several of these characters are invisible or combining
-const MAP: Record<string, string> = {};
-const fold = (from: number[], to: string) => from.forEach((c) => (MAP[String.fromCharCode(c)] = to));
-fold([0x064a, 0x0649, 0x0626], 'ی'); // ي ى ئ
-fold([0x0643], 'ک'); // ك
-fold([0x0629, 0x06c0], 'ه'); // ة ۀ
-fold([0x0623, 0x0625, 0x0622], 'ا'); // أ إ آ
-fold([0x0624], 'و'); // ؤ
-fold([0x200c], ' '); // ZWNJ (نیم‌فاصله)
-for (let d = 0; d < 10; d++) fold([0x06f0 + d, 0x0660 + d], String(d)); // ۰-۹, ٠-٩
-// tatweel U+0640, harakat U+064B–U+0652, superscript alef U+0670
-const DROPPED = new RegExp(
-  `[${String.fromCharCode(0x0640)}${String.fromCharCode(0x064b)}-${String.fromCharCode(0x0652)}${String.fromCharCode(0x0670)}]`,
-);
-const WORD_CHAR = /[\p{L}\p{N}]/u;
+import { foldChar, normalizeSearch } from './normalize-core.mjs';
 
-/** Normalised form of one character: '' (dropped), ' ' (separator) or the folded character(s). */
-function foldChar(ch: string): string {
-  if (DROPPED.test(ch)) return '';
-  const mapped = MAP[ch] ?? ch.toLowerCase();
-  return WORD_CHAR.test(mapped) ? mapped : ' ';
-}
-
-export function normalizeSearch(text: string): string {
-  let out = '';
-  for (const ch of text) out += foldChar(ch);
-  return out.replace(/\s+/g, ' ').trim();
-}
+export { normalizeSearch };
 
 export const SEARCH_LIMITS = { maxWords: 6, maxWordLength: 30 } as const;
 

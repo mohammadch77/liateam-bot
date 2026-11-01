@@ -2,7 +2,7 @@
 //   npm run admin:create -- --mobile=09XXXXXXXXX
 // The number is only this argument (never in the repository). Recorded in audit_log. Uses DATABASE_URL (the app role is
 // enough: a role is INSERTed). Sign in afterwards with the usual OTP at /login. Take the admin away with `admin:revoke`.
-import { maskMobile } from '../src/lib/phone.ts';
+import { maskMobile } from '../src/lib/phone.mjs';
 import { connect, fail, readArgs, scrub } from './_admin-db.mjs';
 
 const NAME = 'admin:create';

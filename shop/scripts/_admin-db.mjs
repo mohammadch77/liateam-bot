@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { normalizeMobile } from '../src/lib/phone.ts';
+import { normalizeMobile } from '../src/lib/phone.mjs';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 for (const f of ['.env.local', '.env'])
@@ -19,6 +19,10 @@ export const fail = (name, m) => {
 /** --mobile=09XXXXXXXXX or --mobile 09XXXXXXXXX, plus the flags named in `flags` */
 export function readArgs(name, flags = []) {
   const argv = process.argv.slice(2);
+  if (argv.includes('--help')) {
+    console.log(`usage: npm run ${name} -- --mobile=09XXXXXXXXX${flags.map((f) => ` [${f}]`).join('')}`);
+    process.exit(0);
+  }
   const out = { flags: new Set() };
   for (let i = 0; i < argv.length; i++) {
     const [k, v] = argv[i].split(/=(.*)/s);

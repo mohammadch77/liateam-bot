@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { normalizeMobile, maskMobile } from '../src/lib/phone.ts';
+import { normalizeMobile, maskMobile } from '../src/lib/phone.mjs';
 
 const ROLES = ['customer', 'affiliate', 'support', 'employee', 'admin'];
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -17,6 +17,10 @@ const fail = (m) => {
   console.error(`\n[grant-role] ${m}\n`);
   process.exit(1);
 };
+if (process.argv.includes('--help')) {
+  console.log('usage: npm run grant-role -- 09XXXXXXXXX <customer|affiliate|support|employee|admin>');
+  process.exit(0);
+}
 const [phoneArg, role] = process.argv.slice(2);
 const phone = normalizeMobile(phoneArg ?? '');
 if (!phone) fail('usage: npm run grant-role -- 09XXXXXXXXX <role>   (phone is not a valid Iranian mobile)');

@@ -1,5 +1,5 @@
 // Search guard. Checks, against the database and the running app:
-//   1. normalizeSearch (src/lib/search/normalize.ts) gives exactly what public.search_norm gives, for every product
+//   1. normalizeSearch (src/lib/search/normalize-core.mjs) gives exactly what public.search_norm gives, for every product
 //      name and brand plus tricky samples (Arabic ي/ك, ZWNJ, آ, digits, harakat) — otherwise highlighting and
 //      matching drift apart;
 //   2. the suggest API answers misspellings and Arabic letters, and never returns more than the public fields.
@@ -14,7 +14,9 @@ const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 for (const f of ['.env.local', '.env'])
   if (fs.existsSync(path.join(root, f))) process.loadEnvFile(path.join(root, f));
 const base = process.argv[2] ?? `http://127.0.0.1:${process.env.PORT ?? 3850}`;
-const { normalizeSearch } = await import(pathToFileURL(path.join(root, 'src/lib/search/normalize.ts')).href);
+const { normalizeSearch } = await import(
+  pathToFileURL(path.join(root, 'src/lib/search/normalize-core.mjs')).href
+);
 
 let failures = 0;
 const check = (ok, msg) => {
