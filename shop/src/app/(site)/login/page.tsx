@@ -3,15 +3,22 @@ import { redirect } from 'next/navigation';
 import { getConfig } from '@/lib/config';
 import { safeNextPath } from '@/server/auth/guards';
 import { getCurrentUser } from '@/server/services/session.service';
-import { Icon } from '@/ui';
+import { Alert, Icon } from '@/ui';
 import { LoginForm } from './LoginForm';
 import s from './login.module.css';
 
 export const metadata: Metadata = { title: 'ورود | ثبت‌نام', robots: { index: false } };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const next = safeNextPath((await searchParams).next);
-  if (await getCurrentUser()) redirect(next);
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string; expired?: string }>;
+}) {
+  const sp = await searchParams;
+  const next = safeNextPath(sp.next);
+  // an admin whose sign-in is too old comes here with ?expired=1 while still holding a valid cookie: show the form (a new
+  // sign-in replaces that cookie) instead of bouncing back to the panel, which would send them here again
+  if (sp.expired !== '1' && (await getCurrentUser())) redirect(next);
 
   return (
     <div className={s.page} data-auth-page>
@@ -42,6 +49,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             {getConfig().BRAND_NAME}
             <span className={s.dot}>.</span>
           </span>
+          {sp.expired === '1' && (
+            <Alert tone="warning">نشست مدیریت منقضی شد؛ برای ادامه دوباره وارد شوید.</Alert>
+          )}
           <LoginForm next={next} />
         </section>
       </div>

@@ -827,16 +827,16 @@ npm run images:warm
 
 **ترتیب اعمال روی هر سرور:** ۱) دیپلوی ربات با `needs_review` و ری‌استارت سرویس `liateam-orders` (ستون `shop_orders.origin` را هنگام راه‌اندازی می‌سازد)؛ ۲) `sudo -u postgres psql lia_sync -f shop/deploy/shop-db-roles-016-orders.sql`؛ ۳) `npm run migrate:up`.
 
-| جدول (schema فروشگاه) | کار |
-|---|---|
-| `carts` / `cart_items` | سبد مهمان (هش توکن) و کاربر؛ ادغام بعد از ورود؛ قیمت ذخیره نمی‌شود |
-| `addresses` (ستون‌های تازه) | `province_id`، `city_id` لیاتیم، `plate`، `unit` |
-| `orders` / `order_items` | سفارش، شماره‌ی خوانا `AV-100001`، کلید idempotency، عکس لحظه‌ای قیمت فروش و تخفیف، نتیجه‌ی اعتبارسنجی زنده، `bot_order_id` (یک‌به‌یک با `shop_orders` ربات) |
-| `order_events` | رویدادها، فقط افزودنی |
-| `payments` | هر سفارش فقط یک‌بار تأیید می‌شود (ایندکس یکتا) |
-| `wallet_ledger` | کیف پول: دفتر فقط‌افزودنی؛ موجودی منفی نمی‌شود؛ کلید idempotency هر ردیف |
-| `affiliate_codes` / `affiliate_referrals` / `commission_rules` / `commissions` | معرف، قوانین (خالی)، پورسانت |
-| `shipping_methods` / `shipping_rules` / `sms_log` | برچسب و زمان ارسال، لاگ پیامک (بدون متن) |
+| جدول (schema فروشگاه)                                                          | کار                                                                                                                                                         |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `carts` / `cart_items`                                                         | سبد مهمان (هش توکن) و کاربر؛ ادغام بعد از ورود؛ قیمت ذخیره نمی‌شود                                                                                          |
+| `addresses` (ستون‌های تازه)                                                    | `province_id`، `city_id` لیاتیم، `plate`، `unit`                                                                                                            |
+| `orders` / `order_items`                                                       | سفارش، شماره‌ی خوانا `AV-100001`، کلید idempotency، عکس لحظه‌ای قیمت فروش و تخفیف، نتیجه‌ی اعتبارسنجی زنده، `bot_order_id` (یک‌به‌یک با `shop_orders` ربات) |
+| `order_events`                                                                 | رویدادها، فقط افزودنی                                                                                                                                       |
+| `payments`                                                                     | هر سفارش فقط یک‌بار تأیید می‌شود (ایندکس یکتا)                                                                                                              |
+| `wallet_ledger`                                                                | کیف پول: دفتر فقط‌افزودنی؛ موجودی منفی نمی‌شود؛ کلید idempotency هر ردیف                                                                                    |
+| `affiliate_codes` / `affiliate_referrals` / `commission_rules` / `commissions` | معرف، قوانین (خالی)، پورسانت                                                                                                                                |
+| `shipping_methods` / `shipping_rules` / `sms_log`                              | برچسب و زمان ارسال، لاگ پیامک (بدون متن)                                                                                                                    |
 
 وضعیت سفارش: `pending_payment → queued → placing → awaiting_payment → supplier_paid → sent` و `needs_review`، `refunded`، `canceled`. جدول گذارها در `src/lib/orders/status.ts` و تابع `order_status_can_move` است و یک تست آن دو را مقایسه می‌کند.
 
@@ -860,3 +860,16 @@ npm run images:warm
 
 هدر، نوار پایین موبایل، mini-cart و `/cart` همه از **یک store** در `CartProvider` می‌خوانند و فقط با `add` / `setQuantity` سبد را عوض می‌کنند؛ سرور بعد از هر تغییر کل سبد را برمی‌گرداند (`CartSnapshot` با `rev` = زمان آخرین تغییر سبد در دیتابیس) و هر نما نسخه‌ی تازه‌تر را نشان می‌دهد. تغییر ابتدا خوش‌بینانه نمایش داده می‌شود و با خطای سرور برمی‌گردد (با پیام). mini-cart هر بار که باز شود سبد را دوباره می‌خواند. دسکتاپ: پنل زیر آیکن سبد (و زیر نوار فشرده‌ی چسبان وقتی صفحه اسکرول شد)؛ موبایل: bottom sheet با قفل اسکرول صفحه‌ی پشت. تست‌ها: `mini-cart.e2e.mjs` و `mini-cart-mobile.e2e.mjs` (WebKit).
 
+## پنل ادمین: حساب، تنظیمات، کلیدهای رمزنگاری‌شده و ارسال
+
+**حساب ادمین.** نقش در `user_roles` است (`admin` همه‌ی نقش‌ها را دارد) و ورود همان OTP پیامکی است.
+
+- `npm run admin:create -- --mobile=09xxxxxxxxx`: حساب را می‌سازد یا ارتقا می‌دهد (تکرارپذیر؛ با نقش برنامه، چون فقط INSERT می‌خواهد؛ در `audit_log` با `role.grant`). شماره فقط آرگومان است و ماسک‌شده چاپ می‌شود.
+- `npm run admin:revoke -- --mobile=09xxxxxxxxx [--allow-last]`: نقش را برمی‌دارد و همه‌ی نشست‌ها را می‌بندد. حذف ردیف نقش `DELETE` می‌خواهد که نقش برنامه عمداً ندارد؛ پس این اسکریپت مثل `migrate` با `MIGRATION_DATABASE_URL` (مالک schema) کار می‌کند. آخرین ادمین را بدون `--allow-last` برنمی‌دارد.
+- غیرادمین روی `/admin/*` و API همان ۴۰۳ را می‌بیند؛ بدون ورود به صفحه‌ی ورود می‌رود. نشست ادمین **کوتاه‌تر** است (`security.admin_session_hours`، پیش‌فرض ۸ ساعت از لحظه‌ی ورود؛ نشست مشتری ۳۰ روز می‌ماند)؛ صفحه‌ی `/admin` «آخرین ورود قبلی» را نشان می‌دهد.
+
+**registry تنظیمات** (`src/lib/settings/registry.ts`): هر کلید یک‌جا (گروه، برچسب فارسی، نوع، zod، پیش‌فرض، `public | internal | secret`). مقدارهای ساده در `site_settings`، رازها در `secret_settings`. خواندن (`settingsRead`) کش یک‌دقیقه‌ای دارد که با ذخیره‌ی ادمین و با revalidate ربات **همان لحظه** پاک می‌شود (`cache-events.ts`: شنونده‌ها روی `globalThis` هستند چون Next هر route را با نسخه‌ی جدا از متغیرهای ماژول می‌سازد و revalidate فقط نسخه‌ی خودش را پاک می‌کرد). هر تغییر در `audit_log` (`setting.update` با قبل و بعد؛ رازها فقط `secret.update` با `changed: true`). صفحه: `/admin/settings?section=general|orders|shipping|commission|sms|payment`.
+
+**رازها (S2).** `SETTINGS_ENCRYPTION_KEY` (۳۲ بایت = ۶۴ نویسه‌ی hex، فقط در `.env`) با AES-256-GCM: nonce تصادفی و یکتا برای هر رمزگذاری، نام کلید به‌عنوان AAD، شماره‌ی نسخه‌ی کلید کنار هر ردیف (`SETTINGS_ENCRYPTION_KEY_VERSION`؛ کلیدهای قبلی در `SETTINGS_ENCRYPTION_OLD_KEYS=1:<hex>`). بدون کلید ذخیره‌ی راز غیرفعال است و صفحه می‌گوید. در UI فقط نوشتنی و ماسک (`••••۱۲۳۴`)؛ خواندن مقدار فقط از `secretSettingsService.read` (server-only). نقش برنامه روی `secret_settings` فقط SELECT/INSERT/UPDATE دارد.
+
+**ارسال.** روش «پست» (برچسب، فعال/غیرفعال)، بازه‌ی روز کاری پیش‌فرض و بازه‌ی هر استان (تکی یا دسته‌ای با تیک)؛ بازه‌ی پاک‌شده خاموش می‌شود نه حذف (نقش برنامه DELETE ندارد). تسویه «بازه + `shipping.extra_days`» را نشان می‌دهد؛ ارسال رایگان (سوئیچ + آستانه) و `site.base_url` (برای callbackهای S2) هم در registry هستند. تست‌ها: `admin.e2e.mjs` و `admin-mobile.e2e.mjs` (WebKit) و `tests/unit/settings.test.ts`.

@@ -41,6 +41,8 @@ const ALL = [
   'mini-cart',
   'mini-cart-mobile',
   'free-shipping',
+  'admin',
+  'admin-mobile',
 ];
 const wanted = process.argv.slice(2);
 const unknown = wanted.filter((n) => !ALL.includes(n));

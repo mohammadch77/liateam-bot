@@ -249,6 +249,7 @@ try {
   );
   await stickyIcon.click();
   await p.locator('[data-mini-cart] [data-mini-line]').first().waitFor({ timeout: 20000 });
+  await p.waitForTimeout(500); // the panel slides in (a 24px rise): measure it at rest
   const pb = await p.locator('[data-mini-cart]').boundingBox();
   check(
     "4c the panel hangs under the compact bar's icon",

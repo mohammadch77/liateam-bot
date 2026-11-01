@@ -12,6 +12,8 @@ export type CurrentUser = {
   fullName: string | null;
   roles: readonly UserRole[];
   sessionExpiresAt: Date;
+  /** when this session began (the sign-in): the admin panel's shorter timeout counts from here */
+  sessionCreatedAt: Date;
 };
 
 /**
@@ -29,6 +31,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     fullName: row.full_name,
     roles: row.roles,
     sessionExpiresAt: row.expires_at,
+    sessionCreatedAt: row.created_at,
   };
 });
 

@@ -95,19 +95,19 @@ try {
   const form = admin.locator('[data-settings-form]');
   check(
     '2b three discount modes (partner, consumer, beyond_base), one chosen (partner unless DEFAULT_DISCOUNT_MODE says otherwise)',
-    (await form.locator('input[name="discountMode"]').count()) === 3 &&
-      (await form.locator('input[name="discountMode"]:checked').count()) === 1,
+    (await form.locator('input[name="pricing.discount_mode"]').count()) === 3 &&
+      (await form.locator('input[name="pricing.discount_mode"]:checked').count()) === 1,
   );
   check(
     '2c indexing switch on by default, and the staging note',
-    (await form.locator('[data-block-indexing]').isChecked()) &&
+    (await form.locator('input[name="seo.block_indexing"]').isChecked()) &&
       (await form.getByText('همیشه از ایندکس شدن جلوگیری می‌شود').count()) === 1,
   );
   const save = async (mode) => {
     await admin.goto(`${BASE}/admin/settings`, { waitUntil: 'load' });
     await form.locator(`input[value="${mode}"]`).check();
-    await form.getByRole('button', { name: 'ذخیره‌ی تنظیمات' }).click();
-    await admin.getByText('تنظیمات ذخیره شد.').waitFor({ timeout: 20000 });
+    await form.getByRole('button', { name: 'ذخیره' }).click();
+    await admin.getByText('تنظیمات ذخیره شد').waitFor({ timeout: 20000 });
   };
 
   // ── 3. prices in the three modes ──

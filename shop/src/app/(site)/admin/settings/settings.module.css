@@ -1,0 +1,181 @@
+/* The settings screen: section tabs, one field per row, secrets, the shipping ranges. Avina tokens, RTL, 44px controls. */
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin: 0 -2px;
+  padding: 2px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: var(--color-white);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-ink-2);
+  white-space: nowrap;
+}
+.tab[aria-current='page'] {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-white);
+}
+.soon {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.75;
+}
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-line-row);
+}
+.row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.rowLabel {
+  font-size: 14.5px;
+  font-weight: 700;
+}
+.unit {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+.inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.num {
+  width: min(100%, 220px);
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md, 12px);
+  font: inherit;
+  font-weight: 500;
+  color: var(--color-ink);
+  text-align: start;
+}
+.num.short {
+  width: 96px;
+}
+.wide {
+  width: 100%;
+  max-width: 420px;
+}
+.radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 0;
+  font-size: 14px;
+  line-height: 1.9;
+}
+.radio input {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin-top: 6px;
+}
+.banner {
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 12px);
+  background: var(--color-surface);
+  font-size: 13.5px;
+  line-height: 1.9;
+}
+
+/* secrets: write-only, masked */
+.secret {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md, 12px);
+}
+.mask {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 15px;
+  letter-spacing: 1px;
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: start;
+}
+.state {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-muted);
+}
+.state.on {
+  color: var(--color-success, #2e7d32);
+}
+
+/* shipping ranges */
+.prov {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-line-row);
+}
+.provName {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 150px;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.provName input {
+  width: 20px;
+  height: 20px;
+}
+.pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-muted);
+}
+.bulk {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px dashed var(--color-line);
+  border-radius: var(--radius-md, 12px);
+}
+.list {
+  display: flex;
+  flex-direction: column;
+}
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

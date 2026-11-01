@@ -1,10 +1,12 @@
 import 'server-only';
 import { getConfig } from '@/lib/config';
+import { onDataChange } from '@/server/cache-events';
 import { siteSettingsRepository } from '@/server/repositories/site-settings.repository';
 
 export const BLOCK_INDEXING_KEY = 'seo.block_indexing';
 const MAX_AGE_MS = 60_000;
 let cached: { blocked: boolean; at: number } | null = null;
+onDataChange(() => (cached = null));
 
 /**
  * Whether search engines are kept out (meta robots, robots.txt, sitemap, X-Robots-Tag): always outside production

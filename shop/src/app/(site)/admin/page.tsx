@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { formatNumber } from '@/lib/format/number';
+import { adminSettingsPath } from '@/lib/urls';
 import { healthService } from '@/server/services/health.service';
 import { requireRole } from '@/server/auth/guards';
 import { auditService } from '@/server/services/audit.service';
@@ -14,6 +15,9 @@ const ACTION_LABEL: Record<string, string> = {
   'auth.logout': 'خروج',
   'auth.locked': 'قفل به‌دلیل تلاش ناموفق',
   'role.grant': 'اعطای نقش',
+  'role.revoke': 'لغو نقش',
+  'secret.update': 'تعویض کلید رمزنگاری‌شده',
+  'shipping.update': 'تغییر تنظیمات ارسال',
   'review.submit': 'ثبت دیدگاه',
   'review.approve': 'تأیید دیدگاه',
   'review.reject': 'رد دیدگاه',
@@ -44,10 +48,11 @@ const timeFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'short
 
 /** Role-restricted example: admins only (everyone else gets HTTP 403). Placeholder for the phase-3 admin panel. */
 export default async function AdminPage() {
-  await requireRole('admin', '/admin');
-  const [events, sync] = await Promise.all([
+  const user = await requireRole('admin', '/admin');
+  const [events, sync, previous] = await Promise.all([
     auditService.recent(20),
     healthService.syncStatus().catch(() => null),
+    auditService.previousLogin().catch(() => null),
   ]);
   const when = (d: Date | null) => (d ? timeFa.format(d) : '—');
 
@@ -71,7 +76,14 @@ export default async function AdminPage() {
           {' · '}
           <Link href="/admin/bestsellers">پرفروش‌ترین‌ها</Link>
           {' · '}
-          <Link href="/admin/settings">تنظیمات</Link>
+          <Link href={adminSettingsPath()}>تنظیمات</Link>
+        </p>
+        <p data-last-login>
+          {previous
+            ? `آخرین ورود قبلی شما: ${when(previous.at)}${previous.ip ? ` (IP ${previous.ip})` : ''}`
+            : 'این اولین ورود شماست.'}
+          {' · '}
+          ورود فعلی: {when(user.sessionCreatedAt)}
         </p>
       </section>
 

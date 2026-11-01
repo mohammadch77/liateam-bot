@@ -5,6 +5,7 @@ import type { UserRole, UserStatus } from './user.repository';
 export type SessionUserRow = {
   session_id: string;
   expires_at: Date;
+  created_at: Date;
   user_id: string;
   phone: string;
   full_name: string | null;
@@ -33,7 +34,7 @@ export const sessionRepository = {
   async findActive(tokenHash: string): Promise<SessionUserRow | null> {
     return queryOne<SessionUserRow>(
       'session.find_active',
-      `SELECT s.id::text AS session_id, s.expires_at,
+      `SELECT s.id::text AS session_id, s.expires_at, s.created_at,
               u.id::text AS user_id, u.phone, u.full_name, u.status,
               COALESCE(array_agg(r.role::text ORDER BY r.role) FILTER (WHERE r.role IS NOT NULL), '{}') AS roles
          FROM sessions s

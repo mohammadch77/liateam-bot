@@ -23,6 +23,16 @@ export const auditRepository = {
     );
   },
 
+  /** this user's latest sign-ins, newest first (the one before the current is «آخرین ورود» shown to an admin) */
+  async logins(userId: string, limit: number): Promise<Array<{ created_at: Date; ip: string | null }>> {
+    return query<{ created_at: Date; ip: string | null }>(
+      'audit.logins',
+      `SELECT created_at, host(ip) AS ip FROM audit_log
+        WHERE actor_user_id = $1 AND action = 'auth.login' ORDER BY id DESC LIMIT $2`,
+      [userId, limit],
+    );
+  },
+
   async recent(limit: number) {
     return query<{
       id: string;

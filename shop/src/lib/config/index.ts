@@ -53,6 +53,17 @@ const schema = z.object({
   /** No discount (and no pack) takes the price under the purchase price plus this margin. */
   DISCOUNT_MIN_MARGIN_PERCENT: z.coerce.number().min(0).max(50).default(1),
 
+  // ── Admin secrets (S2: SMS / payment keys saved from /admin/settings) ──
+  /** 32 bytes as 64 hex characters (`openssl rand -hex 32`). Without it the panel cannot store secrets (it says so). */
+  SETTINGS_ENCRYPTION_KEY: z
+    .string()
+    .regex(/^[0-9a-fA-F]{64}$/, '64 hex characters, e.g. `openssl rand -hex 32`')
+    .optional(),
+  /** version number written next to every secret; raise it when you rotate the key (keep the old one below) */
+  SETTINGS_ENCRYPTION_KEY_VERSION: z.coerce.number().int().min(1).max(32_000).default(1),
+  /** older keys that still open stored secrets: "1:<hex>,2:<hex>" */
+  SETTINGS_ENCRYPTION_OLD_KEYS: z.string().trim().optional(),
+
   // ── SMS ──
   SMS_PROVIDER: z.enum(['dev', 'kavenegar']).default('dev'),
   KAVENEGAR_API_KEY: z.string().trim().optional(),
