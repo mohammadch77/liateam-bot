@@ -6,6 +6,7 @@
 // security cases (another user's cart and order, a tampered page, the guest at /checkout). Test users use invented numbers.
 import { BASE, SCHEMA as S, check, chromium, finish, requireLocalApp, signIn, sleep, sql, toLatin } from './_harness.mjs';
 import { startResponder } from './_responder.mjs';
+import { cancelAtGateway, enablePayment } from './_pay.mjs';
 
 requireLocalApp();
 // invented numbers, new for every run (the sign-in helper reads the newest code of a number from the server log)
@@ -17,6 +18,7 @@ const SHIPPING = 187_900;
 
 const wipe = () =>
   sql(`set session_replication_role = replica;
+    delete from ${S}.payments where order_id in (select id from ${S}.orders where user_id in (select id from ${S}.users where phone in (${PHONES})));
     delete from ${S}.order_events where order_id in (select id from ${S}.orders where user_id in (select id from ${S}.users where phone in (${PHONES})));
     delete from ${S}.order_items where order_id in (select id from ${S}.orders where user_id in (select id from ${S}.users where phone in (${PHONES})));
     delete from ${S}.orders where user_id in (select id from ${S}.users where phone in (${PHONES}));
@@ -45,6 +47,7 @@ const [A, B, C] = products;
 const num = (t) => Number(toLatin(t));
 
 const bot = startResponder();
+const restorePay = await enablePayment(); // «پرداخت» goes to the dev simulator; these tests back out there and look at the pending order
 const browser = await chromium.launch();
 const newPage = async (viewport = { width: 1440, height: 900 }) => {
   const ctx = await browser.newContext({ viewport });
@@ -181,8 +184,8 @@ try {
   });
   const ordersBefore = orderCount();
   await c.locator('[data-place-order]').click();
-  await c.waitForURL(/\/account\/orders\/AV-\d+/, { timeout: 40000 }).catch(async (e) => {
-    console.error('place order did not navigate; the page says:', (await c.locator('[data-checkout-summary]').innerText().catch(() => '(no summary)')).replace(/\s+/g, ' ').slice(-300));
+  await cancelAtGateway(c).catch(async (e) => {
+    console.error('«پرداخت» did not reach the gateway; the page says:', (await c.locator('[data-checkout-summary]').innerText().catch(() => '(no summary)')).replace(/\s+/g, ' ').slice(-300));
     throw e;
   });
   const number = /AV-\d+/.exec(c.url())[0];
@@ -194,7 +197,7 @@ try {
   const snap = sql(`select count(*) || '|' || bool_and(unit_price <= unit_list_price)::text from ${S}.order_items i join ${S}.orders o on o.id = i.order_id where o.number = '${number}'`);
   check('8e the lines carry the price snapshot', Number(snap.split('|')[0]) >= 2 && snap.endsWith('|true'), snap);
   const page8 = await c.locator('main').innerText();
-  check('8f the order page: the number, the payable, and «پرداخت در مرحله‌ی بعد فعال می‌شود»', /AV-/.test(page8) && /پرداخت در مرحله‌ی بعد فعال می‌شود/.test(page8) && num(await c.locator('[data-order-payable]').innerText()) === Number(row[5]));
+  check('8f the order page: the number, the payable, and «در انتظار پرداخت» (backed out at the gateway: still pending)', /AV-/.test(page8) && /در انتظار پرداخت/.test(page8) && num(await c.locator('[data-order-payable]').innerText()) === Number(row[5]));
   check('8h the cart is kept until the payment exists', Number(sql(`select count(*) from ${S}.carts c join ${S}.users uu on uu.id = c.user_id where uu.phone = '${U}' and c.status = 'open'`)) === 1);
 
   // another user cannot open this order
@@ -236,7 +239,7 @@ try {
   check('9e a price moved at Liateam: announced, and the order can go on at the new price', /تغییر کرده/.test(await c.locator('[data-review="ready"]').innerText()) && (await c.locator('[data-place-order]').isEnabled()));
   const dearer = await c.locator('[data-payable]').getAttribute('data-payable');
   await c.locator('[data-place-order]').click();
-  await c.waitForURL(/\/account\/orders\/AV-\d+/, { timeout: 40000 });
+  await cancelAtGateway(c);
   const n2 = /AV-\d+/.exec(c.url())[0];
   const lp = sql(`select i.unit_list_price from ${S}.order_items i join ${S}.orders o on o.id = i.order_id where o.number = '${n2}' and i.product_id = ${C.id}`);
   check('9f the order holds Liateam\'s new price as the list price; the payable matches the page', Number(lp) === cPrice + 5000 && Number(sql(`select total_payable from ${S}.orders where number = '${n2}'`)) === Number(dearer), `${lp} / ${dearer}`);
@@ -268,7 +271,7 @@ try {
   await c.locator('[data-review="ready"]').waitFor({ timeout: 40000 });
   const reviewId = Number(sql(`select c.review_id from ${S}.carts c join ${S}.users uu on uu.id = c.user_id where uu.phone = '${U}' and c.status = 'open'`));
   await c.locator('[data-place-order]').dblclick();
-  await c.waitForURL(/\/account\/orders\/AV-\d+/, { timeout: 40000 });
+  await cancelAtGateway(c);
   await sleep(1500);
   check('9k a double click makes exactly one order', Number(sql(`select count(*) from ${S}.orders where review_id = ${reviewId}`)) === 1);
   // replaying the same check later returns the same order instead of a second one
@@ -284,6 +287,7 @@ try {
   await v.ctx.close();
   await g.ctx.close();
 } finally {
+  await restorePay();
   await bot.stop();
   wipe();
   wipeGuests();

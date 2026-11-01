@@ -5,14 +5,16 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { formatToman } from '@/lib/format/money';
 import { formatNumber, toFaDigits } from '@/lib/format/number';
+import { methodUsable, defaultMethod, type PayMethodId, type PayOptions } from '@/lib/orders/payment-flow';
 import { cartPath } from '@/lib/urls';
+import { PayMethods } from '../_pay/PayMethods';
 import { Alert, Button, Icon, Select, Spinner, TextField } from '@/ui';
 import type { CheckoutView } from '@/server/services/checkout.service';
 import {
   addAddressAction,
   applyReviewAction,
   citiesAction,
-  placeOrderAction,
+  payAction,
   provincesAction,
   reviewStatusAction,
   startReviewAction,
@@ -51,10 +53,13 @@ export function CheckoutFlow({
   addresses: initial,
   defaultPhone,
   defaultName,
+  pay,
 }: {
   addresses: AddressView[];
   defaultPhone: string;
   defaultName: string;
+  /** what the customer can pay with (from the server) */
+  pay: PayOptions;
 }) {
   const [addresses, setAddresses] = useState(initial);
   const [addressId, setAddressId] = useState<string | null>(
@@ -64,6 +69,7 @@ export function CheckoutFlow({
   const [review, setReview] = useState<Review>({ phase: 'idle' });
   const [error, setError] = useState<string | null>(null);
   const [placing, startPlacing] = useTransition();
+  const [method, setMethod] = useState<PayMethodId>(() => defaultMethod(pay, null));
   const [now, setNow] = useState(() => Date.now());
   const gen = useRef({ n: 0 }); // a newer check cancels the polling of an older one
 
@@ -108,6 +114,8 @@ export function CheckoutFlow({
   }, [review]);
 
   const ready = review.phase === 'ready' ? review.view : null;
+  const total = ready?.totals?.totalPayable ?? null;
+  const usable = methodUsable(method, pay, total);
   const left = ready ? Date.parse(ready.expiresAt) - now : 0;
   const expired = ready ? ready.expired || left <= 0 : false;
 
@@ -123,7 +131,7 @@ export function CheckoutFlow({
     startPlacing(async () => {
       if (!ready || !addressId) return;
       setError(null);
-      const r = await placeOrderAction(addressId, ready.jobId); // redirects on success
+      const r = await payAction(addressId, ready.jobId, method); // redirects on success
       if (r && !r.ok) {
         void check(addressId, r.error);
       }
@@ -324,19 +332,27 @@ export function CheckoutFlow({
         ) : (
           <p className={s.muted}>مبلغ نهایی بعد از بررسی موفق قیمت و موجودی نمایش داده می‌شود.</p>
         )}
+        {ready?.canOrder && (
+          <PayMethods key={`${ready.jobId}`} options={pay} total={total} onChange={(m) => setMethod(m)} />
+        )}
         {error && <Alert tone="danger">{error}</Alert>}
         <Button
           size="lg"
           block
-          disabled={!ready?.canOrder || expired}
+          disabled={!ready?.canOrder || expired || !usable}
           loading={placing}
-          loadingText="در حال ثبت سفارش…"
+          loadingText="در حال انتقال به پرداخت…"
           onClick={place}
           data-place-order
         >
-          ثبت سفارش
+          پرداخت
         </Button>
-        <p className={s.note}>پرداخت در مرحله‌ی بعد فعال می‌شود؛ ثبت سفارش هنوز مبلغی از شما کم نمی‌کند.</p>
+        {ready?.canOrder && !usable && (
+          <p className={s.note} data-pay-blocked>
+            برای ادامه، یک روش پرداخت قابل‌استفاده انتخاب کنید.
+          </p>
+        )}
+        <p className={s.note}>تا زمانی که پرداخت را تأیید نکنید، مبلغی از شما کم نمی‌شود.</p>
         <Link href={cartPath()} className={s.back}>
           بازگشت به سبد خرید
         </Link>

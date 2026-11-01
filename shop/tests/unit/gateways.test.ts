@@ -150,27 +150,22 @@ test('zarinpal self check: format only, no network', () => {
 });
 
 // ── dev gateway + registry ──
-test('the dev gateway simulates paid / failed / canceled without a network', async () => {
-  const cfg = { merchantId: '', sandbox: true };
-  const ok = devGateway(cfg, 'success');
-  const started = await ok.request(req);
-  assert.match(started.redirectUrl, /Status=OK/);
-  const paid = await ok.verify({
-    authority: started.authority,
-    amount: 1000,
-    query: { sim: 'success', Status: 'OK' },
-  });
+test('the dev gateway sends the buyer to the simulator page and reads the choice back; no network', async () => {
+  const gw = devGateway({ merchantId: '', sandbox: true });
+  const started = await gw.request(req);
+  const url = new URL(started.redirectUrl);
+  assert.equal(url.origin + url.pathname, 'https://shop.example.com/payment/simulator');
+  assert.equal(url.searchParams.get('Authority'), started.authority);
+  const verify = (query: Record<string, string>) =>
+    gw.verify({ authority: started.authority, amount: 1000, query });
+  const paid = await verify({ sim: 'success', Status: 'OK' });
   assert.deepEqual([paid.ok, paid.outcome], [true, 'paid']);
-  assert.equal(
-    (await devGateway(cfg, 'failed').verify({ authority: 'X', amount: 1, query: { sim: 'failed' } })).outcome,
-    'failed',
-  );
-  assert.equal(
-    (await devGateway(cfg, 'canceled').verify({ authority: 'X', amount: 1, query: { Status: 'NOK' } }))
-      .outcome,
-    'canceled',
-  );
-  await assert.rejects(ok.request({ ...req, amount: -1 }), PaymentError);
+  assert.equal((await verify({ sim: 'failed', Status: 'OK' })).outcome, 'failed');
+  assert.equal((await verify({ sim: 'canceled', Status: 'NOK' })).outcome, 'canceled');
+  assert.equal((await verify({ Status: 'NOK' })).outcome, 'canceled');
+  assert.equal((await verify({})).outcome, 'failed'); // nothing chosen is never «paid»
+  assert.equal((await verify({ sim: 'weird', Status: 'OK' })).ok, false);
+  await assert.rejects(gw.request({ ...req, amount: -1 }), PaymentError);
 });
 
 test('the dev gateway is refused in production; real ones are allowed; unknown ids throw', () => {

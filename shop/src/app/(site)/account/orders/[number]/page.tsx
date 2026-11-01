@@ -4,9 +4,12 @@ import { formatToman } from '@/lib/format/money';
 import { toFaDigits } from '@/lib/format/number';
 import { orderPath, ordersPath } from '@/lib/urls';
 import { requireUser } from '@/server/auth/guards';
+import { orderFlowService } from '@/server/services/order-flow.service';
+import { orderPaymentService } from '@/server/services/order-payment.service';
 import { orderService } from '@/server/services/order.service';
 import { Alert, Badge, Breadcrumb, Container } from '@/ui';
 import s from '../../../checkout/checkout.module.css';
+import { PayPanel } from './PayPanel';
 
 export const metadata: Metadata = { title: 'سفارش', robots: { index: false, follow: false } };
 
@@ -24,17 +27,37 @@ const STATUS_LABEL: Record<string, string> = {
 
 /**
  * The order's page (only its owner; another user's number is a 404). It shows what the customer is charged: goods, the shipping
- * he pays, the total, the address and the delivery window — never what the shop pays Liateam. Payment arrives in the next step.
+ * he pays, the total, the address and the delivery window — never what the shop pays Liateam. A pending order shows the way to pay.
  */
-export default async function OrderPage({ params }: { params: Promise<{ number: string }> }) {
+export default async function OrderPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ number: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { number } = await params;
+  const sp = await searchParams;
   const user = await requireUser(orderPath(number));
-  const order = await orderService.forUser(user.id, number);
+  let order = await orderService.forUser(user.id, number);
   if (!order) notFound();
+  // a paid order moves on (the bot's order, the placing, its progress): looking at it also carries it one step further
+  if (!['pending_payment', 'sent', 'refunded', 'canceled'].includes(order.status)) {
+    await orderFlowService.advance(order.id);
+    order = (await orderService.forUser(user.id, number)) ?? order;
+  }
+  const options = order.status === 'pending_payment' ? await orderPaymentService.options(user.id) : null;
+  const error = typeof sp.error === 'string' ? sp.error : '';
   const { items } = order;
   return (
     <Container className={s.page}>
-      <Breadcrumb items={[{ label: 'خانه', href: '/' }, { label: 'سفارش‌ها', href: ordersPath() }, { label: order.number }]} />
+      <Breadcrumb
+        items={[
+          { label: 'خانه', href: '/' },
+          { label: 'سفارش‌ها', href: ordersPath() },
+          { label: order.number },
+        ]}
+      />
       <div className={s.orderHead}>
         <h1 className={s.title}>ثبت سفارش</h1>
         <span className={s.orderNumber} data-order-number>
@@ -42,8 +65,20 @@ export default async function OrderPage({ params }: { params: Promise<{ number: 
         </span>
         <Badge tone="neutral">{STATUS_LABEL[order.status] ?? order.status}</Badge>
       </div>
+      {error && <Alert tone="danger">{error}</Alert>}
       {order.status === 'pending_payment' && (
-        <Alert tone="warning">سفارش شما ثبت شد. پرداخت در مرحله‌ی بعد فعال می‌شود؛ تا آن زمان مبلغی از شما کم نشده است.</Alert>
+        <Alert tone="warning">
+          سفارش شما ثبت شد و در انتظار پرداخت است؛ تا پرداخت، مبلغی از شما کم نمی‌شود.
+        </Alert>
+      )}
+      {order.status === 'queued' && (
+        <Alert tone="success">پرداخت شما ثبت شد. سفارش در صف ثبت است و به‌زودی پیگیری می‌شود.</Alert>
+      )}
+      {order.status === 'needs_review' && (
+        <Alert tone="warning">
+          سفارش شما پرداخت شده و در حال بررسی است (ممکن است قیمت یا موجودی کالایی تغییر کرده باشد). پشتیبانی
+          با شما هماهنگ می‌کند؛ مبلغی خودکار برگردانده نمی‌شود.
+        </Alert>
       )}
       <section className={s.card} aria-label="اقلام سفارش">
         <table className={s.table}>
@@ -79,7 +114,9 @@ export default async function OrderPage({ params }: { params: Promise<{ number: 
           )}
           <div>
             <dt>هزینه‌ی ارسال (پست)</dt>
-            <dd className="tnum">{order.shipping_charged === 0 ? 'رایگان' : `${formatToman(order.shipping_charged)} تومان`}</dd>
+            <dd className="tnum">
+              {order.shipping_charged === 0 ? 'رایگان' : `${formatToman(order.shipping_charged)} تومان`}
+            </dd>
           </div>
           <div className={s.total}>
             <dt>مبلغ قابل پرداخت</dt>
@@ -89,6 +126,7 @@ export default async function OrderPage({ params }: { params: Promise<{ number: 
           </div>
         </dl>
       </section>
+      {options && <PayPanel number={order.number} total={order.total_payable} options={options} />}
       <section className={s.card} aria-label="آدرس تحویل">
         <h2 className={s.h2}>آدرس تحویل</h2>
         <p>

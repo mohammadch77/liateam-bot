@@ -35,7 +35,6 @@ export type FieldView = {
   kind: (typeof SETTINGS)[SettingKey]['kind'];
   unit?: string;
   options?: ReadonlyArray<{ value: string; label: string }>;
-  placeholder: boolean;
   value: unknown;
   /** secrets only: whether a value is stored, and how it may be shown (••••1234); the value itself never leaves the server */
   secret?: { configured: boolean; mask: string | null; updatedAt: Date | null };
@@ -58,7 +57,6 @@ export const settingsService = {
         kind: d.kind,
         unit: d.unit,
         options: d.options,
-        placeholder: !!d.placeholder,
       };
       if (d.kind !== 'secret') return { ...base, value: values.get(key) };
       const row = stored.get(key);

@@ -60,6 +60,8 @@ export const orderPath = (number: string) => `/account/orders/${number}`;
 export const adminPath = () => '/admin';
 /** where the payment gateway sends the buyer back (the page comes with the checkout step) */
 export const paymentCallbackPath = () => '/payment/callback';
+/** the dev payment simulator's page (staging and development only; a 404 in production) */
+export const paymentSimulatorPath = () => '/payment/simulator';
 /** a page of the admin panel; the settings page's sections are ?section=<group> */
 export const adminSettingsPath = (section?: string) =>
   section ? `/admin/settings?section=${section}` : '/admin/settings';

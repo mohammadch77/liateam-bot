@@ -123,6 +123,16 @@ export const cartRepository = {
   },
 
   /** The cart became an order (it is not shown again). */
+  /** The customer's open cart that was checked out with this review becomes ordered (a cart changed since stays open). */
+  async markOrderedByReview(userId: string, reviewId: number, db?: Queryable): Promise<void> {
+    await query(
+      'cart.ordered_by_review',
+      `UPDATE carts SET status = 'ordered' WHERE user_id = $1 AND review_id = $2 AND status = 'open'`,
+      [userId, reviewId],
+      db,
+    );
+  },
+
   async markOrdered(cartId: string, db?: Queryable): Promise<void> {
     await query(
       'cart.ordered',

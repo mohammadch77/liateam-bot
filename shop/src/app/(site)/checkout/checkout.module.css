@@ -274,3 +274,52 @@
 .table th:last-child {
   text-align: end;
 }
+
+/* payment method choice (checkout and the order page) */
+.payMethods {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.payMethods legend {
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.payOption {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 44px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--color-line-strong);
+  cursor: pointer;
+  line-height: 1.8;
+  font-size: 14px;
+}
+.payOption:has(input:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-blush);
+}
+.payOption[aria-disabled='true'] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.payOption input {
+  width: 22px;
+  height: 22px;
+  margin-top: 4px;
+  accent-color: var(--color-primary);
+  flex: none;
+}
+.payHint {
+  display: block;
+  color: var(--color-muted);
+  font-size: 12.5px;
+}

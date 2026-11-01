@@ -160,7 +160,7 @@ function SecretField({ f, group, enabled }: { f: FieldView; group: SettingGroup;
 
 /**
  * The settings screen of the panel: sections for the general switches, the order flow and automatic placing, shipping, and
- * (placeholders for S2) commissions, SMS and payment. Every field comes from the registry (src/lib/settings/registry.ts);
+ * commissions, SMS and payment (all live in the order flow). Every field comes from the registry (src/lib/settings/registry.ts);
  * every save is audited and takes effect at once. Admins only.
  */
 export default async function AdminSettingsPage({
@@ -200,7 +200,6 @@ export default async function AdminSettingsPage({
             data-section={g.id}
           >
             {g.label}
-            {g.placeholder && <span className={t.soon}>(S2)</span>}
           </Link>
         ))}
       </nav>
@@ -222,12 +221,6 @@ export default async function AdminSettingsPage({
           <div data-test-result={one('test')}>
             <Alert tone={one('test') === 'ok' ? 'success' : 'danger'}>{one('msg')}</Alert>
           </div>
-        )}
-        {meta.placeholder && (
-          <p className={t.banner}>
-            این بخش برای مرحله‌ی بعد (S2) آماده شده است: مقدارها ذخیره و ثبت می‌شوند ولی هنوز در جریان سفارش و
-            پرداخت استفاده نمی‌شوند.
-          </p>
         )}
 
         {plain.length > 0 && (

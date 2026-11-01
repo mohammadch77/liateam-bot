@@ -198,6 +198,21 @@ export const orderRepository = {
     return queryOne<OrderRow>('order.find', `SELECT ${COLS} FROM orders WHERE id = $1`, [id], db);
   },
 
+  /** Locks the order row for the rest of the transaction (two callbacks at once take turns). */
+  async lockById(id: string, db: Queryable): Promise<OrderRow | null> {
+    return queryOne<OrderRow>('order.lock', `SELECT ${COLS} FROM orders WHERE id = $1 FOR UPDATE`, [id], db);
+  },
+
+  /** Before the first payment the customer may pay another way (the database refuses it once the order is paid). */
+  async setPaymentMethod(id: string, method: 'gateway' | 'wallet', db?: Queryable): Promise<void> {
+    await query(
+      'order.payment_method',
+      `UPDATE orders SET payment_method = $2 WHERE id = $1 AND status = 'pending_payment' AND payment_method <> $2`,
+      [id, method],
+      db,
+    );
+  },
+
   async findByNumber(number: string, db?: Queryable): Promise<OrderRow | null> {
     return queryOne<OrderRow>(
       'order.find_number',
@@ -278,14 +293,14 @@ export const orderRepository = {
   ): Promise<boolean> {
     const rows = await query<{ id: string }>(
       'order.transition',
-      `UPDATE orders SET status = $3,
+      `UPDATE orders SET status = $3::order_status,
               paid_at = CASE WHEN $4 THEN coalesce(paid_at, now()) ELSE paid_at END,
               placed_at = CASE WHEN $5 THEN coalesce(placed_at, now()) ELSE placed_at END,
               supplier_paid_at = CASE WHEN $6 THEN coalesce(supplier_paid_at, now()) ELSE supplier_paid_at END,
               sent_at = CASE WHEN $7 THEN coalesce(sent_at, now()) ELSE sent_at END,
               canceled_at = CASE WHEN $8 THEN coalesce(canceled_at, now()) ELSE canceled_at END,
-              needs_review_reason = CASE WHEN $3 = 'needs_review' THEN $9 ELSE NULL END
-        WHERE id = $1 AND status = $2 RETURNING id::text`,
+              needs_review_reason = CASE WHEN $3::order_status = 'needs_review' THEN $9 ELSE NULL END
+        WHERE id = $1 AND status = $2::order_status RETURNING id::text`,
       [
         id,
         from,

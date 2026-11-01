@@ -44,6 +44,8 @@ const ALL = [
   'admin',
   'admin-mobile',
   'admin-integrations',
+  'payment-flow',
+  'payment-flow-mobile',
 ];
 const wanted = process.argv.slice(2);
 const unknown = wanted.filter((n) => !ALL.includes(n));

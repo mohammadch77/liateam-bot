@@ -4,12 +4,14 @@
 // The sync bot is replaced by the responder (_responder.mjs). Test users use invented numbers, new for every run.
 import { BASE, SCHEMA as S, check, devices, finish, requireLocalApp, signIn, sql, toLatin, webkit } from './_harness.mjs';
 import { startResponder } from './_responder.mjs';
+import { cancelAtGateway, enablePayment } from './_pay.mjs';
 
 requireLocalApp();
 const num = (t) => Number(toLatin(t));
 const LIKE = `select phone from ${S}.users where phone like '09992%'`;
 const wipe = () =>
   sql(`set session_replication_role = replica;
+    delete from ${S}.payments where order_id in (select id from ${S}.orders where user_id in (select id from ${S}.users where phone in (${LIKE})));
     delete from ${S}.order_events where order_id in (select id from ${S}.orders where user_id in (select id from ${S}.users where phone in (${LIKE})));
     delete from ${S}.order_items where order_id in (select id from ${S}.orders where user_id in (select id from ${S}.users where phone in (${LIKE})));
     delete from ${S}.orders where user_id in (select id from ${S}.users where phone in (${LIKE}));
@@ -24,6 +26,7 @@ const product = sql(
 const [productId, slug] = [Number(product[0]), product[1]];
 
 const bot = startResponder();
+const restorePay = await enablePayment();
 const browser = await webkit.launch();
 let run = 0;
 try {
@@ -89,13 +92,14 @@ try {
     const box = await p.locator('[data-place-order]').boundingBox();
     check(`3f ${name}: «ثبت سفارش» is reachable and 44px+`, !!box && box.height >= 43.5 && box.width <= p.viewportSize().width);
     await p.locator('[data-place-order]').tap();
-    await p.waitForURL(/\/account\/orders\/AV-\d+/, { timeout: 40000 });
-    check(`4a ${name}: the order is made (pending_payment) and its page has no sideways scroll`, (await overflow()) && /پرداخت در مرحله‌ی بعد فعال می‌شود/.test(await p.locator('main').innerText()));
+    await cancelAtGateway(p, { tap: true });
+    check(`4a ${name}: the order is made (pending_payment) and its page has no sideways scroll`, (await overflow()) && /در انتظار پرداخت/.test(await p.locator('main').innerText()));
     check(`4b ${name}: the order is in the database for this user only`, Number(sql(`select count(*) from ${S}.orders o join ${S}.users u on u.id = o.user_id where u.phone = '${phone}' and o.status = 'pending_payment'`)) === 1);
     await ctx.close();
     void productId;
   }
 } finally {
+  await restorePay();
   await bot.stop();
   wipe();
   await browser.close();

@@ -4,6 +4,7 @@ import { cartPath, checkoutPath } from '@/lib/urls';
 import { requireUser } from '@/server/auth/guards';
 import { addressService } from '@/server/services/address.service';
 import { cartService } from '@/server/services/cart.service';
+import { orderPaymentService } from '@/server/services/order-payment.service';
 import { Breadcrumb, Container } from '@/ui';
 import type { AddressView } from './actions';
 import { CheckoutFlow } from './CheckoutFlow';
@@ -30,11 +31,23 @@ export default async function CheckoutPage() {
     postal_code: a.postal_code,
     is_default: a.is_default,
   }));
+  const pay = await orderPaymentService.options(user.id);
   return (
     <Container className={s.page}>
-      <Breadcrumb items={[{ label: 'خانه', href: '/' }, { label: 'سبد خرید', href: cartPath() }, { label: 'تسویه‌حساب' }]} />
+      <Breadcrumb
+        items={[
+          { label: 'خانه', href: '/' },
+          { label: 'سبد خرید', href: cartPath() },
+          { label: 'تسویه‌حساب' },
+        ]}
+      />
       <h1 className={s.title}>تسویه‌حساب</h1>
-      <CheckoutFlow addresses={addresses} defaultPhone={user.phone} defaultName={user.fullName ?? ''} />
+      <CheckoutFlow
+        addresses={addresses}
+        defaultPhone={user.phone}
+        defaultName={user.fullName ?? ''}
+        pay={pay}
+      />
     </Container>
   );
 }

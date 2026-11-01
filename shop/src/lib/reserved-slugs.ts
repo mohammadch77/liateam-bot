@@ -31,6 +31,7 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'orders',
   'p', // the old product prefix: /p/… redirects permanently to /shop/product/<slug>
   'packs',
+  'payment', // the gateway's return and the dev simulator
   'product',
   'register',
   'search',

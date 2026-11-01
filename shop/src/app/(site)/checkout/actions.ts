@@ -12,6 +12,7 @@ import type { GeoItem } from '@/server/repositories/geo.repository';
 import { addressService } from '@/server/services/address.service';
 import { checkoutService, type CheckoutView } from '@/server/services/checkout.service';
 import { geoService } from '@/server/services/geo.service';
+import { orderPaymentService } from '@/server/services/order-payment.service';
 
 /**
  * Checkout actions. All need a signed-in user; the browser sends an address id and the id of the live check — never a
@@ -22,7 +23,18 @@ const text = z.string().trim().min(1).max(40);
 
 export type AddressView = Pick<
   AddressRow,
-  'id' | 'province' | 'city' | 'province_id' | 'city_id' | 'line' | 'plate' | 'unit' | 'recipient_name' | 'recipient_phone' | 'postal_code' | 'is_default'
+  | 'id'
+  | 'province'
+  | 'city'
+  | 'province_id'
+  | 'city_id'
+  | 'line'
+  | 'plate'
+  | 'unit'
+  | 'recipient_name'
+  | 'recipient_phone'
+  | 'postal_code'
+  | 'is_default'
 >;
 
 const view = (a: AddressRow): AddressView => ({
@@ -80,7 +92,10 @@ export async function startReviewAction(addressId: string): Promise<ActionResult
   });
 }
 
-export async function reviewStatusAction(jobId: number, addressId: string): Promise<ActionResult<CheckoutView>> {
+export async function reviewStatusAction(
+  jobId: number,
+  addressId: string,
+): Promise<ActionResult<CheckoutView>> {
   return runAction('checkout.review_status', async () => {
     const j = id.safeParse(jobId);
     const a = text.safeParse(String(addressId));
@@ -99,15 +114,26 @@ export async function applyReviewAction(jobId: number): Promise<ActionResult<nul
   });
 }
 
-/** Makes the order (pending_payment) and goes to its page; pressing twice makes one order. */
-export async function placeOrderAction(addressId: string, jobId: number): Promise<ActionResult<null>> {
-  const made = await runAction('checkout.place_order', async () => {
+/**
+ * «پرداخت»: makes the order (pending_payment; pressing twice makes one) and starts its payment. The browser sends an address
+ * id, the live check's id and the method — never an amount. Online: on to the gateway; wallet: paid at once, on to the order.
+ */
+export async function payAction(
+  addressId: string,
+  jobId: number,
+  method: 'gateway' | 'wallet',
+): Promise<ActionResult<null>> {
+  const made = await runAction('checkout.pay', async () => {
     const a = text.safeParse(String(addressId));
     const j = id.safeParse(jobId);
-    if (!a.success || !j.success) throw new AppError('INVALID_DATA');
-    return checkoutService.placeOrder(a.data, j.data);
+    if (!a.success || !j.success || (method !== 'gateway' && method !== 'wallet'))
+      throw new AppError('INVALID_DATA');
+    const order = await checkoutService.placeOrder(a.data, j.data);
+    return { number: order.number, started: await orderPaymentService.start(order.number, method) };
   });
   if (!made.ok) return made;
   // redirect() throws a control-flow signal, so it stays outside runAction's try/catch
-  redirect(orderPath(made.data.number));
+  redirect(
+    made.data.started.kind === 'redirect' ? made.data.started.url : `${orderPath(made.data.number)}?paid=1`,
+  );
 }

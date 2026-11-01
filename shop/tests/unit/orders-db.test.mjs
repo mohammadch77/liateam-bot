@@ -280,3 +280,65 @@ scenario(
   PERFORM order_id, product_id, quantity, status FROM public.shop_order_items LIMIT 1;
 `),
 );
+
+// ── step D: the payment flow's guarantees in the database ──
+scenario(
+  'payment flow: the method may change only while pending_payment; a gateway reference is one attempt; a repeated callback confirms once',
+  `
+  UPDATE orders SET payment_method = 'wallet' WHERE id = o; -- still pending_payment: the customer pays another way
+  UPDATE orders SET payment_method = 'gateway' WHERE id = o;
+  INSERT INTO payments (order_id, method, gateway, amount, idempotency_key) VALUES (o, 'gateway', 'dev', 150000, 'gw:attempt:00000001');
+  INSERT INTO payments (order_id, method, gateway, amount, idempotency_key) VALUES (o, 'gateway', 'dev', 150000, 'gw:attempt:00000002');
+  UPDATE payments SET gateway_ref = 'DEVAUTH1' WHERE idempotency_key = 'gw:attempt:00000001';
+  ${mustRaise('unique_violation', `UPDATE payments SET gateway_ref = 'DEVAUTH1' WHERE idempotency_key = 'gw:attempt:00000002';`)} -- one authority, one attempt
+  UPDATE payments SET gateway_ref = 'DEVAUTH2' WHERE idempotency_key = 'gw:attempt:00000002';
+  -- the callback: confirmed once (the second UPDATE finds nothing in 'initiated')
+  UPDATE payments SET status = 'confirmed', confirmed_at = now() WHERE gateway_ref = 'DEVAUTH1' AND status = 'initiated';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 1 THEN RAISE EXCEPTION 'first confirmation touched % rows', n; END IF;
+  UPDATE payments SET status = 'confirmed', confirmed_at = now() WHERE gateway_ref = 'DEVAUTH1' AND status = 'initiated';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'a repeated callback confirmed again (% rows)', n; END IF;
+  -- the other attempt can never be confirmed for the same order
+  ${mustRaise('unique_violation', `UPDATE payments SET status = 'confirmed', confirmed_at = now() WHERE gateway_ref = 'DEVAUTH2';`)}
+  UPDATE orders SET status = 'queued', paid_at = now() WHERE id = o;
+  ${mustRaise('integrity_constraint_violation', `UPDATE orders SET payment_method = 'wallet' WHERE id = o;`)} -- after payment it is fixed
+`,
+);
+
+scenario(
+  'payment flow: paying from the wallet is once per order and cannot overspend; a refund-free needs_review keeps the money',
+  `
+  INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key) VALUES (u, 'topup', 400000, 0, 'topup-flowtest-1');
+  INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key, order_id) VALUES (u, 'order_payment', -150000, 0, 'wallet:order:flowtest', o);
+  INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key, order_id) VALUES (u, 'order_payment', -150000, 0, 'wallet:order:flowtest', o) ON CONFLICT (idempotency_key) DO NOTHING;
+  SELECT count(*)::text INTO r FROM wallet_ledger WHERE user_id = u AND kind = 'order_payment';
+  IF r <> '1' THEN RAISE EXCEPTION 'the same wallet payment key inserted % rows', r; END IF;
+  ${mustRaise('check_violation', `INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key, order_id) VALUES (u, 'order_payment', -300000, 0, 'wallet:order:flowtest2', o);`)}
+  UPDATE orders SET status = 'queued', paid_at = now() WHERE id = o;
+  UPDATE orders SET status = 'needs_review', needs_review_reason = 'price moved' WHERE id = o;
+  SELECT balance_after::text INTO r FROM wallet_ledger WHERE user_id = u ORDER BY id DESC LIMIT 1;
+  IF r <> '250000' THEN RAISE EXCEPTION 'needs_review moved money: balance %', r; END IF;
+`,
+);
+
+scenario(
+  'payment flow: commissions record their level and hold; the release date is set once; a cancel stops pending ones, not paid ones',
+  `
+  INSERT INTO affiliate_referrals (buyer_user_id, referrer_user_id, code) VALUES (u, v, 'abcd');
+  INSERT INTO commissions (order_id, affiliate_user_id, base_amount, amount, level, hold_days) VALUES (o, v, 100000, 5000, 2, 7);
+  SELECT level::text || '/' || hold_days::text || '/' || coalesce(release_at::text, 'null') INTO r FROM commissions WHERE order_id = o;
+  IF r <> '2/7/null' THEN RAISE EXCEPTION 'commission columns: %', r; END IF;
+  UPDATE commissions SET release_at = now() + interval '7 days' WHERE order_id = o AND release_at IS NULL;
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 1 THEN RAISE EXCEPTION 'release date not set'; END IF;
+  UPDATE commissions SET release_at = now() + interval '9 days' WHERE order_id = o AND release_at IS NULL;
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'the release date was set twice'; END IF;
+  UPDATE commissions SET status = 'cancelled', decided_at = now() WHERE order_id = o AND status IN ('pending', 'approved');
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 1 THEN RAISE EXCEPTION 'pending commission not cancelled'; END IF;
+  ${mustRaise('check_violation', `UPDATE commissions SET status = 'approved' WHERE order_id = o;`)} -- cancelled is final
+  ${mustRaise('check_violation', `INSERT INTO commissions (order_id, affiliate_user_id, base_amount, amount, level, hold_days) VALUES (o, u, 1, 1, 6, 0);`)} -- level 1..5
+`,
+);

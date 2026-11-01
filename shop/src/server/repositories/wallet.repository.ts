@@ -53,6 +53,15 @@ export const walletRepository = {
    * nothing changes). Throws AppError('INVALID_DATA') when the balance would go negative or the sign does not fit the kind.
    */
   async post(e: NewWalletEntry, db?: Queryable): Promise<{ entry: WalletEntryRow; duplicate: boolean }> {
+    // a key already used is answered from the ledger first: the balance trigger runs BEFORE ON CONFLICT and would refuse a
+    // repeated payment of a wallet that has since been spent down
+    const used = await queryOne<WalletEntryRow>(
+      'wallet.find_key_first',
+      `SELECT ${COLS} FROM wallet_ledger WHERE idempotency_key = $1`,
+      [e.idempotencyKey],
+      db,
+    );
+    if (used) return { entry: used, duplicate: true };
     const rows = await query<WalletEntryRow>(
       'wallet.post',
       `INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key, order_id, ref, note, created_by)

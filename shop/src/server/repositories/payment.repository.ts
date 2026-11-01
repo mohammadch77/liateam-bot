@@ -14,12 +14,13 @@ export type PaymentRow = {
   amount: number;
   status: 'initiated' | 'confirmed' | 'failed';
   gateway_ref: string | null;
+  failure_reason: string | null;
   created_at: Date;
   confirmed_at: Date | null;
 };
 
 const COLS =
-  'id::text, order_id::text, method, gateway, amount::float8, status, gateway_ref, created_at, confirmed_at';
+  'id::text, order_id::text, method, gateway, amount::float8, status, gateway_ref, failure_reason, created_at, confirmed_at';
 
 export const paymentRepository = {
   /** Starts a payment attempt; the same idempotency key returns the attempt already made. */
@@ -49,6 +50,27 @@ export const paymentRepository = {
     );
     if (!existing) throw new AppError('INTERNAL');
     return existing;
+  },
+
+  /** The gateway's reference (authority) of an attempt: set once, right after the gateway accepted the request. */
+  async setGatewayRef(id: string, ref: string, db?: Queryable): Promise<boolean> {
+    const rows = await query<{ id: string }>(
+      'payment.set_ref',
+      `UPDATE payments SET gateway_ref = $2 WHERE id = $1 AND status = 'initiated' AND gateway_ref IS NULL RETURNING id::text`,
+      [id, ref],
+      db,
+    );
+    return rows.length === 1;
+  },
+
+  /** The attempt a gateway return belongs to (its authority); null when unknown. */
+  async findByAuthority(authority: string, db?: Queryable): Promise<PaymentRow | null> {
+    return queryOne<PaymentRow>(
+      'payment.find_authority',
+      `SELECT ${COLS} FROM payments WHERE method = 'gateway' AND gateway_ref = $1`,
+      [authority],
+      db,
+    );
   },
 
   async findById(id: string, db?: Queryable): Promise<PaymentRow | null> {

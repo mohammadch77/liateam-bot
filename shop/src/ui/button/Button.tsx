@@ -26,7 +26,9 @@ type CommonProps = {
 
 type AsButton = CommonProps &
   Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'className'> & { href?: never };
-type AsLink = CommonProps & { href: string; disabled?: boolean };
+type DataAttrs = { [K in `data-${string}`]?: string | boolean };
+/** `prefetch={false}` for addresses that must not be fetched ahead of a click (a payment return does work on the server) */
+type AsLink = CommonProps & { href: string; disabled?: boolean; prefetch?: boolean } & DataAttrs;
 
 export type ButtonProps = AsButton | AsLink;
 
@@ -73,8 +75,14 @@ export function Button(props: ButtonProps) {
         </span>
       );
     }
+    const data = Object.fromEntries(Object.entries(domProps).filter(([k]) => k.startsWith('data-')));
     return (
-      <Link href={domProps.href} className={classes}>
+      <Link
+        href={domProps.href}
+        className={classes}
+        {...(domProps.prefetch === false ? { prefetch: false } : {})}
+        {...data}
+      >
         {content}
       </Link>
     );

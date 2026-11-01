@@ -47,6 +47,17 @@ export const userRepository = {
     return { user: existing, created: false };
   },
 
+  /** The sign-in number of an account (for the SMS about its orders). */
+  async phoneOf(userId: string, db?: Queryable): Promise<string | null> {
+    const row = await queryOne<{ phone: string }>(
+      'user.phone_of',
+      `SELECT phone FROM users WHERE id = $1 AND deleted_at IS NULL`,
+      [userId],
+      db,
+    );
+    return row?.phone ?? null;
+  },
+
   async touchLogin(db: Queryable, userId: string): Promise<void> {
     await query('user.touch_login', `UPDATE users SET last_login_at = now() WHERE id = $1`, [userId], db);
   },

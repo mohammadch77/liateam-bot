@@ -2,7 +2,7 @@ import 'server-only';
 import { getConfig } from '@/lib/config';
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
-import { createGateway, PAYMENT_PROVIDERS } from '@/lib/payment/registry';
+import { createGateway, PAYMENT_PROVIDERS, type PaymentProviderId } from '@/lib/payment/registry';
 import type { PaymentGateway } from '@/lib/payment/types';
 import { paymentCallbackPath } from '@/lib/urls';
 import { authorize } from '@/server/auth/guards';
@@ -13,31 +13,53 @@ import { settingsRead } from './settings-read.service';
 
 /**
  * The payment gateway chosen in the panel, built from the saved settings and the encrypted merchant id / key. The checkout
- * does not use it yet (the next step wires it in); this service is what it will call. The dev simulator is refused in
- * production.
+ * and the callback page call it through order-payment.service. The dev simulator is refused in production.
  */
+async function build(id: PaymentProviderId): Promise<PaymentGateway> {
+  try {
+    return createGateway(
+      id,
+      {
+        merchantId: (await secretSettingsService.read('payment.merchant_id')) ?? '',
+        apiKey: (await secretSettingsService.read('payment.api_key')) ?? undefined,
+        sandbox: await settingsRead.get('payment.sandbox'),
+      },
+      getConfig().APP_ENV === 'production',
+    );
+  } catch (e) {
+    logger.error('payment.gateway_unavailable', {
+      provider: id,
+      err: e instanceof Error ? e.message : 'unknown',
+    });
+    throw new AppError('INTERNAL', { message: 'درگاه پرداخت در دسترس نیست.', cause: e });
+  }
+}
+
 export const paymentService = {
-  /** the active gateway; throws AppError when payment is off, misconfigured or the provider is not allowed here */
-  async gateway(): Promise<PaymentGateway> {
+  /** the active gateway for a NEW payment; throws AppError when online payment is off, misconfigured or not allowed here */
+  async gateway(): Promise<{ id: PaymentProviderId; gateway: PaymentGateway }> {
     if (!(await settingsRead.get('payment.enabled')))
-      throw new AppError('INVALID_DATA', { message: 'پرداخت آنلاین غیرفعال است.' });
+      throw new AppError('INVALID_DATA', { message: 'پرداخت آنلاین فعلاً در دسترس نیست.' });
     const id = await settingsRead.get('payment.provider');
+    return { id, gateway: await build(id) };
+  },
+
+  /** the gateway of an attempt already under way (verifying it works even if online payment was switched off meanwhile) */
+  gatewayById: build,
+
+  /** Can a customer pay online right now? (the settings are on and complete; the reason is logged, not shown) */
+  async onlineAvailable(): Promise<boolean> {
     try {
-      return createGateway(
-        id,
-        {
-          merchantId: (await secretSettingsService.read('payment.merchant_id')) ?? '',
-          apiKey: (await secretSettingsService.read('payment.api_key')) ?? undefined,
-          sandbox: await settingsRead.get('payment.sandbox'),
-        },
-        getConfig().APP_ENV === 'production',
-      );
+      if (!(await settingsRead.get('payment.enabled'))) return false;
+      if (!(await settingsRead.get('site.base_url'))) return false;
+      const id = await settingsRead.get('payment.provider');
+      const p = PAYMENT_PROVIDERS[id];
+      if (getConfig().APP_ENV === 'production' && !p.production) return false;
+      if (id !== 'dev' && !(await secretSettingsService.read('payment.merchant_id'))) return false;
+      return true;
     } catch (e) {
-      logger.error('payment.gateway_unavailable', {
-        provider: id,
-        err: e instanceof Error ? e.message : 'unknown',
-      });
-      throw new AppError('INTERNAL', { message: 'درگاه پرداخت در دسترس نیست.', cause: e });
+      logger.warn('payment.availability_check_failed', { err: e instanceof Error ? e.message : 'unknown' });
+      return false;
     }
   },
 

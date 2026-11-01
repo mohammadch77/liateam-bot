@@ -19,7 +19,9 @@ const setting = (key) => sql(`select value::text from ${S}.site_settings where k
 const headerHasFree = async (page) => (await page.content()).includes('ارسال رایگان برای خریدهای بالای');
 
 if (Number(sql(`select count(*) from ${S}.commission_rules`)) > 0) {
-  console.error('commission_rules is not empty in the local database; the admin tests replace its rows. Empty it first.');
+  console.error(
+    'commission_rules is not empty in the local database; the admin tests replace its rows. Empty it first.',
+  );
   process.exit(2);
 }
 if (Number(sql(`select count(*) from ${S}.secret_settings`)) > 0) {
@@ -140,8 +142,8 @@ try {
   await page.goto(`${BASE}/admin/settings`);
   const tabs = await page.locator('[data-settings-tabs] a').allInnerTexts();
   check(
-    '4a six sections; commission and payment are marked as not wired yet (S2), sms is live',
-    tabs.length === 6 && tabs[3].includes('S2') && !tabs[4].includes('S2') && tabs[5].includes('S2'),
+    '4a six sections, none marked as «not yet in use» any more',
+    tabs.length === 6 && tabs.every((t) => !t.includes('S2')),
     tabs.join(' | '),
   );
   check(
@@ -318,8 +320,11 @@ try {
       `select has_table_privilege('lia_shop_staging', '${S}.secret_settings', 'DELETE')::text || has_table_privilege('lia_shop_staging', '${S}.secret_settings', 'INSERT')::text || has_schema_privilege('lia_shop_staging', '${S}', 'CREATE')::text`,
     ) === 'falsetruefalse',
   );
-  const placeholder = await page.locator('main').innerText();
-  check('7k the S2 sections say they are not used yet', placeholder.includes('S2'));
+  const paymentText = await page.locator('main').innerText();
+  check(
+    '7k the payment section no longer says it is unused',
+    !paymentText.includes('S2') && !paymentText.includes('هنوز در جریان'),
+  );
 
   // ── 8. shipping ranges ──
   await page.goto(`${BASE}/admin/settings?section=shipping`);

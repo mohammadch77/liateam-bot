@@ -26,8 +26,6 @@ export type SettingDef<T = unknown> = {
   default: T;
   unit?: string;
   options?: ReadonlyArray<{ value: string; label: string }>;
-  /** reserved for the payment / SMS / commission work (S2): stored and audited, not used by the order flow yet */
-  placeholder?: boolean;
 };
 
 export type TimeRange = { from: string; to: string };
@@ -221,7 +219,6 @@ export const SETTINGS = {
     kind: 'boolean',
     schema: z.boolean(),
     default: false,
-    placeholder: true,
   }),
   'payment.provider': make({
     key: 'payment.provider',
@@ -235,7 +232,6 @@ export const SETTINGS = {
       { value: 'zarinpal', label: 'زرین‌پال (تأییدنشده: هنوز با سرویس واقعی آزمایش نشده)' },
       { value: 'dev', label: 'شبیه‌ساز (فقط آزمایشی)' },
     ],
-    placeholder: true,
   }),
   'payment.sandbox': make({
     key: 'payment.sandbox',
@@ -244,7 +240,6 @@ export const SETTINGS = {
     kind: 'boolean',
     schema: z.boolean(),
     default: true,
-    placeholder: true,
   }),
   'payment.merchant_id': make({
     key: 'payment.merchant_id',
@@ -254,7 +249,6 @@ export const SETTINGS = {
     exposure: 'secret',
     schema: secretSchema,
     default: '',
-    placeholder: true,
   }),
   'payment.api_key': make({
     key: 'payment.api_key',
@@ -264,7 +258,6 @@ export const SETTINGS = {
     exposure: 'secret',
     schema: secretSchema,
     default: '',
-    placeholder: true,
   }),
 
   'sms.provider': make({
@@ -417,13 +410,13 @@ export const SETTING_KEYS = Object.keys(SETTINGS) as SettingKey[];
 export const PLAIN_KEYS = SETTING_KEYS.filter((k) => SETTINGS[k].kind !== 'secret');
 export const SECRET_KEYS = SETTING_KEYS.filter((k) => SETTINGS[k].kind === 'secret');
 
-export const GROUPS: ReadonlyArray<{ id: SettingGroup; label: string; placeholder?: boolean }> = [
+export const GROUPS: ReadonlyArray<{ id: SettingGroup; label: string }> = [
   { id: 'general', label: 'عمومی' },
   { id: 'orders', label: 'سفارش و ثبت خودکار' },
   { id: 'shipping', label: 'ارسال' },
-  { id: 'commission', label: 'پورسانت', placeholder: true },
+  { id: 'commission', label: 'پورسانت' },
   { id: 'sms', label: 'پیامک' },
-  { id: 'payment', label: 'پرداخت', placeholder: true },
+  { id: 'payment', label: 'پرداخت' },
 ];
 
 export const isSettingKey = (k: string): k is SettingKey => Object.hasOwn(SETTINGS, k);
