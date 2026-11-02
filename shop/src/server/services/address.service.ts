@@ -6,6 +6,7 @@ import { rateLimit } from '@/server/http/rate-limit';
 import { addressRepository, type AddressRow } from '@/server/repositories/address.repository';
 import { geoRepository } from '@/server/repositories/geo.repository';
 import { authorize } from '@/server/auth/guards';
+import { withTransaction } from '@/server/repositories/transaction';
 
 /**
  * The signed-in user's delivery addresses. A new address is checked here (Persian messages), the province and city must be
@@ -33,9 +34,8 @@ export const addressService = {
     return addressRepository.listForUser(userId);
   },
 
-  async add(raw: unknown): Promise<AddressRow> {
-    const user = await authorize();
-    rateLimit(`address:${user.id}`, 10, 10 * 60_000);
+  /** Checks a form (Persian messages) and turns it into the row's values; the city must be Liateam's (ids from the geo list). */
+  async validated(raw: unknown) {
     const parsed = schema.safeParse(raw);
     if (!parsed.success) {
       throw new AppError('INVALID_DATA', {
@@ -51,7 +51,7 @@ export const addressService = {
       throw new AppError('INVALID_DATA', { message: 'کد پستی باید ۱۰ رقم باشد.' });
     const names = await geoRepository.cityName(a.provinceId, a.cityId);
     if (!names) throw new AppError('INVALID_DATA', { message: 'استان و شهر را از فهرست انتخاب کنید.' });
-    return addressRepository.create(user.id, {
+    return {
       province: names.province,
       city: names.city,
       provinceId: a.provinceId,
@@ -63,6 +63,42 @@ export const addressService = {
       recipientPhone: phone,
       postalCode: postal,
       makeDefault: a.makeDefault,
+    };
+  },
+
+  async add(raw: unknown): Promise<AddressRow> {
+    const user = await authorize();
+    rateLimit(`address:${user.id}`, 10, 10 * 60_000);
+    return addressRepository.create(user.id, await this.validated(raw));
+  },
+
+  /** Edits one of the signed-in user's own addresses (another user's id is «not found»). Orders already made keep their copy. */
+  async update(id: string, raw: unknown): Promise<AddressRow> {
+    const user = await authorize();
+    rateLimit(`address:${user.id}`, 20, 10 * 60_000);
+    const { makeDefault, ...values } = await this.validated(raw);
+    return withTransaction(async (db) => {
+      const row = await addressRepository.update(user.id, id, values, db);
+      if (!row) throw new AppError('NOT_FOUND');
+      if (makeDefault) await addressRepository.setDefault(user.id, id, db);
+      return (await addressRepository.find(user.id, id, db)) ?? row;
+    });
+  },
+
+  async setDefault(id: string): Promise<void> {
+    const user = await authorize();
+    rateLimit(`address:${user.id}`, 30, 10 * 60_000);
+    const ok = await withTransaction((db) => addressRepository.setDefault(user.id, id, db));
+    if (!ok) throw new AppError('NOT_FOUND');
+  },
+
+  /** «Delete»: archived, never listed or used again; if it was the default the newest remaining one takes over. */
+  async remove(id: string): Promise<void> {
+    const user = await authorize();
+    rateLimit(`address:${user.id}`, 30, 10 * 60_000);
+    await withTransaction(async (db) => {
+      if (!(await addressRepository.archive(user.id, id, db))) throw new AppError('NOT_FOUND');
+      await addressRepository.promoteNewest(user.id, db);
     });
   },
 };

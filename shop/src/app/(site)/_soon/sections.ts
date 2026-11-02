@@ -7,8 +7,6 @@ import type { IconName } from '@/ui';
  */
 export const COMING_SOON = {
   cart: { title: 'سبد خرید', icon: 'shopping_bag' },
-  wallet: { title: 'کیف پول', icon: 'account_balance_wallet' },
-  orders: { title: 'سفارش‌های من و پیگیری سفارش', icon: 'assignment_return' },
   favorites: { title: 'علاقه‌مندی‌ها', icon: 'favorite' },
   'help/order': { title: 'نحوه‌ی ثبت سفارش', icon: 'support_agent' },
   'help/shipping': { title: 'روش‌های ارسال و هزینه', icon: 'local_shipping' },

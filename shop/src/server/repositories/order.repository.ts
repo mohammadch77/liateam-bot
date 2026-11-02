@@ -44,6 +44,8 @@ export type OrderRow = {
   supplier_paid_at: Date | null;
   sent_at: Date | null;
   canceled_at: Date | null;
+  /** what the bot stored for the shipment (a code, or an object with one); null until sent */
+  tracking: unknown;
   created_at: Date;
 };
 
@@ -118,7 +120,7 @@ const COLS = `id::text, number, user_id::text, status, payment_method, recipient
   items_total::float8, discount_total::float8, shipping_supplier_price::float8, shipping_charged::float8,
   shipping_absorbed::float8, total_payable::float8, refunded_total::float8,
   review_id, live_checked_at, live_ok, live_total::float8, live_expires_at, bot_order_id, needs_review_reason,
-  referrer_user_id::text, delivery_eta_min_days, delivery_eta_max_days, paid_at, placed_at, supplier_paid_at, sent_at, canceled_at, created_at`;
+  referrer_user_id::text, delivery_eta_min_days, delivery_eta_max_days, paid_at, placed_at, supplier_paid_at, sent_at, canceled_at, tracking, created_at`;
 const ITEM_COLS = `id::text, order_id::text, product_id, name, quantity, unit_list_price::float8, unit_price::float8,
   discount_percent::float8, discount_label, pricing_mode, line_total::float8, bot_status, refunded_quantity,
   refunded_amount::float8`;
@@ -248,6 +250,41 @@ export const orderRepository = {
       [userId, limit],
       db,
     );
+  },
+
+  /** One page of a user's orders, newest first; `statuses` narrows to those (null: all). Another user's orders are never in it. */
+  async pageForUser(
+    userId: string,
+    statuses: readonly OrderStatus[] | null,
+    limit: number,
+    offset: number,
+    db?: Queryable,
+  ): Promise<{ rows: OrderRow[]; total: number }> {
+    const rows = await query<OrderRow>(
+      'order.page_user',
+      `SELECT ${COLS} FROM orders WHERE user_id = $1 AND ($2::text[] IS NULL OR status::text = ANY($2::text[]))
+        ORDER BY created_at DESC, id DESC LIMIT $3 OFFSET $4`,
+      [userId, statuses, limit, offset],
+      db,
+    );
+    const count = await queryOne<{ n: number }>(
+      'order.count_user',
+      `SELECT count(*)::int AS n FROM orders WHERE user_id = $1 AND ($2::text[] IS NULL OR status::text = ANY($2::text[]))`,
+      [userId, statuses],
+      db,
+    );
+    return { rows, total: count?.n ?? 0 };
+  },
+
+  /** Orders of a user that are still going (not final): for the dashboard. */
+  async activeCountForUser(userId: string, db?: Queryable): Promise<number> {
+    const r = await queryOne<{ n: number }>(
+      'order.active_count',
+      `SELECT count(*)::int AS n FROM orders WHERE user_id = $1 AND status NOT IN ('sent', 'refunded', 'canceled')`,
+      [userId],
+      db,
+    );
+    return r?.n ?? 0;
   },
 
   async items(orderId: string, db?: Queryable): Promise<OrderItemRow[]> {
@@ -444,13 +481,17 @@ export const orderRepository = {
       paid_at: Date | null;
       needs_review_reason: string | null;
       stuck: boolean;
+      cancel_requested: boolean;
     }>(
       'order.attention',
       `SELECT o.number, o.status, o.paid_at, o.needs_review_reason,
-              EXISTS (SELECT 1 FROM order_events e WHERE e.order_id = o.id AND e.kind = 'stuck_alert') AS stuck
+              EXISTS (SELECT 1 FROM order_events e WHERE e.order_id = o.id AND e.kind = 'stuck_alert') AS stuck,
+              EXISTS (SELECT 1 FROM order_events e WHERE e.order_id = o.id AND e.kind = 'cancel_requested') AS cancel_requested
          FROM orders o
         WHERE o.status = 'needs_review'
            OR (o.status = 'queued' AND EXISTS (SELECT 1 FROM order_events e WHERE e.order_id = o.id AND e.kind = 'stuck_alert'))
+           OR (o.status IN ('placing', 'awaiting_payment')
+               AND EXISTS (SELECT 1 FROM order_events e WHERE e.order_id = o.id AND e.kind = 'cancel_requested'))
         ORDER BY o.paid_at NULLS LAST LIMIT $1`,
       [limit],
       db,

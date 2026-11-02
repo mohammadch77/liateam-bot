@@ -23,6 +23,7 @@ const KEYS = [
   'orders.price_tolerance_toman',
   'orders.stuck_alert_minutes',
   'orders.operator_phone',
+  'orders.customer_cancel_enabled',
   'sms.operator_template',
 ];
 const lit = (v) => `$j$${JSON.stringify(v)}$j$::jsonb`;

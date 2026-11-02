@@ -134,6 +134,21 @@ export const botOrderRepository = {
     return row?.id ?? null;
   },
 
+  /**
+   * The customer cancelled a paid order the operator has not placed: the bot's queued order stops being placeable (the SQL
+   * function, deploy/shop-db-roles-018-cancel.sql, also closes a waiting place job). False = too late (being placed, or placed).
+   * Call it inside the shop's transaction: a later failure rolls it back with the rest.
+   */
+  async cancelQueued(botOrderId: number, db?: Queryable): Promise<boolean> {
+    const row = await queryOne<{ ok: boolean }>(
+      'bot.cancel_order',
+      'SELECT public.shop_cancel_order($1::int) AS ok',
+      [botOrderId],
+      db,
+    );
+    return row?.ok === true;
+  },
+
   async orders(botOrderIds: readonly number[], db?: Queryable): Promise<BotOrderRow[]> {
     if (!botOrderIds.length) return [];
     return query<BotOrderRow>(

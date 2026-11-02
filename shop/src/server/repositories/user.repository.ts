@@ -83,4 +83,9 @@ export const userRepository = {
     );
     return row !== null;
   },
+
+  /** The customer's own name (the phone number is never changed here). */
+  async updateName(userId: string, fullName: string, db?: Queryable): Promise<void> {
+    await query('user.update_name', 'UPDATE users SET full_name = $2 WHERE id = $1', [userId, fullName], db);
+  },
 };

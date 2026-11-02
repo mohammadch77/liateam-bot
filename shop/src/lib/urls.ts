@@ -54,7 +54,11 @@ export const categoryPath = (code: number, name: string | null) => {
 };
 export const cartPath = () => '/cart';
 export const checkoutPath = () => '/checkout';
+export const accountPath = () => '/account';
 export const ordersPath = () => '/account/orders';
+export const addressesPath = () => '/account/addresses';
+export const walletPath = () => '/account/wallet';
+export const profilePath = () => '/account/profile';
 /** An order's page by its readable number (AV-100001); only its owner can open it. */
 export const orderPath = (number: string) => `/account/orders/${number}`;
 export const adminPath = () => '/admin';

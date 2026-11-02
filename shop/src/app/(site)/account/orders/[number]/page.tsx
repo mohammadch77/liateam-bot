@@ -2,28 +2,26 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { formatToman } from '@/lib/format/money';
 import { toFaDigits } from '@/lib/format/number';
+import { canEditOrder, cancelPlanOf, refundAmountOf } from '@/lib/orders/cancel';
+import { ORDER_STATUS_LABEL } from '@/lib/orders/filters';
+import { trackingCode } from '@/lib/orders/payment-flow';
+import { timelineOf } from '@/lib/orders/timeline';
 import { orderPath, ordersPath } from '@/lib/urls';
 import { requireUser } from '@/server/auth/guards';
+import { orderCancelService } from '@/server/services/order-cancel.service';
 import { orderFlowService } from '@/server/services/order-flow.service';
 import { orderPaymentService } from '@/server/services/order-payment.service';
 import { orderService } from '@/server/services/order.service';
-import { Alert, Badge, Breadcrumb, Container } from '@/ui';
+import { orderRepository } from '@/server/repositories/order.repository';
+import { Alert, Badge, Breadcrumb } from '@/ui';
 import s from '../../../checkout/checkout.module.css';
+import a from '../../account.module.css';
+import { CancelPanel } from './CancelPanel';
 import { PayPanel } from './PayPanel';
 
-export const metadata: Metadata = { title: 'سفارش', robots: { index: false, follow: false } };
+const dateTime = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'medium', timeStyle: 'short' });
 
-const STATUS_LABEL: Record<string, string> = {
-  pending_payment: 'در انتظار پرداخت',
-  queued: 'پرداخت‌شده، در صف ثبت',
-  placing: 'در حال ثبت',
-  awaiting_payment: 'در حال ثبت نزد تأمین‌کننده',
-  supplier_paid: 'در حال آماده‌سازی',
-  sent: 'ارسال شد',
-  needs_review: 'در حال بررسی',
-  refunded: 'بازگشت وجه شد',
-  canceled: 'لغو شد',
-};
+export const metadata: Metadata = { title: 'سفارش', robots: { index: false, follow: false } };
 
 /**
  * The order's page (only its owner; another user's number is a 404). It shows what the customer is charged: goods, the shipping
@@ -49,8 +47,14 @@ export default async function OrderPage({
   const options = order.status === 'pending_payment' ? await orderPaymentService.options(user.id) : null;
   const error = typeof sp.error === 'string' ? sp.error : '';
   const { items } = order;
+  const events = await orderRepository.events(order.id).catch(() => []);
+  const steps = timelineOf(events, order.created_at);
+  const cancelRequested = events.some((e) => e.kind === 'cancel_requested');
+  const plan = cancelPlanOf(order.status);
+  const cancelOn = plan !== 'none' && (await orderCancelService.enabled());
+  const tracking = trackingCode(order.tracking);
   return (
-    <Container className={s.page}>
+    <div className={s.page}>
       <Breadcrumb
         items={[
           { label: 'خانه', href: '/' },
@@ -63,7 +67,7 @@ export default async function OrderPage({
         <span className={s.orderNumber} data-order-number>
           شماره‌ی سفارش: <b className="tnum">{toFaDigits(order.number)}</b>
         </span>
-        <Badge tone="neutral">{STATUS_LABEL[order.status] ?? order.status}</Badge>
+        <Badge tone="neutral">{ORDER_STATUS_LABEL[order.status] ?? order.status}</Badge>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
       {order.status === 'pending_payment' && (
@@ -79,6 +83,19 @@ export default async function OrderPage({
           سفارش شما پرداخت شده و در حال بررسی است (ممکن است قیمت یا موجودی کالایی تغییر کرده باشد). پشتیبانی
           با شما هماهنگ می‌کند؛ مبلغی خودکار برگردانده نمی‌شود.
         </Alert>
+      )}
+      {cancelRequested && ['placing', 'awaiting_payment'].includes(order.status) && (
+        <Alert tone="warning">
+          درخواست لغو ثبت شد و پس از تأیید اپراتور مبلغ به کیف پول برمی‌گردد.
+        </Alert>
+      )}
+      {order.status === 'canceled' && (
+        <Alert tone="danger">این سفارش لغو شده است. اگر مبلغی پرداخت شده بود، در کیف پول شما ثبت شده است.</Alert>
+      )}
+      {tracking && (
+        <div className={a.track} data-order-tracking>
+          کد رهگیری مرسوله: <span className="tnum" dir="ltr">{tracking}</span>
+        </div>
       )}
       <section className={s.card} aria-label="اقلام سفارش">
         <table className={s.table}>
@@ -126,6 +143,14 @@ export default async function OrderPage({
           </div>
         </dl>
       </section>
+      {cancelOn && !(plan === 'request' && cancelRequested) && (
+        <CancelPanel
+          number={order.number}
+          plan={plan}
+          refund={refundAmountOf(order.status, order.total_payable)}
+          canEdit={canEditOrder(order.status)}
+        />
+      )}
       {options && <PayPanel number={order.number} total={order.total_payable} options={options} />}
       <section className={s.card} aria-label="آدرس تحویل">
         <h2 className={s.h2}>آدرس تحویل</h2>
@@ -142,6 +167,17 @@ export default async function OrderPage({
             : 'زمان تحویل پس از پرداخت اعلام می‌شود.'}
         </p>
       </section>
-    </Container>
+      <section className={s.card} aria-label="روند سفارش" data-order-timeline>
+        <h2 className={s.h2}>روند سفارش</h2>
+        <ol className={a.timeline}>
+          {steps.map((st) => (
+            <li key={st.key} className={a.step} data-tone={st.tone} data-step>
+              <b>{st.label}</b>
+              <span className={a.muted}>{dateTime.format(st.at)}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
+    </div>
   );
 }

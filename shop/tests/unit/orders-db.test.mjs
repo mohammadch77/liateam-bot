@@ -365,3 +365,43 @@ scenario(
   IF n <> 0 THEN RAISE EXCEPTION 'a cancelled order is a candidate'; END IF;
 `,
 );
+
+scenario(
+  'customer cancel: shop_cancel_order stops a queued bot order and closes its waiting place job; too late once placing or picked up',
+  `
+  INSERT INTO public.shop_orders (customer_first_name, customer_last_name, customer_mobile, province_id, city_id, postal_code, address, plate, items_total, shipping_price, origin)
+    VALUES ('A', 'B', '09990000009', 1, 1, '1234567890', 'some address', '1', 1000, 100, 'shop') RETURNING id INTO j;
+  INSERT INTO public.order_jobs (kind, payload, requested_by) VALUES ('place', jsonb_build_object('order_id', j), 'shop') RETURNING id INTO n;
+  IF NOT public.shop_cancel_order(j) THEN RAISE EXCEPTION 'a queued shop order was not cancelled'; END IF;
+  IF (SELECT status FROM public.shop_orders WHERE id = j) <> 'canceled' THEN RAISE EXCEPTION 'bot order not canceled'; END IF;
+  IF (SELECT ok OR done_at IS NULL OR picked_at IS NULL FROM public.order_jobs WHERE id = n) THEN RAISE EXCEPTION 'the waiting place job was not closed as failed'; END IF;
+  IF public.shop_cancel_order(j) THEN RAISE EXCEPTION 'a cancelled order was cancelled twice'; END IF;
+
+  UPDATE public.shop_orders SET status = 'placing' WHERE id = j;
+  UPDATE public.shop_orders SET status = 'queued' WHERE id = j;
+  INSERT INTO public.order_jobs (kind, payload, requested_by, picked_at) VALUES ('place', jsonb_build_object('order_id', j), 'shop', now());
+  IF public.shop_cancel_order(j) THEN RAISE EXCEPTION 'an order whose place job is running was cancelled'; END IF;
+
+  UPDATE public.shop_orders SET status = 'awaiting_payment' WHERE id = j;
+  IF public.shop_cancel_order(j) THEN RAISE EXCEPTION 'a placed order was cancelled'; END IF;
+
+  INSERT INTO public.shop_orders (customer_first_name, customer_last_name, customer_mobile, province_id, city_id, postal_code, address, plate, items_total, shipping_price, origin)
+    VALUES ('A', 'B', '09990000009', 1, 1, '1234567890', 'some address', '1', 1000, 100, 'bot') RETURNING id INTO j;
+  IF public.shop_cancel_order(j) THEN RAISE EXCEPTION 'a bot-origin order was cancelled from the shop'; END IF;
+  IF public.shop_cancel_order(999999999) THEN RAISE EXCEPTION 'a missing order reported cancelled'; END IF;
+`,
+);
+
+scenario(
+  'customer cancel: the refund row is written once per order (one key), and an order can go queued to canceled but not sent to canceled',
+  `
+  INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key, order_id) VALUES (u, 'topup', 1000, 0, 'topup-cancel-1', NULL);
+  UPDATE orders SET status = 'queued', paid_at = now() WHERE id = o;
+  INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key, order_id) VALUES (u, 'refund', 150000, 0, 'order-cancel-refund:' || o, o);
+  INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key, order_id) VALUES (u, 'refund', 150000, 0, 'order-cancel-refund:' || o, o) ON CONFLICT (idempotency_key) DO NOTHING;
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'the refund of one cancel was written twice'; END IF;
+  IF (SELECT balance_after FROM wallet_ledger WHERE user_id = u ORDER BY id DESC LIMIT 1) <> 151000 THEN RAISE EXCEPTION 'refund balance'; END IF;
+  UPDATE orders SET status = 'canceled', canceled_at = now() WHERE id = o;
+`,
+);

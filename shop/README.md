@@ -930,3 +930,9 @@ npm run images:warm
 - **سفارش گیرکرده:** سفارشِ پرداخت‌شده‌ای که بیش از «هشدار سفارش گیرکرده» (تنظیمات › سفارش؛ پیش‌فرض ۳۰ دقیقه) در «در انتظار ثبت» بماند، **یک‌بار** رویداد `stuck_alert` می‌گیرد و در `/admin` زیر «نیازمند توجه» (فقط شماره‌ی سفارش) می‌آید. اگر «شماره‌ی موبایل اپراتور» (تنظیمات › سفارش) و «کد الگوی هشدار اپراتور» (تنظیمات › پیامک) هر دو پر باشند، **یک** پیامک (متغیر `order_no`) هم می‌رود.
 - **نصب روی سرور (دستی):** `openssl rand -hex 32` را در `/opt/avina-shop/.env` به‌صورت `CRON_SECRET=…` بگذارید، سرویس فروشگاه را restart کنید، سپس `sudo cp deploy/avina/avina-shop-tick.{service,timer} /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now avina-shop-tick.timer`. بررسی: `sudo systemctl start avina-shop-tick && journalctl -u avina-shop-tick -n 5` باید `[tick] tried …` نشان دهد. برگشت: `sudo systemctl disable --now avina-shop-tick.timer`.
 - **تست‌ها:** `tests/unit/tick.test.ts`، یک سناریوی DB در `orders-db.test.mjs`، و `order-tick.e2e.mjs`.
+
+## پنل مشتری (E)
+
+- صفحه‌ها: `/account` (داشبورد)، `/account/orders`، `/account/orders/AV-…` (خط زمانی، لغو/ویرایش)، `/account/addresses`، `/account/wallet`، `/account/profile`.
+- لغو: `pending_payment` ساده؛ `queued`/`needs_review` فوری با بازگشت کامل به کیف پول؛ `placing`/`awaiting_payment` فقط رویداد `cancel_requested` (در «نیازمند توجه»)؛ بعد از آن ممنوع. سوئیچ ادمین: تنظیمات › سفارش › «مشتری بتواند سفارش را لغو/ویرایش کند».
+- **مراحل سرور (به ترتیب):** `sudo -u postgres psql lia_sync -f shop/deploy/shop-db-roles-018-cancel.sql` ← `npm run migrate:up` (migration 021: بایگانی آدرس) ← build و restart.

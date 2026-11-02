@@ -106,7 +106,9 @@ export default async function AdminPage() {
                   <span className="tnum">{o.number}</span> · پرداخت: {when(o.paid_at)}
                 </dt>
                 <dd>
-                  {o.status === 'needs_review'
+                  {o.cancel_requested && ['placing', 'awaiting_payment'].includes(o.status)
+                    ? 'مشتری درخواست لغو داده است (سفارش در حال ثبت یا ثبت‌شده نزد لیاتیم است)؛ پس از بررسی، لغو و بازگشت وجه را اپراتور تأیید می‌کند'
+                    : o.status === 'needs_review'
                     ? `متوقف برای بررسی${o.needs_review_reason ? `: ${o.needs_review_reason}` : ''}`
                     : 'پرداخت‌شده و هنوز در صف ثبت (بیش از حد انتظار)'}
                 </dd>

@@ -181,6 +181,15 @@ export const SETTINGS = {
     default: 10,
   }),
 
+  'orders.customer_cancel_enabled': make({
+    key: 'orders.customer_cancel_enabled',
+    group: 'orders',
+    label: 'مشتری بتواند سفارش را لغو/ویرایش کند',
+    hint: 'روشن: مشتری تا پیش از پرداخت نهایی به لیاتیم می‌تواند سفارش را لغو یا برای ویرایش به سبد برگرداند (مبلغ پرداخت‌شده به کیف پول برمی‌گردد). خاموش: دکمه‌ها نمایش داده نمی‌شوند و سرور هم رد می‌کند.',
+    kind: 'boolean',
+    schema: z.boolean(),
+    default: true,
+  }),
   'orders.stuck_alert_minutes': make({
     key: 'orders.stuck_alert_minutes',
     group: 'orders',

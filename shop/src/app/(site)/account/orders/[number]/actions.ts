@@ -2,7 +2,8 @@
 
 import { redirect } from 'next/navigation';
 import { orderPath } from '@/lib/urls';
-import { runAction } from '@/server/http/action';
+import { runAction, type ActionResult } from '@/server/http/action';
+import { orderCancelService } from '@/server/services/order-cancel.service';
 import { orderPaymentService } from '@/server/services/order-payment.service';
 
 /**
@@ -16,4 +17,17 @@ export async function payOrderFormAction(form: FormData): Promise<void> {
   // redirect() throws a control-flow signal, so it stays outside runAction's try/catch
   if (!r.ok) redirect(`${orderPath(number)}?error=${encodeURIComponent(r.error)}`);
   redirect(r.data.kind === 'redirect' ? r.data.url : `${orderPath(r.data.number)}?paid=1`);
+}
+
+/**
+ * «لغو سفارش» / «ویرایش سفارش». The form sends only the order number; what is allowed, what is returned to the wallet and
+ * the race with the worker are decided in orderCancelService. «Edit» ends at the cart, which is already refilled.
+ */
+export async function cancelOrderAction(
+  number: string,
+  mode: 'cancel' | 'edit',
+): Promise<ActionResult<{ kind: 'canceled' | 'requested'; refunded: number; message: string }>> {
+  return runAction('order.cancel', () =>
+    mode === 'edit' ? orderCancelService.edit(number) : orderCancelService.cancel(number),
+  );
 }
