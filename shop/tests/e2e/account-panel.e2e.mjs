@@ -230,6 +230,16 @@ try {
     events(o1.number),
   );
   await page.goto(`${BASE}/account/orders/${o1.number}`);
+  const stepTexts = await page.locator('[data-step]').evaluateAll((els) => els.map((e) => e.textContent ?? ''));
+  const lastStep = page.locator('[data-step]').last();
+  check(
+    '3h2 the timeline ends with the cancel (final, strongest) and says how much went back to the wallet',
+    (await lastStep.getAttribute('data-final')) === 'true' &&
+      stepTexts.at(-1).includes('لغو شد') &&
+      num(await lastStep.locator('[data-step-note]').innerText()) === o1.payable,
+    stepTexts.at(-1),
+  );
+  await page.goto(`${BASE}/account/orders/${o1.number}`);
   check(
     '3i the order page: canceled, no cancel button any more',
     (await page.locator('[data-cancel-panel]').count()) === 0 &&

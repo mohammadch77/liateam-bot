@@ -352,3 +352,14 @@
   margin: 0 0 12px;
   line-height: 1.9;
 }
+
+.step[data-final='true'] > b {
+  font-size: 16px;
+  font-weight: 800;
+}
+.step[data-final='true']::before {
+  width: 14px;
+  height: 14px;
+  right: 2px;
+  top: 4px;
+}

@@ -171,9 +171,14 @@ export default async function OrderPage({
         <h2 className={s.h2}>روند سفارش</h2>
         <ol className={a.timeline}>
           {steps.map((st) => (
-            <li key={st.key} className={a.step} data-tone={st.tone} data-step>
+            <li key={st.key} className={a.step} data-tone={st.tone} data-step data-final={st.final ? 'true' : undefined}>
               <b>{st.label}</b>
               <span className={a.muted}>{dateTime.format(st.at)}</span>
+              {st.note !== undefined && (
+                <span className={a.muted} data-step-note>
+                  مبلغ {formatToman(st.note)} تومان به کیف پول شما برگشت داده شد
+                </span>
+              )}
             </li>
           ))}
         </ol>

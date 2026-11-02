@@ -109,3 +109,41 @@ test('status filters: unknown values fall back to all; every status has a label 
     assert.ok(covered.has(s), `${s} is in a filter`);
   }
 });
+
+test('the timeline is one list in time order: creation is not pinned on top, ties go by event id, the end is marked final', () => {
+  const at = (m: number) => new Date(Date.UTC(2026, 0, 1, 8, m));
+  const steps = timelineOf(
+    [
+      { id: '9', kind: 'canceled_by_customer', data: { refunded: 3175900 }, created_at: at(120) },
+      { id: '3', kind: 'paid', data: {}, created_at: at(5) },
+      { id: '5', kind: 'bot_linked', data: {}, created_at: at(5) },
+      { id: '4', kind: 'waiting_for_placement', data: {}, created_at: at(5) },
+    ],
+    at(60), // created AFTER the payment events (clocks differ): it must not stay on top
+  );
+  assert.deepEqual(
+    steps.map((s) => s.label),
+    [
+      'پرداخت انجام شد',
+      'در صف ثبت (نوبت ثبت نزد تأمین‌کننده)',
+      'در صف ثبت قرار گرفت',
+      'سفارش ثبت شد',
+      'سفارش به درخواست شما لغو شد',
+    ],
+  );
+  assert.ok(steps.every((s, i) => i === 0 || s.at >= steps[i - 1]!.at));
+  assert.equal(steps.at(-1)?.final, true);
+  assert.equal(steps.filter((s) => s.final).length, 1);
+});
+
+test('the cancel step carries the refund from its own data, and nothing when nothing was returned', () => {
+  const t = new Date();
+  const refunded = timelineOf([{ id: '1', kind: 'canceled_by_customer', data: { refunded: 500000 }, created_at: t }], t);
+  assert.equal(refunded.at(-1)?.note, 500000);
+  for (const data of [{ refunded: 0 }, {}, null, { refunded: 'x' }]) {
+    const s = timelineOf([{ id: '1', kind: 'canceled_by_customer', data, created_at: t }], t);
+    assert.equal(s.at(-1)?.note, undefined);
+  }
+  const notFinal = timelineOf([{ id: '1', kind: 'paid', data: {}, created_at: t }], t);
+  assert.equal(notFinal.some((s) => s.final), false);
+});
