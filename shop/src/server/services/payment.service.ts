@@ -47,6 +47,32 @@ export const paymentService = {
   /** the gateway of an attempt already under way (verifying it works even if online payment was switched off meanwhile) */
   gatewayById: build,
 
+  /**
+   * Asks the gateway about a return (the one place that does it, for orders and wallet top-ups): the customer backing out is
+   * 'canceled', a gateway that cannot be reached is 'pending' (nothing is decided; the same return can be opened again), a refusal
+   * is 'failed'. The amount asked for is the one saved with the attempt.
+   */
+  async verifyAttempt(
+    payment: { gateway: string | null; amount: number },
+    q: { authority: string; status: 'OK' | 'NOK' | null; sim: string | null },
+  ): Promise<{ outcome: 'paid' | 'canceled' | 'failed' | 'pending'; refId?: string; card?: string }> {
+    if (q.status === 'NOK') return { outcome: 'canceled' };
+    try {
+      const gw = await build(payment.gateway as PaymentProviderId);
+      const v = await gw.verify({
+        authority: q.authority,
+        amount: payment.amount,
+        query: { Authority: q.authority, Status: q.status ?? undefined, sim: q.sim ?? undefined },
+      });
+      if (v.outcome === 'error') return { outcome: 'pending' };
+      if (v.outcome === 'paid') return { outcome: 'paid', refId: v.refId, card: v.cardMasked };
+      return { outcome: v.outcome === 'canceled' ? 'canceled' : 'failed' };
+    } catch (e) {
+      logger.error('payment.verify_threw', { err: e instanceof Error ? e.name : 'unknown' });
+      return { outcome: 'pending' };
+    }
+  },
+
   /** Can a customer pay online right now? (the settings are on and complete; the reason is logged, not shown) */
   async onlineAvailable(): Promise<boolean> {
     try {

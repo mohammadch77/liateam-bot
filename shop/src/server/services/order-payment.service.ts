@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto';
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { canStartPayment, holdLeft, parseCallbackQuery } from '@/lib/orders/payment-flow';
-import type { PaymentProviderId } from '@/lib/payment/registry';
 import { authorize } from '@/server/auth/guards';
 import type { CurrentUser } from '@/server/services/session.service';
 import { rateLimit } from '@/server/http/rate-limit';
@@ -14,6 +13,7 @@ import { withTransaction, type Queryable } from '@/server/repositories/transacti
 import { orderCommissionService } from './order-commission.service';
 import { orderFlowService } from './order-flow.service';
 import { paymentService } from './payment.service';
+import { walletTopupService } from './wallet-topup.service';
 import { cartRepository } from '@/server/repositories/cart.repository';
 
 /**
@@ -34,6 +34,8 @@ export type StartResult = { kind: 'redirect'; url: string } | { kind: 'paid'; nu
 export type CallbackResult = {
   kind: 'paid' | 'canceled' | 'failed' | 'pending' | 'unknown';
   orderNumber?: string;
+  /** a wallet top-up (not an order): its amount, for the result page */
+  topup?: { amount: number };
   /** the same return seen again (a refresh, a second click): nothing was done twice */
   repeat?: boolean;
   message: string;
@@ -239,7 +241,9 @@ export const orderPaymentService = {
     const q = parseCallbackQuery(query);
     if (!q.authority) return { kind: 'unknown', message: MSG.unknown };
     const payment = await paymentRepository.findByAuthority(q.authority);
-    const order = payment ? await orderRepository.findById(payment.order_id) : null;
+    // a wallet top-up shares the gateway, the callback address and the verification; only what happens after is its own
+    if (payment?.kind === 'wallet_topup') return walletTopupService.handleCallback(user, payment, q);
+    const order = payment?.order_id ? await orderRepository.findById(payment.order_id) : null;
     if (!payment || !order || order.user_id !== user.id) return { kind: 'unknown', message: MSG.unknown };
     const base = { orderNumber: order.number };
 
@@ -261,24 +265,13 @@ export const orderPaymentService = {
       logger.error('order_payment.amount_mismatch', { order: order.number });
       return this.finish(payment, order, 'failed', 'amount_mismatch');
     }
-    let verified;
-    try {
-      const gw = await paymentService.gatewayById(payment.gateway as PaymentProviderId);
-      verified = await gw.verify({
-        authority: q.authority,
-        amount: payment.amount,
-        query: { Authority: q.authority, Status: q.status ?? undefined, sim: q.sim ?? undefined },
-      });
-    } catch (e) {
-      logger.error('order_payment.verify_threw', { err: e instanceof Error ? e.name : 'unknown' });
-      return { ...base, kind: 'pending', message: MSG.pending };
-    }
-    if (verified.outcome === 'error') return { ...base, kind: 'pending', message: MSG.pending };
+    const verified = await paymentService.verifyAttempt(payment, { authority: q.authority, status: q.status, sim: q.sim });
+    if (verified.outcome === 'pending') return { ...base, kind: 'pending', message: MSG.pending };
     if (verified.outcome === 'canceled') return this.finish(payment, order, 'canceled');
     if (verified.outcome !== 'paid') return this.finish(payment, order, 'failed', 'verify_failed');
 
     const settled = await withTransaction((db) =>
-      settle(db, order.id, payment.id, 'gateway', { refId: verified.refId, card: verified.cardMasked }),
+      settle(db, order.id, payment.id, 'gateway', { refId: verified.refId, card: verified.card }),
     );
     if (settled === 'settled') await afterSettled(order.id, true);
     return {

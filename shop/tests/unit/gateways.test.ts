@@ -324,7 +324,7 @@ test("event variables: only the event's own, in order, as strings", () => {
   assert.deepEqual(paramsFor('needs_review', {}), { order_no: '' });
   assert.deepEqual(
     SMS_EVENTS.map((e) => e.key),
-    ['order_placed', 'payment_ok', 'needs_review', 'shipped', 'canceled'],
+    ['order_placed', 'payment_ok', 'needs_review', 'shipped', 'canceled', 'topup_ok', 'withdrawal_requested', 'withdrawal_paid', 'withdrawal_rejected'],
   );
 });
 

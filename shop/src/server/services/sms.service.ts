@@ -111,7 +111,7 @@ export const smsService = {
       const template = all.get(`sms.event.${event}.template` as never) as string;
       if (all.get(`sms.event.${event}.enabled` as never) !== true || !template) return 'skipped';
       const { provider, id } = await resolve();
-      await logged({ phone, purpose: event === 'shipped' ? 'shipping' : 'order', provider: id, ...ctx }, () =>
+      await logged({ phone, purpose: event === 'shipped' ? 'shipping' : /^(topup|withdrawal)/.test(event) ? 'other' : 'order', provider: id, ...ctx }, () =>
         provider.sendTemplate(phone, template, paramsFor(event, values)),
       );
       return 'sent';

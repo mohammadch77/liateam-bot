@@ -30,8 +30,10 @@ export default async function PaymentSimulatorPage({
   const user = await requireUser(`${paymentSimulatorPath()}?${here}`);
   const { authority } = parseCallbackQuery(sp);
   const payment = authority ? await paymentRepository.findByAuthority(authority) : null;
-  const order = payment ? await orderRepository.findById(payment.order_id) : null;
-  if (!authority || !payment || !order || order.user_id !== user.id || payment.gateway !== 'dev') notFound();
+  const isTopup = payment?.kind === 'wallet_topup';
+  const order = payment?.order_id ? await orderRepository.findById(payment.order_id) : null;
+  const owner = isTopup ? payment?.user_id : order?.user_id;
+  if (!authority || !payment || (!order && !isTopup) || owner !== user.id || payment.gateway !== 'dev') notFound();
 
   const back = (status: 'OK' | 'NOK', sim: string) =>
     `${paymentCallbackPath()}?Authority=${authority}&Status=${status}&sim=${sim}`;
@@ -42,8 +44,8 @@ export default async function PaymentSimulatorPage({
       <section className={s.card}>
         <dl className={s.rows}>
           <div>
-            <dt>شماره‌ی سفارش</dt>
-            <dd className="tnum">{toFaDigits(order.number)}</dd>
+            <dt>{order ? 'شماره‌ی سفارش' : 'پرداخت'}</dt>
+            <dd className="tnum">{order ? toFaDigits(order.number) : 'شارژ کیف پول'}</dd>
           </div>
           <div className={s.total}>
             <dt>مبلغ</dt>

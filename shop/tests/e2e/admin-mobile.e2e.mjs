@@ -62,8 +62,8 @@ try {
       };
     });
     check(
-      `1a ${name}: six tabs in a strip that scrolls inside itself, each 44px tall, and the page does not scroll sideways`,
-      tabs.count === 6 && tabs.scrolls && tabs.minH >= 43.5 && (await flat()),
+      `1a ${name}: seven tabs in a strip that scrolls inside itself, each 44px tall, and the page does not scroll sideways`,
+      tabs.count === 7 && tabs.scrolls && tabs.minH >= 43.5 && (await flat()),
       JSON.stringify(tabs),
     );
 

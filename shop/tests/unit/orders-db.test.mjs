@@ -405,3 +405,34 @@ scenario(
   UPDATE orders SET status = 'canceled', canceled_at = now() WHERE id = o;
 `,
 );
+
+scenario(
+  'wallet task: a top-up payment has no order and is confirmed once; withdrawal hold / return rows are once per key, the balance never goes negative, a withdrawal moves only forward',
+  `
+  INSERT INTO payments (kind, user_id, method, gateway, amount, idempotency_key) VALUES ('wallet_topup', u, 'gateway', 'dev', 100000, 'topup-attempt-00001');
+  ${mustRaise('check_violation', `INSERT INTO payments (kind, method, gateway, amount, idempotency_key) VALUES ('wallet_topup', 'gateway', 'dev', 5, 'topup-nouser-00001');`)}
+  UPDATE payments SET status = 'confirmed', confirmed_at = now(), gateway_ref = 'TOPUPREF1' WHERE idempotency_key = 'topup-attempt-00001';
+  ${mustRaise('check_violation', `UPDATE payments SET status = 'failed' WHERE idempotency_key = 'topup-attempt-00001';`)}
+  INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key) VALUES (u, 'topup', 100000, 0, 'topup-payment:1');
+  INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key) VALUES (u, 'topup', 100000, 0, 'topup-payment:1') ON CONFLICT (idempotency_key) DO NOTHING;
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'one top-up credited twice'; END IF;
+  INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key) VALUES (u, 'commission', 300000, 0, 'comm-seed-000001');
+  INSERT INTO withdrawals (user_id, amount, iban, holder_name) VALUES (u, 250000, 'IR062960000000100324200001', 'Test Holder') RETURNING id INTO j;
+  INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key, ref) VALUES (u, 'withdrawal', -250000, 0, 'withdrawal-hold:' || j, 'withdrawal:' || j);
+  IF (SELECT balance_after FROM wallet_ledger WHERE user_id = u ORDER BY id DESC LIMIT 1) <> 150000 THEN RAISE EXCEPTION 'hold balance'; END IF;
+  ${mustRaise('check_violation', `INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key) VALUES (u, 'withdrawal', -150001, 0, 'withdrawal-hold:x1');`)}
+  ${mustRaise('check_violation', `INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key) VALUES (u, 'withdrawal_return', -5, 0, 'withdrawal-return:bad');`)}
+  ${mustRaise('integrity_constraint_violation', `UPDATE withdrawals SET amount = 1 WHERE id = j;`)}
+  ${mustRaise('integrity_constraint_violation', `UPDATE withdrawals SET iban = 'IR062960000000100324200002' WHERE id = j;`)}
+  ${mustRaise('check_violation', `UPDATE withdrawals SET status = 'paid', decided_at = now() WHERE id = j;`)}
+  INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key, ref) VALUES (u, 'withdrawal_return', 250000, 0, 'withdrawal-return:' || j, 'withdrawal:' || j);
+  INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key, ref) VALUES (u, 'withdrawal_return', 250000, 0, 'withdrawal-return:' || j, 'withdrawal:' || j) ON CONFLICT (idempotency_key) DO NOTHING;
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'one return credited twice'; END IF;
+  UPDATE withdrawals SET status = 'rejected', decided_at = now(), reject_reason = 'test' WHERE id = j;
+  IF (SELECT balance_after FROM wallet_ledger WHERE user_id = u ORDER BY id DESC LIMIT 1) <> 400000 THEN RAISE EXCEPTION 'return balance'; END IF;
+  ${mustRaise('check_violation', `UPDATE withdrawals SET status = 'paid', decided_at = now(), paid_ref = 'ABC123' WHERE id = j;`)}
+  ${mustRaise('check_violation', `INSERT INTO withdrawals (user_id, amount, iban, holder_name) VALUES (u, 5, 'IR12', 'Test Holder');`)}
+`,
+);

@@ -24,6 +24,7 @@
     "tick": "node scripts/tick.mjs",
     "admin:create": "node scripts/admin-create.mjs",
     "admin:revoke": "node scripts/admin-revoke.mjs",
+    "staging:commission": "node scripts/staging-commission.mjs",
     "seed:packs": "node scripts/seed-packs.mjs",
     "packs:reset-discount": "node scripts/packs-reset-discount.mjs",
     "images:warm": "node scripts/warm-images.mjs",

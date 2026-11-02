@@ -3,7 +3,16 @@
  * the provider's template code; the variables are passed to the provider in the order listed here (Kavenegar tokens
  * token, token2, token3; Ippanel params by name).
  */
-export type SmsEventKey = 'order_placed' | 'payment_ok' | 'needs_review' | 'shipped' | 'canceled';
+export type SmsEventKey =
+  | 'order_placed'
+  | 'payment_ok'
+  | 'needs_review'
+  | 'shipped'
+  | 'canceled'
+  | 'topup_ok'
+  | 'withdrawal_requested'
+  | 'withdrawal_paid'
+  | 'withdrawal_rejected';
 export type SmsVariable = 'order_no' | 'total' | 'tracking';
 
 export const SMS_EVENTS: ReadonlyArray<{ key: SmsEventKey; label: string; vars: readonly SmsVariable[] }> = [
@@ -12,6 +21,10 @@ export const SMS_EVENTS: ReadonlyArray<{ key: SmsEventKey; label: string; vars: 
   { key: 'needs_review', label: 'نیاز به بررسی', vars: ['order_no'] },
   { key: 'shipped', label: 'ارسال شد (با کد رهگیری)', vars: ['order_no', 'tracking'] },
   { key: 'canceled', label: 'لغو سفارش / بازگشت وجه', vars: ['order_no', 'total'] },
+  { key: 'topup_ok', label: 'شارژ موفق کیف پول', vars: ['total'] },
+  { key: 'withdrawal_requested', label: 'ثبت درخواست برداشت', vars: ['total'] },
+  { key: 'withdrawal_paid', label: 'پرداخت برداشت (با کد پیگیری)', vars: ['total', 'tracking'] },
+  { key: 'withdrawal_rejected', label: 'رد درخواست برداشت', vars: ['total'] },
 ];
 
 export const VARIABLE_LABEL: Record<SmsVariable, string> = {

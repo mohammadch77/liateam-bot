@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { formatToman } from '@/lib/format/money';
 import { toFaDigits } from '@/lib/format/number';
-import { orderPath, ordersPath, paymentCallbackPath } from '@/lib/urls';
+import { orderPath, ordersPath, paymentCallbackPath, walletPath } from '@/lib/urls';
 import { requireUser } from '@/server/auth/guards';
 import { orderPaymentService } from '@/server/services/order-payment.service';
 import { orderService } from '@/server/services/order.service';
@@ -28,6 +28,7 @@ export default async function PaymentCallbackPage({
   const user = await requireUser(`${paymentCallbackPath()}?${here}`);
   const result = await orderPaymentService.handleCallback(user, sp);
   const order = result.orderNumber ? await orderService.forUser(user.id, result.orderNumber) : null;
+  const topup = result.topup ?? null;
   const retry =
     order && order.status === 'pending_payment' && result.kind !== 'paid'
       ? await orderPaymentService.options(user.id)
@@ -52,6 +53,19 @@ export default async function PaymentCallbackPage({
       <div data-callback-result={result.kind} data-callback-repeat={result.repeat ? 'true' : 'false'}>
         <Alert tone={tone}>{result.message}</Alert>
       </div>
+      {topup && (
+        <section className={s.card} aria-label="شارژ کیف پول" data-topup-result>
+          <dl className={s.rows}>
+            <div className={s.total}>
+              <dt>مبلغ شارژ</dt>
+              <dd className="tnum">{formatToman(topup.amount)} تومان</dd>
+            </div>
+          </dl>
+          <Button href={walletPath()} variant={result.kind === 'paid' ? 'primary' : 'outline'} data-view-wallet>
+            {result.kind === 'paid' ? 'مشاهده‌ی کیف پول' : 'بازگشت به کیف پول'}
+          </Button>
+        </section>
+      )}
       {order && (
         <section className={s.card} aria-label="سفارش">
           <dl className={s.rows}>
@@ -76,7 +90,7 @@ export default async function PaymentCallbackPage({
         </section>
       )}
       {order && retry && <PayPanel number={order.number} total={order.total_payable} options={retry} retry />}
-      {!order && (
+      {!order && !topup && (
         <Button href={ordersPath()} variant="outline">
           سفارش‌های من
         </Button>

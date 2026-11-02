@@ -936,3 +936,11 @@ npm run images:warm
 - صفحه‌ها: `/account` (داشبورد)، `/account/orders`، `/account/orders/AV-…` (خط زمانی، لغو/ویرایش)، `/account/addresses`، `/account/wallet`، `/account/profile`.
 - لغو: `pending_payment` ساده؛ `queued`/`needs_review` فوری با بازگشت کامل به کیف پول؛ `placing`/`awaiting_payment` فقط رویداد `cancel_requested` (در «نیازمند توجه»)؛ بعد از آن ممنوع. سوئیچ ادمین: تنظیمات › سفارش › «مشتری بتواند سفارش را لغو/ویرایش کند».
 - **مراحل سرور (به ترتیب):** `sudo -u postgres psql lia_sync -f shop/deploy/shop-db-roles-018-cancel.sql` ← `npm run migrate:up` (migration 021: بایگانی آدرس) ← build و restart.
+
+## کیف پول، شارژ و برداشت (F)
+
+- **شارژ (همهٔ مشتری‌ها):** از همان درگاه و `/payment/callback`؛ ردیف `payments` با `kind = wallet_topup` و بدون سفارش. مبلغ از دیتابیس؛ هر شارژ موفق یک ردیف ledger با کلید `topup-payment:<id>`. بازهٔ مبلغ در تنظیمات › کیف پول و برداشت.
+- **برداشت (فقط همکار فروش با کد فعال):** مبلغ هنگام درخواست در ledger نگه داشته می‌شود (`withdrawal`)؛ رد یا لغو با `withdrawal_return` برمی‌گردد؛ پرداخت دستی توسط اپراتور با کد پیگیری بانکی در `/admin/withdrawals`. شبا فقط در ستون خودش و فقط برای ادمین کامل نمایش داده می‌شود.
+- سقف قابل‌برداشت: «فقط از پورسانت» (پیش‌فرض) یا «از کل موجودی».
+- **تست پورسانت روی staging** (تا تسک G): `APP_ENV=staging npm run staging:commission -- --mobile=09XXXXXXXXX --amount=500000` یک ردیف پورسانت آزمایشی در ledger می‌سازد؛ روی هر محیط دیگری رد می‌شود.
+- **مراحل سرور:** `npm run migrate:up` (migration 022 و 023) ← build و restart. گرانت جدید ندارد.

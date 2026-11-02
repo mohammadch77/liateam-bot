@@ -128,4 +128,15 @@ export const affiliateRepository = {
       db,
     );
   },
+
+  /** Does this user have a referral code (an active affiliate)? */
+  async hasCode(userId: string, db?: Queryable): Promise<boolean> {
+    const r = await queryOne<{ ok: boolean }>(
+      'affiliate.has_code',
+      'SELECT true AS ok FROM affiliate_codes WHERE user_id = $1',
+      [userId],
+      db,
+    );
+    return r?.ok === true;
+  },
 };

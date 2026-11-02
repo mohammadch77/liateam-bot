@@ -142,8 +142,8 @@ try {
   await page.goto(`${BASE}/admin/settings`);
   const tabs = await page.locator('[data-settings-tabs] a').allInnerTexts();
   check(
-    '4a six sections, none marked as «not yet in use» any more',
-    tabs.length === 6 && tabs.every((t) => !t.includes('S2')),
+    '4a seven sections, none marked as «not yet in use» any more',
+    tabs.length === 7 && tabs.every((t) => !t.includes('S2')),
     tabs.join(' | '),
   );
   check(

@@ -247,10 +247,10 @@ try {
   );
   await page.goto(`${BASE}/account/wallet`);
   check(
-    '3j the wallet page lists the refund; charge and withdraw are disabled («به‌زودی»)',
+    '3j the wallet page lists the refund and offers the charge form (no withdrawal for a plain customer)',
     (await page.locator('[data-wallet-entry="refund"]').count()) >= 1 &&
-      (await page.locator('[data-wallet-topup]').isDisabled()) &&
-      (await page.locator('[data-wallet-withdraw]').isDisabled()),
+      (await page.locator('[data-topup]').count()) === 1 &&
+      (await page.locator('[data-withdraw]').count()) === 0,
   );
 
   // ── 4. a second click / a second tab cancels once ──

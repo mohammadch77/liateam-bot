@@ -13,6 +13,7 @@ import { walletRepository, type WalletEntryRow } from '@/server/repositories/wal
  * user's orders or ledger are simply not in any result.
  */
 export const ORDERS_PER_PAGE = 10;
+export const WALLET_PER_PAGE = 15;
 
 const nameSchema = z
   .string()
@@ -42,12 +43,16 @@ export const accountService = {
     return { rows, total, page: p, pages: Math.max(1, Math.ceil(total / ORDERS_PER_PAGE)) };
   },
 
-  async wallet(userId: string): Promise<{ balance: number; entries: WalletEntryRow[] }> {
-    const [balance, entries] = await Promise.all([
+  async wallet(
+    userId: string,
+    page: number,
+  ): Promise<{ balance: number; entries: WalletEntryRow[]; page: number; pages: number }> {
+    const p = Number.isInteger(page) && page > 0 && page < 10_000 ? page : 1;
+    const [balance, ledger] = await Promise.all([
       walletRepository.balance(userId),
-      walletRepository.entries(userId, 50),
+      walletRepository.page(userId, WALLET_PER_PAGE, (p - 1) * WALLET_PER_PAGE),
     ]);
-    return { balance, entries };
+    return { balance, entries: ledger.rows, page: p, pages: Math.max(1, Math.ceil(ledger.total / WALLET_PER_PAGE)) };
   },
 
   /** the customer's name; the phone number is read-only */

@@ -8,7 +8,13 @@ import { AppError } from '@/lib/errors';
  * makes the same event inserted once. Amounts are signed TOMAN: topup / refund / commission positive, order_payment /
  * withdrawal negative.
  */
-export type WalletEntryKind = 'topup' | 'order_payment' | 'refund' | 'withdrawal' | 'commission';
+export type WalletEntryKind =
+  | 'topup'
+  | 'order_payment'
+  | 'refund'
+  | 'withdrawal'
+  | 'commission'
+  | 'withdrawal_return';
 
 export type WalletEntryRow = {
   id: string;
@@ -95,6 +101,43 @@ export const walletRepository = {
       'wallet.entries',
       `SELECT ${COLS} FROM wallet_ledger WHERE user_id = $1 ORDER BY id DESC LIMIT $2`,
       [userId, limit],
+      db,
+    );
+  },
+  /** One page of a user's ledger, newest first, and the total number of rows. */
+  async page(userId: string, limit: number, offset: number, db?: Queryable) {
+    const rows = await query<WalletEntryRow>(
+      'wallet.page',
+      `SELECT ${COLS} FROM wallet_ledger WHERE user_id = $1 ORDER BY id DESC LIMIT $2 OFFSET $3`,
+      [userId, limit, offset],
+      db,
+    );
+    const n = await queryOne<{ n: number }>(
+      'wallet.count',
+      'SELECT count(*)::int AS n FROM wallet_ledger WHERE user_id = $1',
+      [userId],
+      db,
+    );
+    return { rows, total: n?.n ?? 0 };
+  },
+
+  /** Sum of the amounts of one kind (the commission credited so far, for the withdrawable limit). */
+  async sumOfKind(userId: string, kind: WalletEntryKind, db?: Queryable): Promise<number> {
+    const r = await queryOne<{ s: number }>(
+      'wallet.sum_kind',
+      'SELECT coalesce(sum(amount), 0)::float8 AS s FROM wallet_ledger WHERE user_id = $1 AND kind = $2',
+      [userId, kind],
+      db,
+    );
+    return r?.s ?? 0;
+  },
+
+  /** The same per-user lock the ledger trigger takes (re-entrant in one transaction): a check and the post after it cannot interleave. */
+  async lock(userId: string, db: Queryable): Promise<void> {
+    await query(
+      'wallet.lock',
+      "SELECT pg_advisory_xact_lock(hashtextextended('wallet:' || $1::text, 0))",
+      [userId],
       db,
     );
   },

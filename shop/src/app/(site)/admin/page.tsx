@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { formatNumber } from '@/lib/format/number';
+import { formatNumber, toFaDigits } from '@/lib/format/number';
 import { adminSettingsPath } from '@/lib/urls';
 import { healthService } from '@/server/services/health.service';
 import { requireRole } from '@/server/auth/guards';
 import { auditService } from '@/server/services/audit.service';
 import { orderService } from '@/server/services/order.service';
+import { withdrawalService } from '@/server/services/withdrawal.service';
 import { Breadcrumb, Container } from '@/ui';
 import s from '../account/account.module.css';
 
@@ -20,6 +21,10 @@ const ACTION_LABEL: Record<string, string> = {
   'secret.update': 'تعویض کلید رمزنگاری‌شده',
   'shipping.update': 'تغییر تنظیمات ارسال',
   'review.submit': 'ثبت دیدگاه',
+  'withdrawal.request': 'درخواست برداشت',
+  'withdrawal.paid': 'پرداخت برداشت',
+  'withdrawal.reject': 'رد برداشت',
+  'withdrawal.cancel': 'لغو برداشت',
   'review.approve': 'تأیید دیدگاه',
   'review.reject': 'رد دیدگاه',
   'affiliate.apply': 'درخواست همکاری در فروش',
@@ -50,11 +55,12 @@ const timeFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'short
 /** Role-restricted example: admins only (everyone else gets HTTP 403). Placeholder for the phase-3 admin panel. */
 export default async function AdminPage() {
   const user = await requireRole('admin', '/admin');
-  const [events, sync, previous, attention] = await Promise.all([
+  const [events, sync, previous, attention, pendingWithdrawals] = await Promise.all([
     auditService.recent(20),
     healthService.syncStatus().catch(() => null),
     auditService.previousLogin().catch(() => null),
     orderService.needingAttention().catch(() => []),
+    withdrawalService.pendingCount().catch(() => 0),
   ]);
   const when = (d: Date | null) => (d ? timeFa.format(d) : '—');
 
@@ -98,6 +104,13 @@ export default async function AdminPage() {
         <h2 id="attention-title" className={s.title}>
           نیازمند توجه
         </h2>
+        {pendingWithdrawals > 0 && (
+          <p data-attention-withdrawals>
+            <Link href="/admin/withdrawals?status=pending">
+              {toFaDigits(pendingWithdrawals)} درخواست برداشت در انتظار بررسی است
+            </Link>
+          </p>
+        )}
         {attention.length ? (
           <dl className={s.list}>
             {attention.map((o) => (

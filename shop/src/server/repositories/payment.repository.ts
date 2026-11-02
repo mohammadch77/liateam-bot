@@ -8,7 +8,10 @@ import { AppError } from '@/lib/errors';
  */
 export type PaymentRow = {
   id: string;
-  order_id: string;
+  /** null for a wallet top-up */
+  order_id: string | null;
+  kind: 'order' | 'wallet_topup';
+  user_id: string | null;
   method: 'gateway' | 'wallet';
   gateway: string | null;
   amount: number;
@@ -20,7 +23,7 @@ export type PaymentRow = {
 };
 
 const COLS =
-  'id::text, order_id::text, method, gateway, amount::float8, status, gateway_ref, failure_reason, created_at, confirmed_at';
+  'id::text, order_id::text, kind, user_id::text, method, gateway, amount::float8, status, gateway_ref, failure_reason, created_at, confirmed_at';
 
 export const paymentRepository = {
   /** Starts a payment attempt; the same idempotency key returns the attempt already made. */
@@ -39,6 +42,29 @@ export const paymentRepository = {
       `INSERT INTO payments (order_id, method, gateway, amount, idempotency_key) VALUES ($1,$2,$3,$4,$5)
        ON CONFLICT (idempotency_key) DO NOTHING RETURNING ${COLS}`,
       [p.orderId, p.method, p.gateway ?? null, p.amount, p.idempotencyKey],
+      db,
+    );
+    if (rows[0]) return rows[0];
+    const existing = await queryOne<PaymentRow>(
+      'payment.find_key',
+      `SELECT ${COLS} FROM payments WHERE idempotency_key = $1`,
+      [p.idempotencyKey],
+      db,
+    );
+    if (!existing) throw new AppError('INTERNAL');
+    return existing;
+  },
+
+  /** A wallet top-up attempt of a user (no order); the same idempotency rule as initiate(). */
+  async initiateTopup(
+    p: { userId: string; gateway: string; amount: number; idempotencyKey: string },
+    db?: Queryable,
+  ): Promise<PaymentRow> {
+    const rows = await query<PaymentRow>(
+      'payment.initiate_topup',
+      `INSERT INTO payments (kind, user_id, method, gateway, amount, idempotency_key) VALUES ('wallet_topup',$1,'gateway',$2,$3,$4)
+       ON CONFLICT (idempotency_key) DO NOTHING RETURNING ${COLS}`,
+      [p.userId, p.gateway, p.amount, p.idempotencyKey],
       db,
     );
     if (rows[0]) return rows[0];

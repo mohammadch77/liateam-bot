@@ -11,7 +11,7 @@ import { z } from 'zod';
  * Plain values live in site_settings (key → JSON), secrets in secret_settings (AES-256-GCM). parseStored() turns whatever
  * is stored into a valid value or the default; it never throws, so a bad row cannot take a page down.
  */
-export type SettingGroup = 'general' | 'orders' | 'shipping' | 'commission' | 'sms' | 'payment';
+export type SettingGroup = 'general' | 'orders' | 'shipping' | 'commission' | 'sms' | 'payment' | 'wallet';
 export type Exposure = 'public' | 'internal' | 'secret';
 export type SettingKind = 'boolean' | 'integer' | 'text' | 'url' | 'enum' | 'timerange' | 'secret';
 
@@ -181,6 +181,136 @@ export const SETTINGS = {
     default: 10,
   }),
 
+  'wallet.topup_min': make({
+    key: 'wallet.topup_min',
+    group: 'wallet',
+    label: 'حداقل مبلغ شارژ کیف پول',
+    hint: 'کمتر از این مبلغ شارژ پذیرفته نمی‌شود. اگر از «حداکثر» بیشتر باشد، حداکثر ملاک است.',
+    kind: 'integer',
+    unit: 'تومان',
+    schema: integer(1000, 1000000000, 'عدد بین 1,000 و 1,000,000,000 تومان وارد کنید.'),
+    default: 50000,
+  }),
+  'wallet.topup_max': make({
+    key: 'wallet.topup_max',
+    group: 'wallet',
+    label: 'حداکثر مبلغ شارژ کیف پول',
+    hint: 'بیشتر از این مبلغ در یک شارژ پذیرفته نمی‌شود.',
+    kind: 'integer',
+    unit: 'تومان',
+    schema: integer(1000, 1000000000, 'عدد بین 1,000 و 1,000,000,000 تومان وارد کنید.'),
+    default: 50000000,
+  }),
+  'withdrawal.min': make({
+    key: 'withdrawal.min',
+    group: 'wallet',
+    label: 'حداقل مبلغ برداشت',
+    hint: 'فقط همکاران فروش برداشت دارند. درخواست کمتر از این مبلغ رد می‌شود.',
+    kind: 'integer',
+    unit: 'تومان',
+    schema: integer(1000, 1000000000, 'عدد بین 1,000 و 1,000,000,000 تومان وارد کنید.'),
+    default: 200000,
+  }),
+  'withdrawal.max': make({
+    key: 'withdrawal.max',
+    group: 'wallet',
+    label: 'سقف هر درخواست برداشت',
+    hint: 'بیشتر از این مبلغ در یک درخواست پذیرفته نمی‌شود.',
+    kind: 'integer',
+    unit: 'تومان',
+    schema: integer(1000, 1000000000, 'عدد بین 1,000 و 1,000,000,000 تومان وارد کنید.'),
+    default: 20000000,
+  }),
+  'withdrawal.single_pending': make({
+    key: 'withdrawal.single_pending',
+    group: 'wallet',
+    label: 'فقط یک درخواست برداشت در حال بررسی',
+    hint: 'روشن: تا وقتی درخواست قبلی همکار پرداخت یا رد نشده، درخواست تازه پذیرفته نمی‌شود.',
+    kind: 'boolean',
+    schema: z.boolean(),
+    default: true,
+  }),
+  'withdrawal.source': make({
+    key: 'withdrawal.source',
+    group: 'wallet',
+    label: 'سقف قابل‌برداشت',
+    hint: 'پیش‌فرض: فقط از پورسانت (مجموع پورسانت‌های واریزشده منهای برداشت‌های قبلی). گزینه‌ی دوم: از کل موجودی کیف پول.',
+    kind: 'enum',
+    schema: z.enum(['commission', 'balance']) as z.ZodType<'commission' | 'balance'>,
+    default: 'commission' as 'commission' | 'balance',
+    options: [
+      { value: 'commission', label: 'فقط از پورسانت (پیش‌فرض)' },
+      { value: 'balance', label: 'از کل موجودی' },
+    ],
+  }),
+  'sms.event.topup_ok.enabled': make({
+    key: 'sms.event.topup_ok.enabled',
+    group: 'sms',
+    label: 'پیامک «شارژ موفق کیف پول»',
+    kind: 'boolean',
+    schema: z.boolean(),
+    default: false,
+  }),
+  'sms.event.topup_ok.template': make({
+    key: 'sms.event.topup_ok.template',
+    group: 'sms',
+    label: 'کد الگوی «شارژ موفق کیف پول»',
+    hint: 'متغیرهای مجاز (به همین ترتیب به الگوی سرویس‌دهنده داده می‌شوند): {total}',
+    kind: 'text',
+    schema: templateSchema,
+    default: '',
+  }),
+  'sms.event.withdrawal_requested.enabled': make({
+    key: 'sms.event.withdrawal_requested.enabled',
+    group: 'sms',
+    label: 'پیامک «ثبت درخواست برداشت»',
+    kind: 'boolean',
+    schema: z.boolean(),
+    default: false,
+  }),
+  'sms.event.withdrawal_requested.template': make({
+    key: 'sms.event.withdrawal_requested.template',
+    group: 'sms',
+    label: 'کد الگوی «ثبت درخواست برداشت»',
+    hint: 'متغیرهای مجاز (به همین ترتیب به الگوی سرویس‌دهنده داده می‌شوند): {total}',
+    kind: 'text',
+    schema: templateSchema,
+    default: '',
+  }),
+  'sms.event.withdrawal_paid.enabled': make({
+    key: 'sms.event.withdrawal_paid.enabled',
+    group: 'sms',
+    label: 'پیامک «پرداخت برداشت (با کد پیگیری)»',
+    kind: 'boolean',
+    schema: z.boolean(),
+    default: false,
+  }),
+  'sms.event.withdrawal_paid.template': make({
+    key: 'sms.event.withdrawal_paid.template',
+    group: 'sms',
+    label: 'کد الگوی «پرداخت برداشت (با کد پیگیری)»',
+    hint: 'متغیرهای مجاز (به همین ترتیب به الگوی سرویس‌دهنده داده می‌شوند): {total} {tracking}',
+    kind: 'text',
+    schema: templateSchema,
+    default: '',
+  }),
+  'sms.event.withdrawal_rejected.enabled': make({
+    key: 'sms.event.withdrawal_rejected.enabled',
+    group: 'sms',
+    label: 'پیامک «رد درخواست برداشت»',
+    kind: 'boolean',
+    schema: z.boolean(),
+    default: false,
+  }),
+  'sms.event.withdrawal_rejected.template': make({
+    key: 'sms.event.withdrawal_rejected.template',
+    group: 'sms',
+    label: 'کد الگوی «رد درخواست برداشت»',
+    hint: 'متغیرهای مجاز (به همین ترتیب به الگوی سرویس‌دهنده داده می‌شوند): {total}',
+    kind: 'text',
+    schema: templateSchema,
+    default: '',
+  }),
   'orders.customer_cancel_enabled': make({
     key: 'orders.customer_cancel_enabled',
     group: 'orders',
@@ -457,6 +587,7 @@ export const GROUPS: ReadonlyArray<{ id: SettingGroup; label: string }> = [
   { id: 'commission', label: 'پورسانت' },
   { id: 'sms', label: 'پیامک' },
   { id: 'payment', label: 'پرداخت' },
+  { id: 'wallet', label: 'کیف پول و برداشت' },
 ];
 
 export const isSettingKey = (k: string): k is SettingKey => Object.hasOwn(SETTINGS, k);
