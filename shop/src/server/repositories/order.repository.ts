@@ -374,6 +374,89 @@ export const orderRepository = {
     return added;
   },
 
+  /**
+   * A transaction-scoped advisory lock on one order's progress: false when another run (a tick, a page view) holds it.
+   * Released at the end of the transaction it was taken in.
+   */
+  async tryAdvanceLock(id: string, db: Queryable): Promise<boolean> {
+    const row = await queryOne<{ got: boolean }>(
+      'order.advance_lock',
+      `SELECT pg_try_advisory_xact_lock(hashtextextended('order-advance:' || $1::text, 0)) AS got`,
+      [id],
+      db,
+    );
+    return row?.got === true;
+  },
+
+  /** Orders that may still move (paid and not final), the next ones after `afterId` in id order (wraps at the end by the caller). */
+  async advanceCandidates(
+    afterId: string | null,
+    limit: number,
+    db?: Queryable,
+  ): Promise<Array<{ id: string; number: string }>> {
+    return query<{ id: string; number: string }>(
+      'order.advance_candidates',
+      `SELECT id::text, number FROM orders
+        WHERE status IN ('queued', 'placing', 'awaiting_payment', 'supplier_paid', 'needs_review')
+          AND ($1::bigint IS NULL OR id > $1::bigint)
+        ORDER BY id LIMIT $2`,
+      [afterId, limit],
+      db,
+    );
+  },
+
+  /** Paid orders still waiting to be registered since before `cutoff` that have no stuck alert yet. */
+  async stuckCandidates(
+    cutoff: Date,
+    limit: number,
+    db?: Queryable,
+  ): Promise<Array<{ id: string; number: string }>> {
+    return query<{ id: string; number: string }>(
+      'order.stuck_candidates',
+      `SELECT o.id::text, o.number FROM orders o
+        WHERE o.status = 'queued' AND o.paid_at IS NOT NULL AND o.paid_at < $1
+          AND NOT EXISTS (SELECT 1 FROM order_events e WHERE e.order_id = o.id AND e.kind = 'stuck_alert')
+        ORDER BY o.paid_at LIMIT $2`,
+      [cutoff, limit],
+      db,
+    );
+  },
+
+  /** Appends an event only if the order has none of that kind yet (one statement, so a repeat is a no-op); true when it was added. */
+  async appendEventOnce(orderId: string, kind: string, data: unknown, db?: Queryable): Promise<boolean> {
+    const rows = await query<{ id: string }>(
+      'order.event_once',
+      `INSERT INTO order_events (order_id, kind, actor_user_id, data)
+       SELECT $1::bigint, $2::text, NULL, $3::jsonb
+        WHERE NOT EXISTS (SELECT 1 FROM order_events WHERE order_id = $1::bigint AND kind = $2::text)
+       RETURNING id::text`,
+      [orderId, kind, data === null ? null : JSON.stringify(data)],
+      db,
+    );
+    return rows.length === 1;
+  },
+
+  /** For the panel's «نیازمند توجه»: orders a person has to look at (stopped for review, or stuck waiting). Numbers only, no customer data. */
+  async needingAttention(limit: number, db?: Queryable) {
+    return query<{
+      number: string;
+      status: OrderStatus;
+      paid_at: Date | null;
+      needs_review_reason: string | null;
+      stuck: boolean;
+    }>(
+      'order.attention',
+      `SELECT o.number, o.status, o.paid_at, o.needs_review_reason,
+              EXISTS (SELECT 1 FROM order_events e WHERE e.order_id = o.id AND e.kind = 'stuck_alert') AS stuck
+         FROM orders o
+        WHERE o.status = 'needs_review'
+           OR (o.status = 'queued' AND EXISTS (SELECT 1 FROM order_events e WHERE e.order_id = o.id AND e.kind = 'stuck_alert'))
+        ORDER BY o.paid_at NULLS LAST LIMIT $1`,
+      [limit],
+      db,
+    );
+  },
+
   async appendEvent(
     orderId: string,
     kind: string,

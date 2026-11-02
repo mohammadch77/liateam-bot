@@ -21,6 +21,9 @@ const KEYS = [
   'orders.auto_place_enabled',
   'orders.auto_place_hours',
   'orders.price_tolerance_toman',
+  'orders.stuck_alert_minutes',
+  'orders.operator_phone',
+  'sms.operator_template',
 ];
 const lit = (v) => `$j$${JSON.stringify(v)}$j$::jsonb`;
 

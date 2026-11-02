@@ -1,4 +1,5 @@
 import 'server-only';
+import { authorize } from '@/server/auth/guards';
 import { orderRepository, type OrderItemRow, type OrderRow } from '@/server/repositories/order.repository';
 
 /**
@@ -9,6 +10,12 @@ import { orderRepository, type OrderItemRow, type OrderRow } from '@/server/repo
 export type OrderWithItems = OrderRow & { items: OrderItemRow[] };
 
 export const orderService = {
+  /** For the admin's «نیازمند توجه»: paid orders a person has to look at (stopped for review, or waiting too long). Numbers only. */
+  async needingAttention(limit = 20) {
+    await authorize('admin');
+    return orderRepository.needingAttention(Math.min(Math.max(limit, 1), 100));
+  },
+
   async forUser(userId: string, number: string): Promise<OrderWithItems | null> {
     if (!/^AV-\d{4,12}$/.test(number)) return null;
     const order = await orderRepository.findByNumberForUser(number, userId);

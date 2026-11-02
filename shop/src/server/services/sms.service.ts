@@ -125,6 +125,29 @@ export const smsService = {
     }
   },
 
+  /**
+   * The operator's alert about a stuck order: one template SMS with the order number, only when the admin saved both the
+   * operator's number and the alert template. Never throws; the caller guarantees «once per order».
+   */
+  async sendOperatorAlert(orderNo: string, orderId: string): Promise<'sent' | 'skipped' | 'failed'> {
+    try {
+      const phone = await settingsRead.get('orders.operator_phone');
+      const template = await settingsRead.get('sms.operator_template');
+      if (!phone || !template) return 'skipped';
+      const { provider, id } = await resolve();
+      await logged({ phone, purpose: 'other', provider: id, orderId }, () =>
+        provider.sendTemplate(phone, template, { order_no: orderNo }),
+      );
+      return 'sent';
+    } catch (e) {
+      logger.warn('sms.operator_alert_failed', {
+        order: orderNo,
+        err: e instanceof Error ? e.message : 'unknown',
+      });
+      return 'failed';
+    }
+  },
+
   /** «ارسال آزمایشی»: only to the signed-in admin's own number, 3 per 10 minutes; audited */
   async sendTest(meta: RequestMeta): Promise<{ ok: boolean; message: string; provider: string }> {
     const admin = await authorize('admin');

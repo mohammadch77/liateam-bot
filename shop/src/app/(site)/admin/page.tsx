@@ -5,6 +5,7 @@ import { adminSettingsPath } from '@/lib/urls';
 import { healthService } from '@/server/services/health.service';
 import { requireRole } from '@/server/auth/guards';
 import { auditService } from '@/server/services/audit.service';
+import { orderService } from '@/server/services/order.service';
 import { Breadcrumb, Container } from '@/ui';
 import s from '../account/account.module.css';
 
@@ -49,10 +50,11 @@ const timeFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'short
 /** Role-restricted example: admins only (everyone else gets HTTP 403). Placeholder for the phase-3 admin panel. */
 export default async function AdminPage() {
   const user = await requireRole('admin', '/admin');
-  const [events, sync, previous] = await Promise.all([
+  const [events, sync, previous, attention] = await Promise.all([
     auditService.recent(20),
     healthService.syncStatus().catch(() => null),
     auditService.previousLogin().catch(() => null),
+    orderService.needingAttention().catch(() => []),
   ]);
   const when = (d: Date | null) => (d ? timeFa.format(d) : '—');
 
@@ -85,6 +87,35 @@ export default async function AdminPage() {
           {' · '}
           ورود فعلی: {when(user.sessionCreatedAt)}
         </p>
+      </section>
+
+      <section
+        className={s.card}
+        aria-labelledby="attention-title"
+        style={{ maxWidth: 'none' }}
+        data-attention
+      >
+        <h2 id="attention-title" className={s.title}>
+          نیازمند توجه
+        </h2>
+        {attention.length ? (
+          <dl className={s.list}>
+            {attention.map((o) => (
+              <div key={o.number} data-attention-order={o.number}>
+                <dt>
+                  <span className="tnum">{o.number}</span> · پرداخت: {when(o.paid_at)}
+                </dt>
+                <dd>
+                  {o.status === 'needs_review'
+                    ? `متوقف برای بررسی${o.needs_review_reason ? `: ${o.needs_review_reason}` : ''}`
+                    : 'پرداخت‌شده و هنوز در صف ثبت (بیش از حد انتظار)'}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p>سفارشی منتظر بررسی نیست.</p>
+        )}
       </section>
 
       <section className={s.card} aria-labelledby="sync-title" style={{ maxWidth: 'none' }} data-sync-status>

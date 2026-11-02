@@ -1,0 +1,14 @@
+# Every 60 seconds for the Avina shop's order worker (avina-shop-tick.service). The next run is counted from the END of the
+# previous one, so slow runs never pile up.
+
+[Unit]
+Description=Avina shop — order worker, every 60 seconds
+
+[Timer]
+OnBootSec=90
+OnUnitInactiveSec=60
+AccuracySec=5s
+Unit=avina-shop-tick.service
+
+[Install]
+WantedBy=timers.target

@@ -53,6 +53,12 @@ const schema = z.object({
   /** No discount (and no pack) takes the price under the purchase price plus this margin. */
   DISCOUNT_MIN_MARGIN_PERCENT: z.coerce.number().min(0).max(50).default(1),
 
+  /**
+   * Shared secret of POST /api/internal/tick (the background worker that moves paid orders on, called by
+   * scripts/tick.mjs from a systemd timer on the same machine). Empty = the endpoint is off (404).
+   */
+  CRON_SECRET: z.string().min(32, 'at least 32 characters, e.g. `openssl rand -hex 32`').optional(),
+
   // ── Admin secrets (S2: SMS / payment keys saved from /admin/settings) ──
   /** 32 bytes as 64 hex characters (`openssl rand -hex 32`). Without it the panel cannot store secrets (it says so). */
   SETTINGS_ENCRYPTION_KEY: z

@@ -1,0 +1,35 @@
+# Avina shop — the order worker's heartbeat (template). Once a minute (avina-shop-tick.timer) it asks the running shop
+# (127.0.0.1:3861) to move its PAID orders one step further without anyone opening their page: hand them to the sync bot's
+# queue, place them at Liateam when automatic placing is on and inside the working hours, follow the bot's progress, and flag
+# orders that wait too long (shown under «نیازمند توجه» in /admin). The script only makes one local HTTP call
+# (POST /api/internal/tick with CRON_SECRET); the work is done by the shop itself.
+# Needs CRON_SECRET in /opt/avina-shop/.env (README «کارگر پیشروی سفارش»). Install (once, by hand):
+#   sudo cp avina-shop-tick.{service,timer} /etc/systemd/system/ && sudo systemctl daemon-reload
+#   sudo systemctl enable --now avina-shop-tick.timer
+# Undo:   sudo systemctl disable --now avina-shop-tick.timer
+#         sudo rm /etc/systemd/system/avina-shop-tick.{service,timer} && sudo systemctl daemon-reload
+
+[Unit]
+Description=Avina shop — move paid orders one step further (tick)
+After=avina-shop.service
+Requires=avina-shop.service
+
+[Service]
+# oneshot: systemd never starts a second copy while one is still running, and the timer waits for it to finish
+Type=oneshot
+User=avina
+Group=avina
+WorkingDirectory=/opt/avina-shop
+EnvironmentFile=/opt/avina-shop/.env
+Environment=PORT=3861
+ExecStart=/usr/bin/env node scripts/tick.mjs
+# the shop caps one run at about 40 s; a stuck call is cut off here
+TimeoutStartSec=120
+Nice=10
+MemoryMax=128M
+CPUQuota=20%
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true

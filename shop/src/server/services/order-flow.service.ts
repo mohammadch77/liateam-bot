@@ -5,6 +5,7 @@ import type { OrderStatus } from '@/lib/orders/status';
 import type { SmsEventKey } from '@/lib/sms/events';
 import { botOrderRepository } from '@/server/repositories/bot-order.repository';
 import { orderRepository, type OrderRow } from '@/server/repositories/order.repository';
+import { withTransaction } from '@/server/repositories/transaction';
 import { userRepository } from '@/server/repositories/user.repository';
 import { orderCommissionService } from './order-commission.service';
 import { orderSettingsService } from './order-settings.service';
@@ -73,21 +74,22 @@ export const orderFlowService = {
    * create job (right after payment); later calls just look. Returns the order as it is afterwards.
    */
   async advance(orderId: string, opts: { waitMs?: number } = {}): Promise<OrderRow | null> {
-    let order = await orderRepository.findById(orderId);
-    if (!order || !WORKING.includes(order.status)) return order;
-    try {
-      order = await create(order, opts.waitMs ?? 0);
-      if (order.bot_order_id !== null) {
-        await place(order);
-        order = (await mirror(order)) ?? order;
-      }
-    } catch (e) {
-      logger.error('order_flow.advance_failed', {
-        order: order.number,
-        err: e instanceof Error ? e.message : 'unknown',
-      });
-    }
-    return (await orderRepository.findById(orderId)) ?? order;
+    return (await this.advanceLocked(orderId, opts)).order;
+  },
+
+  /**
+   * advance() under a per-order lock: two runs at once (two ticks, a tick and someone looking at the page) never move the same
+   * order twice; the one that finds it locked returns at once with `ran: false`.
+   */
+  async advanceLocked(
+    orderId: string,
+    opts: { waitMs?: number } = {},
+  ): Promise<{ ran: boolean; order: OrderRow | null }> {
+    return withTransaction(async (db) => {
+      if (!(await orderRepository.tryAdvanceLock(orderId, db)))
+        return { ran: false, order: await orderRepository.findById(orderId) };
+      return { ran: true, order: await run(orderId, opts) };
+    });
   },
 };
 
@@ -203,4 +205,23 @@ async function mirror(order: OrderRow): Promise<OrderRow | null> {
     }
   }
   return current;
+}
+
+/** the steps themselves (create, place, mirror), called with the order's lock held */
+async function run(orderId: string, opts: { waitMs?: number }): Promise<OrderRow | null> {
+  let order = await orderRepository.findById(orderId);
+  if (!order || !WORKING.includes(order.status)) return order;
+  try {
+    order = await create(order, opts.waitMs ?? 0);
+    if (order.bot_order_id !== null) {
+      await place(order);
+      order = (await mirror(order)) ?? order;
+    }
+  } catch (e) {
+    logger.error('order_flow.advance_failed', {
+      order: order.number,
+      err: e instanceof Error ? e.message : 'unknown',
+    });
+  }
+  return (await orderRepository.findById(orderId)) ?? order;
 }

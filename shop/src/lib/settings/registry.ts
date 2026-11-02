@@ -181,6 +181,28 @@ export const SETTINGS = {
     default: 10,
   }),
 
+  'orders.stuck_alert_minutes': make({
+    key: 'orders.stuck_alert_minutes',
+    group: 'orders',
+    label: 'هشدار سفارش گیرکرده',
+    hint: 'اگر سفارش پرداخت‌شده بیش از این مدت در «در انتظار ثبت» بماند، در بخش «نیازمند توجه» پنل مدیریت فهرست می‌شود (و در صورت وجود شماره‌ی اپراتور پیامک می‌رود).',
+    kind: 'integer',
+    unit: 'دقیقه',
+    schema: integer(5, 1440, 'عدد بین ۵ و ۱۴۴۰ دقیقه وارد کنید.'),
+    default: 30,
+  }),
+  'orders.operator_phone': make({
+    key: 'orders.operator_phone',
+    group: 'orders',
+    label: 'شماره‌ی موبایل اپراتور برای هشدار',
+    hint: 'اختیاری. فقط یک پیامک برای هر سفارش گیرکرده؛ نیاز به «کد الگوی هشدار اپراتور» در بخش پیامک دارد.',
+    kind: 'text',
+    schema: z
+      .string()
+      .trim()
+      .regex(/^(09\d{9})?$/, 'شماره‌ی موبایل باید به شکل 09123456789 باشد (خالی = بدون پیامک).'),
+    default: '',
+  }),
   'shipping.free_enabled': make({
     key: 'shipping.free_enabled',
     group: 'shipping',
@@ -303,6 +325,15 @@ export const SETTINGS = {
     group: 'sms',
     label: 'کد الگوی پیامک ورود (OTP)',
     hint: 'الگوی تأییدشده‌ی سرویس‌دهنده که کد ورود را می‌فرستد (متغیر: کد).',
+    kind: 'text',
+    schema: templateSchema,
+    default: '',
+  }),
+  'sms.operator_template': make({
+    key: 'sms.operator_template',
+    group: 'sms',
+    label: 'کد الگوی هشدار اپراتور (سفارش گیرکرده)',
+    hint: 'الگوی سرویس‌دهنده با یک متغیر: شماره‌ی سفارش (order_no). خالی = پیامک هشدار فرستاده نمی‌شود.',
     kind: 'text',
     schema: templateSchema,
     default: '',

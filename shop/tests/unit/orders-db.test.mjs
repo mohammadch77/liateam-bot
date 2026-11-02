@@ -342,3 +342,26 @@ scenario(
   ${mustRaise('check_violation', `INSERT INTO commissions (order_id, affiliate_user_id, base_amount, amount, level, hold_days) VALUES (o, u, 1, 1, 6, 0);`)} -- level 1..5
 `,
 );
+
+// ── D2: the worker's database guarantees ──
+scenario(
+  'order tick: a stuck alert is added once per order; the candidates are the paid orders that can still move',
+  `
+  UPDATE orders SET status = 'queued', paid_at = now() - interval '2 hours' WHERE id = o;
+  INSERT INTO order_events (order_id, kind, actor_user_id, data) SELECT o, 'stuck_alert', NULL, '{}'::jsonb
+    WHERE NOT EXISTS (SELECT 1 FROM order_events WHERE order_id = o AND kind = 'stuck_alert');
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 1 THEN RAISE EXCEPTION 'first stuck alert not added'; END IF;
+  INSERT INTO order_events (order_id, kind, actor_user_id, data) SELECT o, 'stuck_alert', NULL, '{}'::jsonb
+    WHERE NOT EXISTS (SELECT 1 FROM order_events WHERE order_id = o AND kind = 'stuck_alert');
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'a second stuck alert was added'; END IF;
+  -- the advisory lock is taken and (in the same session) retaken; a different key is independent
+  IF NOT pg_try_advisory_xact_lock(hashtextextended('order-advance:' || o::text, 0)) THEN RAISE EXCEPTION 'lock refused'; END IF;
+  SELECT count(*) INTO n FROM orders WHERE id = o AND status IN ('queued', 'placing', 'awaiting_payment', 'supplier_paid', 'needs_review');
+  IF n <> 1 THEN RAISE EXCEPTION 'a queued order is not a candidate'; END IF;
+  UPDATE orders SET status = 'canceled', canceled_at = now() WHERE id = o;
+  SELECT count(*) INTO n FROM orders WHERE id = o AND status IN ('queued', 'placing', 'awaiting_payment', 'supplier_paid', 'needs_review');
+  IF n <> 0 THEN RAISE EXCEPTION 'a cancelled order is a candidate'; END IF;
+`,
+);

@@ -82,7 +82,7 @@ for (const [name, file] of serverScripts) {
 // off, which makes this Node refuse .ts exactly as Node 20 does.
 const [major, minor] = process.versions.node.split('.').map(Number);
 const canDisableStripping = major > 22 || (major === 22 && minor >= 10);
-for (const name of ['admin:create', 'admin:revoke', 'grant-role']) {
+for (const name of ['admin:create', 'admin:revoke', 'grant-role', 'tick']) {
   test(`npm run ${name} -- --help runs ${canDisableStripping ? 'with type stripping off (like Node 20)' : 'on this Node'}`, () => {
     const file = serverScripts.find(([n]) => n === name)[1];
     const r = spawnSync(
@@ -108,4 +108,17 @@ test('the phone logic is one module: phone.ts only re-exports phone.mjs', () => 
 
 test('engines matches the server (Node 20)', () => {
   assert.match(pkg.engines.node, />=20/);
+});
+
+test('the tick service and timer: a oneshot as avina running scripts/tick.mjs every 60 s, secret from the environment file', () => {
+  const dir = path.join(root, 'deploy/avina');
+  const service = fs.readFileSync(path.join(dir, 'avina-shop-tick.service'), 'utf8');
+  const timer = fs.readFileSync(path.join(dir, 'avina-shop-tick.timer'), 'utf8');
+  assert.match(service, /^Type=oneshot$/m);
+  assert.match(service, /^User=avina$/m);
+  assert.match(service, /^EnvironmentFile=\/opt\/avina-shop\/\.env$/m);
+  assert.match(service, /^ExecStart=\/usr\/bin\/env node scripts\/tick\.mjs$/m);
+  assert.ok(!/CRON_SECRET=\S/.test(service), 'no secret in the unit file');
+  assert.match(timer, /^OnUnitInactiveSec=60$/m);
+  assert.match(timer, /^Unit=avina-shop-tick\.service$/m);
 });
