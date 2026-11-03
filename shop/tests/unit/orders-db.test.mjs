@@ -180,7 +180,8 @@ scenario(
   ${mustRaise('check_violation', `UPDATE commissions SET status = 'paid', paid_at = now() WHERE order_id = o;`)} -- pending cannot jump to paid
   ${mustRaise('integrity_constraint_violation', `UPDATE commissions SET amount = 9 WHERE order_id = o;`)}
   UPDATE commissions SET status = 'approved' WHERE order_id = o;
-  UPDATE commissions SET status = 'paid', paid_at = now() WHERE order_id = o;
+  INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key, order_id) VALUES (v, 'commission', 5000, 0, 'commission-seed-0001', o) RETURNING id INTO n;
+  UPDATE commissions SET status = 'paid', paid_at = now(), wallet_entry_id = n WHERE order_id = o;
   ${mustRaise('check_violation', `UPDATE commissions SET status = 'cancelled' WHERE order_id = o;`)}
   ${mustRaise('check_violation', `INSERT INTO commission_rules (name, kind, value, scope_type, level, hold_days) VALUES ('x', 'percent', 101, 'all', 1, 0);`)}
 `,
@@ -434,5 +435,24 @@ scenario(
   IF (SELECT balance_after FROM wallet_ledger WHERE user_id = u ORDER BY id DESC LIMIT 1) <> 400000 THEN RAISE EXCEPTION 'return balance'; END IF;
   ${mustRaise('check_violation', `UPDATE withdrawals SET status = 'paid', decided_at = now(), paid_ref = 'ABC123' WHERE id = j;`)}
   ${mustRaise('check_violation', `INSERT INTO withdrawals (user_id, amount, iban, holder_name) VALUES (u, 5, 'IR12', 'Test Holder');`)}
+`,
+);
+
+scenario(
+  'commission payout: a paid commission needs its wallet row, is credited once (key = the commission) and can no longer be cancelled; a manual-approval flag is kept',
+  `
+  INSERT INTO commissions (order_id, affiliate_user_id, base_amount, amount, hold_days, release_at, manual_approval, level)
+    VALUES (o, v, 100000, 5000, 0, now(), true, 1) RETURNING id INTO j;
+  IF NOT (SELECT manual_approval FROM commissions WHERE id = j) THEN RAISE EXCEPTION 'manual flag lost'; END IF;
+  UPDATE commissions SET status = 'approved', decided_at = now() WHERE id = j;
+  ${mustRaise('check_violation', `UPDATE commissions SET status = 'paid', paid_at = now() WHERE id = j;`)}
+  INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key, order_id) VALUES (v, 'commission', 5000, 0, 'commission:' || j, o) RETURNING id INTO n;
+  INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key, order_id) VALUES (v, 'commission', 5000, 0, 'commission:' || j, o) ON CONFLICT (idempotency_key) DO NOTHING;
+  GET DIAGNOSTICS r = ROW_COUNT;
+  IF r::int <> 0 THEN RAISE EXCEPTION 'a commission was credited twice'; END IF;
+  UPDATE commissions SET status = 'paid', paid_at = now(), wallet_entry_id = n WHERE id = j;
+  IF (SELECT balance_after FROM wallet_ledger WHERE user_id = v ORDER BY id DESC LIMIT 1) <> 5000 THEN RAISE EXCEPTION 'balance after payout'; END IF;
+  ${mustRaise('check_violation', `UPDATE commissions SET status = 'cancelled' WHERE id = j;`)}
+  ${mustRaise('integrity_constraint_violation', `UPDATE commissions SET amount = 1 WHERE id = j;`)}
 `,
 );

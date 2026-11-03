@@ -38,6 +38,8 @@ const KEYS = [
   'sms.event.withdrawal_paid.template',
   'sms.event.withdrawal_rejected.enabled',
   'sms.event.withdrawal_rejected.template',
+  'sms.event.commission_paid.enabled',
+  'sms.event.commission_paid.template',
   'sms.operator_template',
 ];
 const lit = (v) => `$j$${JSON.stringify(v)}$j$::jsonb`;

@@ -311,6 +311,23 @@ export const SETTINGS = {
     schema: templateSchema,
     default: '',
   }),
+  'sms.event.commission_paid.enabled': make({
+    key: 'sms.event.commission_paid.enabled',
+    group: 'sms',
+    label: 'پیامک «واریز پورسانت به کیف پول»',
+    kind: 'boolean',
+    schema: z.boolean(),
+    default: false,
+  }),
+  'sms.event.commission_paid.template': make({
+    key: 'sms.event.commission_paid.template',
+    group: 'sms',
+    label: 'کد الگوی «واریز پورسانت به کیف پول»',
+    hint: 'متغیرهای مجاز (به همین ترتیب به الگوی سرویس‌دهنده داده می‌شوند): {total}',
+    kind: 'text',
+    schema: templateSchema,
+    default: '',
+  }),
   'orders.customer_cancel_enabled': make({
     key: 'orders.customer_cancel_enabled',
     group: 'orders',

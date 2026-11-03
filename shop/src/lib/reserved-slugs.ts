@@ -29,6 +29,7 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'newsletter',
   'offers',
   'orders',
+  'r', // the referral link /r/<code>
   'p', // the old product prefix: /p/… redirects permanently to /shop/product/<slug>
   'packs',
   'payment', // the gateway's return and the dev simulator

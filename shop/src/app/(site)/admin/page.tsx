@@ -6,6 +6,7 @@ import { healthService } from '@/server/services/health.service';
 import { requireRole } from '@/server/auth/guards';
 import { auditService } from '@/server/services/audit.service';
 import { orderService } from '@/server/services/order.service';
+import { commissionAdminService } from '@/server/services/commission-admin.service';
 import { withdrawalService } from '@/server/services/withdrawal.service';
 import { Breadcrumb, Container } from '@/ui';
 import s from '../account/account.module.css';
@@ -21,6 +22,8 @@ const ACTION_LABEL: Record<string, string> = {
   'secret.update': 'تعویض کلید رمزنگاری‌شده',
   'shipping.update': 'تغییر تنظیمات ارسال',
   'review.submit': 'ثبت دیدگاه',
+  'commission.approve': 'تأیید و واریز پورسانت',
+  'commission.cancel': 'لغو پورسانت',
   'withdrawal.request': 'درخواست برداشت',
   'withdrawal.paid': 'پرداخت برداشت',
   'withdrawal.reject': 'رد برداشت',
@@ -55,12 +58,13 @@ const timeFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'short
 /** Role-restricted example: admins only (everyone else gets HTTP 403). Placeholder for the phase-3 admin panel. */
 export default async function AdminPage() {
   const user = await requireRole('admin', '/admin');
-  const [events, sync, previous, attention, pendingWithdrawals] = await Promise.all([
+  const [events, sync, previous, attention, pendingWithdrawals, manualCommissions] = await Promise.all([
     auditService.recent(20),
     healthService.syncStatus().catch(() => null),
     auditService.previousLogin().catch(() => null),
     orderService.needingAttention().catch(() => []),
     withdrawalService.pendingCount().catch(() => 0),
+    commissionAdminService.awaitingManual().catch(() => 0),
   ]);
   const when = (d: Date | null) => (d ? timeFa.format(d) : '—');
 
@@ -104,6 +108,13 @@ export default async function AdminPage() {
         <h2 id="attention-title" className={s.title}>
           نیازمند توجه
         </h2>
+        {manualCommissions > 0 && (
+          <p data-attention-commissions>
+            <Link href="/admin/commissions?status=pending">
+              {toFaDigits(manualCommissions)} پورسانت منتظر تأیید دستی است
+            </Link>
+          </p>
+        )}
         {pendingWithdrawals > 0 && (
           <p data-attention-withdrawals>
             <Link href="/admin/withdrawals?status=pending">

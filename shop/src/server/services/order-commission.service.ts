@@ -46,6 +46,7 @@ export const orderCommissionService = {
       chain,
       now,
     );
+    const manual = await commissionRuleRepository.manualIds(db);
     let made = 0;
     for (const it of result.items) {
       if (it.amount <= 0) continue;
@@ -58,6 +59,7 @@ export const orderCommissionService = {
           amount: it.amount,
           level: it.level,
           holdDays: it.holdDays,
+          manualApproval: it.ruleIds.some((id) => manual.has(Number(id))),
         },
         db,
       );

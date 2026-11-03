@@ -16,6 +16,8 @@ import {
   hmacOtp,
   safeEqualHex,
 } from '@/server/security/crypto';
+import { clearReferralCode, readReferralCode } from '@/server/auth/referral-cookie';
+import { commissionRepository } from '@/server/repositories/commission.repository';
 import { smsService } from './sms.service';
 
 /** Security policy for sign-in. All limits in one place. */
@@ -127,6 +129,7 @@ export const authService = {
       throw new AppError('INVALID_CODE');
     }
 
+    const refCode = await readReferralCode().catch(() => null); // from the referral link, if this browser followed one
     const { token, hash } = generateSessionToken();
     const signedIn = await withTransaction(async (db) => {
       if (!(await otpRepository.consume(db, otp.id))) throw new AppError('INVALID_CODE'); // replayed
@@ -165,8 +168,18 @@ export const authService = {
         },
         db,
       );
+      // a FIRST sign-up through a referral link: the referrer is fixed now (a repeat changes nothing, nobody refers themselves)
+      if (created && refCode) {
+        try {
+          const referrer = await commissionRepository.userByCode(refCode, db);
+          if (referrer && referrer !== user.id) await commissionRepository.refer(user.id, referrer, refCode, db);
+        } catch (e) {
+          logger.warn('auth.referral_failed', { err: e instanceof Error ? e.message : 'unknown' });
+        }
+      }
       return { userId: user.id, expiresAt: session.expires_at, isNewUser: created };
     });
+    if (refCode) await clearReferralCode().catch(() => {});
 
     logger.info('auth.login', { userId: signedIn.userId, newUser: signedIn.isNewUser });
     return { ...signedIn, token };

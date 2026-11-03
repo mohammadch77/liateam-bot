@@ -4,6 +4,7 @@ import { runTick, stuckCutoff, type TickResult } from '@/lib/orders/tick';
 import { orderRepository } from '@/server/repositories/order.repository';
 import { siteSettingsRepository } from '@/server/repositories/site-settings.repository';
 import { withTransaction } from '@/server/repositories/transaction';
+import { commissionPayoutService } from './commission-payout.service';
 import { orderFlowService } from './order-flow.service';
 import { settingsRead } from './settings-read.service';
 import { smsService } from './sms.service';
@@ -25,7 +26,7 @@ const CURSOR_KEY = 'system.tick_cursor';
 const STUCK_LIMIT = 50;
 let running = false;
 
-export type TickReport = TickResult & { busy: boolean; stuckAlerts: number };
+export type TickReport = TickResult & { busy: boolean; stuckAlerts: number; commissionsPaid: number };
 
 async function readCursor(): Promise<string | null> {
   try {
@@ -73,6 +74,7 @@ export const orderTickService = {
       stoppedBy: 'done',
       busy: true,
       stuckAlerts: 0,
+      commissionsPaid: 0,
     };
     if (running) return empty; // this process is already ticking (another process is held back by the per-order locks)
     running = true;
@@ -103,14 +105,20 @@ export const orderTickService = {
         logger.error('order_tick.stuck_scan_failed', { err: e instanceof Error ? e.message : 'unknown' });
         return 0;
       });
+      // commissions whose order was sent and whose hold has passed go into the wallets; failures stay in the log
+      const payout = await commissionPayoutService.payDue(50).catch((e) => {
+        logger.error('order_tick.payout_failed', { err: e instanceof Error ? e.message : 'unknown' });
+        return { paid: 0, failed: 0 };
+      });
       logger.info('order_tick.done', {
         tried: r.tried,
         advanced: r.advanced,
         skipped: r.skipped,
         failed: r.failed,
         stuckAlerts,
+        commissionsPaid: payout.paid,
       });
-      return { ...r, busy: false, stuckAlerts };
+      return { ...r, busy: false, stuckAlerts, commissionsPaid: payout.paid };
     } finally {
       running = false;
     }

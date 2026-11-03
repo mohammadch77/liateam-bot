@@ -85,6 +85,7 @@ export function parseRuleForm(f: FormLike): Parsed<RuleInput> {
       minOrderTotal,
       maxPerOrder,
       holdDays,
+      manualApproval: str(f, 'manualApproval') === '1',
       active: str(f, 'active') === '1',
       validFrom,
       validTo,

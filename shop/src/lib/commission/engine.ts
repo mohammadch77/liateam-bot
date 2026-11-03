@@ -38,6 +38,8 @@ export type CommissionRule = {
   minOrderTotal: number;
   maxPerOrder: number | null;
   holdDays: number;
+  /** paid into the wallet only when an admin approves (the engine ignores it: it decides amounts, not payout) */
+  manualApproval?: boolean;
   active: boolean;
   validFrom?: Date | null;
   validTo?: Date | null;

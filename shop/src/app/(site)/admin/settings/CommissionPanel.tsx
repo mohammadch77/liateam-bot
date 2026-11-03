@@ -96,8 +96,12 @@ function RuleForm({ rule }: { rule: CommissionRule | null }) {
         <input type="checkbox" name="active" value="1" defaultChecked={rule?.active ?? false} />
         <span>فعال</span>
       </label>
+      <label className={a.check}>
+        <input type="checkbox" name="manualApproval" value="1" defaultChecked={rule?.manualApproval ?? false} />
+        <span>تأیید دستی: پورسانت این قاعده فقط پس از تأیید ادمین به کیف پول همکار واریز شود</span>
+      </label>
       <p className={a.hint}>
-        هیچ مقداری از قبل پر نشده است. شرط تأیید همیشه «بعد از ارسال شدن سفارش» است. قاعده حذف نمی‌شود؛
+        هیچ مقداری از قبل پر نشده است. شرط تأیید همیشه «بعد از ارسال شدن سفارش» است؛ پس از گذشتن مدت نگهداری، پورسانت خودکار (یا با تأیید ادمین برای قاعدهٔ دستی) به کیف پول واریز می‌شود. قاعده حذف نمی‌شود؛
         غیرفعالش کنید.
       </p>
       <div className={a.actions}>

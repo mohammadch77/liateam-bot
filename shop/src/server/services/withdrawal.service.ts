@@ -19,7 +19,7 @@ import { withdrawalRepository, type WithdrawalRow } from '@/server/repositories/
 import { withTransaction, type Queryable } from '@/server/repositories/transaction';
 import type { SmsEventKey } from '@/lib/sms/events';
 import { settingsRead } from './settings-read.service';
-import { hasRole, type CurrentUser } from './session.service';
+import type { CurrentUser } from './session.service';
 import { smsService } from './sms.service';
 
 /**
@@ -46,7 +46,7 @@ async function settings(): Promise<WalletSettings> {
 }
 
 export async function isAffiliate(user: Pick<CurrentUser, 'id' | 'roles'>): Promise<boolean> {
-  return hasRole(user, 'affiliate') && (await affiliateRepository.hasCode(user.id));
+  return user.roles.includes('affiliate') && (await affiliateRepository.hasCode(user.id));
 }
 
 /** what may be withdrawn right now (also used by the request itself, inside its transaction) */

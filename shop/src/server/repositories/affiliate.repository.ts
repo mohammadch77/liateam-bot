@@ -1,4 +1,5 @@
 import 'server-only';
+import { randomInt } from 'node:crypto';
 import { query, queryOne, type Queryable } from '@/lib/db';
 
 /** «همکاری در فروش» applications (shop schema, table affiliate_applications). */
@@ -138,5 +139,26 @@ export const affiliateRepository = {
       db,
     );
     return r?.ok === true;
+  },
+
+  /** The user's referral code (4-20 lowercase letters / digits), made on first use; a race or a taken code just tries again. */
+  async ensureCode(userId: string, db?: Queryable): Promise<string> {
+    const mine = () =>
+      queryOne<{ code: string }>('affiliate.code', 'SELECT code FROM affiliate_codes WHERE user_id = $1', [userId], db);
+    const have = await mine();
+    if (have) return have.code;
+    const alphabet = 'abcdefghjkmnpqrstuvwxyz23456789';
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const code = Array.from({ length: 8 }, () => alphabet[randomInt(alphabet.length)]).join('');
+      await query(
+        'affiliate.make_code',
+        'INSERT INTO affiliate_codes (user_id, code) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [userId, code],
+        db,
+      );
+      const now = await mine();
+      if (now) return now.code;
+    }
+    throw new Error('could not make a referral code');
   },
 };

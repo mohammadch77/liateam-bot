@@ -245,6 +245,7 @@ export const affiliateService = {
       let granted = false;
       if (decision === 'approved') {
         granted = await userRepository.grantRole(db, row.user_id, 'affiliate', admin.id);
+        await affiliateRepository.ensureCode(row.user_id, db); // the referral code exists from the day of approval
         if (granted) {
           await auditRepository.record(
             {
