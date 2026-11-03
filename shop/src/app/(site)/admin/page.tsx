@@ -76,6 +76,8 @@ export default async function AdminPage() {
           مدیریت
         </h1>
         <p>
+          <Link href="/admin/orders">سفارش‌ها</Link>
+          {' · '}
           <Link href="/admin/reviews">دیدگاه‌های در انتظار تأیید</Link>
           {' · '}
           <Link href="/admin/affiliates">درخواست‌های همکاری در فروش</Link>
@@ -122,16 +124,28 @@ export default async function AdminPage() {
             </Link>
           </p>
         )}
+        {attention.length > 0 && (
+          <p data-attention-orders-count>
+            <Link href="/admin/orders?status=action">{toFaDigits(attention.length)} سفارش نیازمند اقدام اپراتور است</Link>
+          </p>
+        )}
         {attention.length ? (
           <dl className={s.list}>
             {attention.map((o) => (
               <div key={o.number} data-attention-order={o.number}>
                 <dt>
-                  <span className="tnum">{o.number}</span> · پرداخت: {when(o.paid_at)}
+                  <Link href={`/admin/orders/${o.number}`} className="tnum">
+                    {o.number}
+                  </Link>{' '}
+                  · پرداخت: {when(o.paid_at)}
                 </dt>
                 <dd>
                   {o.cancel_requested && ['placing', 'awaiting_payment'].includes(o.status)
                     ? 'مشتری درخواست لغو داده است (سفارش در حال ثبت یا ثبت‌شده نزد لیاتیم است)؛ پس از بررسی، لغو و بازگشت وجه را اپراتور تأیید می‌کند'
+                    : o.status === 'awaiting_payment'
+                    ? o.link_expiring
+                      ? 'مهلت لینک پرداخت لیاتیم رو به پایان است یا تمام شده؛ پرداخت نهایی یا ثبت دوباره لازم است'
+                      : 'ثبت‌شده نزد لیاتیم و منتظر پرداخت نهایی اپراتور'
                     : o.status === 'needs_review'
                     ? `متوقف برای بررسی${o.needs_review_reason ? `: ${o.needs_review_reason}` : ''}`
                     : 'پرداخت‌شده و هنوز در صف ثبت (بیش از حد انتظار)'}

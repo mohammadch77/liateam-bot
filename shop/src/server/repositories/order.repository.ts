@@ -473,7 +473,10 @@ export const orderRepository = {
     return rows.length === 1;
   },
 
-  /** For the panel's «نیازمند توجه»: orders a person has to look at (stopped for review, or stuck waiting). Numbers only, no customer data. */
+  /**
+   * For the panel's «نیازمند توجه»: orders a person has to act on (stopped for review, paid and waiting for the operator to place,
+   * placed at Liateam and waiting for its payment, an unanswered customer cancel request). Numbers only, no customer data.
+   */
   async needingAttention(limit: number, db?: Queryable) {
     return query<{
       number: string;
@@ -482,16 +485,20 @@ export const orderRepository = {
       needs_review_reason: string | null;
       stuck: boolean;
       cancel_requested: boolean;
+      link_expiring: boolean;
     }>(
       'order.attention',
       `SELECT o.number, o.status, o.paid_at, o.needs_review_reason,
               EXISTS (SELECT 1 FROM order_events e WHERE e.order_id = o.id AND e.kind = 'stuck_alert') AS stuck,
-              EXISTS (SELECT 1 FROM order_events e WHERE e.order_id = o.id AND e.kind = 'cancel_requested') AS cancel_requested
+              (EXISTS (SELECT 1 FROM order_events e WHERE e.order_id = o.id AND e.kind = 'cancel_requested')
+               AND NOT EXISTS (SELECT 1 FROM order_events e WHERE e.order_id = o.id AND e.kind IN ('cancel_request_rejected', 'cancel_request_approved'))) AS cancel_requested,
+              EXISTS (SELECT 1 FROM order_events e WHERE e.order_id = o.id AND e.kind = 'payment_link_expiring') AS link_expiring
          FROM orders o
-        WHERE o.status = 'needs_review'
-           OR (o.status = 'queued' AND EXISTS (SELECT 1 FROM order_events e WHERE e.order_id = o.id AND e.kind = 'stuck_alert'))
-           OR (o.status IN ('placing', 'awaiting_payment')
-               AND EXISTS (SELECT 1 FROM order_events e WHERE e.order_id = o.id AND e.kind = 'cancel_requested'))
+        WHERE o.status IN ('needs_review', 'awaiting_payment')
+           OR (o.status = 'queued' AND EXISTS (SELECT 1 FROM order_events e WHERE e.order_id = o.id AND e.kind IN ('stuck_alert', 'waiting_for_placement')))
+           OR (o.status = 'placing'
+               AND EXISTS (SELECT 1 FROM order_events e WHERE e.order_id = o.id AND e.kind = 'cancel_requested')
+               AND NOT EXISTS (SELECT 1 FROM order_events e WHERE e.order_id = o.id AND e.kind IN ('cancel_request_rejected', 'cancel_request_approved')))
         ORDER BY o.paid_at NULLS LAST LIMIT $1`,
       [limit],
       db,

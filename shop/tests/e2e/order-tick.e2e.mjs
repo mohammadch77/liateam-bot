@@ -268,8 +268,8 @@ try {
   await ticksUntil(() => orderRow(o4.number)[0] === 'awaiting_payment');
   await ap.goto(`${BASE}/admin`);
   check(
-    '5e once it moves on, it is no longer listed, and no second alert or SMS was made',
-    (await ap.locator(`[data-attention-order="${o4.number}"]`).count()) === 0 &&
+    '5e once it moves on, it is no longer a stuck order (it waits for the operator payment instead), and no second alert or SMS was made',
+    !(await ap.locator(`[data-attention-order="${o4.number}"]`).innerText().catch(() => '')).includes('بیش از حد انتظار') &&
       count(o4.number, 'stuck_alert') === 1 &&
       smsOp() === 1,
   );

@@ -36,7 +36,7 @@ const jobOf = (events: Awaited<ReturnType<typeof orderRepository.events>>, kind:
 const NEEDS_REVIEW = 'قیمت یا موجودی تغییر کرده یا ثبت خودکار انجام نشد؛ پشتیبانی بررسی می‌کند.';
 
 /** one SMS per order and event (an event row says it was tried); never throws */
-async function notify(
+export async function notify(
   order: OrderRow,
   event: SmsEventKey,
   values: { tracking?: string } = {},

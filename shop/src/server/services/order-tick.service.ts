@@ -6,6 +6,7 @@ import { siteSettingsRepository } from '@/server/repositories/site-settings.repo
 import { withTransaction } from '@/server/repositories/transaction';
 import { commissionPayoutService } from './commission-payout.service';
 import { orderFlowService } from './order-flow.service';
+import { orderOperatorService } from './order-operator.service';
 import { settingsRead } from './settings-read.service';
 import { smsService } from './sms.service';
 
@@ -26,7 +27,7 @@ const CURSOR_KEY = 'system.tick_cursor';
 const STUCK_LIMIT = 50;
 let running = false;
 
-export type TickReport = TickResult & { busy: boolean; stuckAlerts: number; commissionsPaid: number };
+export type TickReport = TickResult & { busy: boolean; stuckAlerts: number; commissionsPaid: number; linkAlerts: number };
 
 async function readCursor(): Promise<string | null> {
   try {
@@ -75,6 +76,7 @@ export const orderTickService = {
       busy: true,
       stuckAlerts: 0,
       commissionsPaid: 0,
+      linkAlerts: 0,
     };
     if (running) return empty; // this process is already ticking (another process is held back by the per-order locks)
     running = true;
@@ -105,6 +107,11 @@ export const orderTickService = {
         logger.error('order_tick.stuck_scan_failed', { err: e instanceof Error ? e.message : 'unknown' });
         return 0;
       });
+      // placed at Liateam and the payment link is about to lapse (or has): one event and one operator SMS per order
+      const linkAlerts = await orderOperatorService.remindExpiringLinks().catch((e) => {
+        logger.error('order_tick.link_remind_failed', { err: e instanceof Error ? e.message : 'unknown' });
+        return 0;
+      });
       // commissions whose order was sent and whose hold has passed go into the wallets; failures stay in the log
       const payout = await commissionPayoutService.payDue(50).catch((e) => {
         logger.error('order_tick.payout_failed', { err: e instanceof Error ? e.message : 'unknown' });
@@ -117,8 +124,9 @@ export const orderTickService = {
         failed: r.failed,
         stuckAlerts,
         commissionsPaid: payout.paid,
+        linkAlerts,
       });
-      return { ...r, busy: false, stuckAlerts, commissionsPaid: payout.paid };
+      return { ...r, busy: false, stuckAlerts, commissionsPaid: payout.paid, linkAlerts };
     } finally {
       running = false;
     }

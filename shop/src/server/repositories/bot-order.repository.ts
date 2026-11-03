@@ -29,6 +29,14 @@ export type BotOrderRow = {
   tracking: unknown;
 };
 
+export type ReviewInfo = {
+  reason: string | null;
+  why: string | null;
+  live_total: number | null;
+  expected_total: number | null;
+  missing: number[] | null;
+};
+
 export type BotOrderItemRow = {
   order_id: number;
   product_id: number;
@@ -147,6 +155,31 @@ export const botOrderRepository = {
       db,
     );
     return row?.ok === true;
+  },
+
+  /**
+   * The OPERATOR cancelling a shop order that was not paid at Liateam (queued, needs_review, or placed and waiting for payment;
+   * deploy/shop-db-roles-019-operator.sql). False = too late (being placed right now) or not in such a status. Same transaction
+   * rule as cancelQueued.
+   */
+  async operatorCancel(botOrderId: number, db?: Queryable): Promise<boolean> {
+    const row = await queryOne<{ ok: boolean }>(
+      'bot.operator_cancel',
+      'SELECT public.shop_operator_cancel_order($1::int) AS ok',
+      [botOrderId],
+      db,
+    );
+    return row?.ok === true;
+  },
+
+  /** Why the bot stopped a shop order in needs_review (null when it is not in needs_review). Customer-facing totals only, never a cost. */
+  async reviewInfo(botOrderId: number, db?: Queryable): Promise<ReviewInfo | null> {
+    return queryOne<ReviewInfo>(
+      'bot.review_info',
+      'SELECT reason, why, live_total::float8, expected_total::float8, missing FROM public.shop_order_review_info($1::int)',
+      [botOrderId],
+      db,
+    );
   },
 
   async orders(botOrderIds: readonly number[], db?: Queryable): Promise<BotOrderRow[]> {

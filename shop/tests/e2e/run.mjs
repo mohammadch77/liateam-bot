@@ -53,6 +53,8 @@ const ALL = [
   'account-wallet-mobile',
   'affiliate-panel',
   'affiliate-panel-mobile',
+  'admin-orders',
+  'admin-orders-mobile',
 ];
 const wanted = process.argv.slice(2);
 const unknown = wanted.filter((n) => !ALL.includes(n));

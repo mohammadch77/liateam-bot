@@ -47,7 +47,7 @@ const jobOf = (events: Awaited<ReturnType<typeof orderRepository.events>>): numb
 };
 
 /** The bot's order for this shop order, found even when the worker has not linked it yet (its create job answered). */
-async function botOrderOf(order: OrderRow, db: Queryable): Promise<number | null> {
+export async function botOrderOf(order: OrderRow, db: Queryable): Promise<number | null> {
   if (order.bot_order_id !== null) return order.bot_order_id;
   const jobId = jobOf(await orderRepository.events(order.id, db));
   if (jobId === null) return null; // nothing was ever asked of the bot

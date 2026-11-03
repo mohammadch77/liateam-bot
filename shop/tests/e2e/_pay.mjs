@@ -41,6 +41,10 @@ const KEYS = [
   'sms.event.commission_paid.enabled',
   'sms.event.commission_paid.template',
   'sms.operator_template',
+  'sms.event.cancel_rejected.enabled',
+  'sms.event.cancel_rejected.template',
+  'orders.payment_link_ttl_minutes',
+  'orders.payment_link_remind_minutes',
 ];
 const lit = (v) => `$j$${JSON.stringify(v)}$j$::jsonb`;
 

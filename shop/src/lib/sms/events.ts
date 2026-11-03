@@ -13,7 +13,8 @@ export type SmsEventKey =
   | 'withdrawal_requested'
   | 'withdrawal_paid'
   | 'withdrawal_rejected'
-  | 'commission_paid';
+  | 'commission_paid'
+  | 'cancel_rejected';
 export type SmsVariable = 'order_no' | 'total' | 'tracking';
 
 export const SMS_EVENTS: ReadonlyArray<{ key: SmsEventKey; label: string; vars: readonly SmsVariable[] }> = [
@@ -26,6 +27,7 @@ export const SMS_EVENTS: ReadonlyArray<{ key: SmsEventKey; label: string; vars: 
   { key: 'withdrawal_requested', label: 'ثبت درخواست برداشت', vars: ['total'] },
   { key: 'withdrawal_paid', label: 'پرداخت برداشت (با کد پیگیری)', vars: ['total', 'tracking'] },
   { key: 'withdrawal_rejected', label: 'رد درخواست برداشت', vars: ['total'] },
+  { key: 'cancel_rejected', label: 'رد درخواست لغو سفارش', vars: ['order_no'] },
   { key: 'commission_paid', label: 'واریز پورسانت به کیف پول', vars: ['total'] },
 ];
 

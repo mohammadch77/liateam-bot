@@ -32,10 +32,12 @@ const SIMPLE: Record<string, { label: string; tone: TimelineStep['tone'] } | und
   payment_failed: { label: 'پرداخت ناموفق بود', tone: 'warn' },
   expired: { label: 'مهلت پرداخت تمام شد؛ سفارش لغو شد', tone: 'bad' },
   canceled_by_customer: { label: 'سفارش به درخواست شما لغو شد', tone: 'bad' },
+  canceled_by_admin: { label: 'سفارش لغو شد', tone: 'bad' },
+  cancel_request_rejected: { label: 'درخواست لغو پذیرفته نشد؛ سفارش ادامه دارد', tone: 'warn' },
   cancel_requested: { label: 'درخواست لغو ثبت شد؛ منتظر تأیید اپراتور', tone: 'warn' },
 };
 
-const FINAL = new Set(['canceled_by_customer', 'status:canceled', 'status:sent', 'status:refunded']);
+const FINAL = new Set(['canceled_by_customer', 'canceled_by_admin', 'status:canceled', 'status:sent', 'status:refunded']);
 
 /**
  * One list, oldest first: every step (the order's creation included) is sorted by its time, ties by event id (creation first).
@@ -56,7 +58,7 @@ export function timelineOf(events: readonly TimelineEvent[], createdAt: Date): T
     } else step = SIMPLE[e.kind];
     if (!step) return;
     const out: TimelineStep = { key: `${e.kind}-${e.id ?? i}`, label: step.label, at: e.created_at, tone: step.tone };
-    if (e.kind === 'canceled_by_customer') {
+    if (e.kind === 'canceled_by_customer' || e.kind === 'canceled_by_admin') {
       const refunded = Number((e.data as { refunded?: unknown } | null)?.refunded);
       if (Number.isFinite(refunded) && refunded > 0) out.note = refunded;
     }

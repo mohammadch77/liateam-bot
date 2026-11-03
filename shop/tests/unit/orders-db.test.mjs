@@ -408,6 +408,65 @@ scenario(
 );
 
 scenario(
+  'operator: shop_operator_cancel_order also cancels a placed-and-unpaid order, closes its waiting place job, refuses one being placed, a paid one, a bot-origin one',
+  `
+  INSERT INTO public.shop_orders (customer_first_name, customer_last_name, customer_mobile, province_id, city_id, postal_code, address, plate, items_total, shipping_price, origin, status)
+    VALUES ('A', 'B', '09990000009', 1, 1, '1234567890', 'some address', '1', 1000, 100, 'shop', 'awaiting_payment') RETURNING id INTO j;
+  INSERT INTO public.order_jobs (kind, payload, requested_by) VALUES ('place', jsonb_build_object('order_id', j), 'shop') RETURNING id INTO n;
+  IF NOT public.shop_operator_cancel_order(j) THEN RAISE EXCEPTION 'an unpaid placed order was not cancelled by the operator'; END IF;
+  IF (SELECT status FROM public.shop_orders WHERE id = j) <> 'canceled' THEN RAISE EXCEPTION 'bot order not canceled'; END IF;
+  IF (SELECT ok OR done_at IS NULL FROM public.order_jobs WHERE id = n) THEN RAISE EXCEPTION 'the waiting place job was not closed'; END IF;
+  IF public.shop_operator_cancel_order(j) THEN RAISE EXCEPTION 'cancelled twice'; END IF;
+  UPDATE public.shop_orders SET status = 'placing' WHERE id = j;
+  IF public.shop_operator_cancel_order(j) THEN RAISE EXCEPTION 'an order being placed was cancelled'; END IF;
+  UPDATE public.shop_orders SET status = 'supplier_paid' WHERE id = j;
+  IF public.shop_operator_cancel_order(j) THEN RAISE EXCEPTION 'a paid order was cancelled'; END IF;
+  UPDATE public.shop_orders SET status = 'queued' WHERE id = j;
+  INSERT INTO public.order_jobs (kind, payload, requested_by, picked_at) VALUES ('place', jsonb_build_object('order_id', j), 'shop', now());
+  IF public.shop_operator_cancel_order(j) THEN RAISE EXCEPTION 'an order whose place job is running was cancelled'; END IF;
+  INSERT INTO public.shop_orders (customer_first_name, customer_last_name, customer_mobile, province_id, city_id, postal_code, address, plate, items_total, shipping_price, origin, status)
+    VALUES ('A', 'B', '09990000009', 1, 1, '1234567890', 'some address', '1', 1000, 100, 'bot', 'queued') RETURNING id INTO j;
+  IF public.shop_operator_cancel_order(j) THEN RAISE EXCEPTION 'a bot-origin order was cancelled from the shop'; END IF;
+`,
+);
+
+scenario(
+  'operator: shop_order_review_info shows why an order stopped (the two totals and the missing items), only for a shop order in needs_review, and nothing else of the bot event',
+  `
+  INSERT INTO public.shop_orders (customer_first_name, customer_last_name, customer_mobile, province_id, city_id, postal_code, address, plate, items_total, shipping_price, origin, status, last_error)
+    VALUES ('A', 'B', '09990000009', 1, 1, '1234567890', 'some address', '1', 1000, 100, 'shop', 'needs_review', 'why text') RETURNING id INTO j;
+  INSERT INTO public.shop_order_events (order_id, kind, message, data)
+    VALUES (j, 'needs_review', 'x', '{"reason":"price","live_total":900000,"expected_total":1000000,"missing":[],"cost":777}'::jsonb);
+  INSERT INTO public.shop_order_events (order_id, kind, message, data)
+    VALUES (j, 'needs_review', 'y', '{"reason":"unavailable","live_total":850000,"expected_total":1000000,"missing":[541]}'::jsonb);
+  SELECT count(*) INTO n FROM public.shop_order_review_info(j) WHERE reason = 'unavailable' AND live_total = 850000 AND expected_total = 1000000 AND missing = '[541]'::jsonb AND why = 'why text';
+  IF n <> 1 THEN RAISE EXCEPTION 'the last needs_review event was not described'; END IF;
+  UPDATE public.shop_orders SET status = 'queued' WHERE id = j;
+  SELECT count(*) INTO n FROM public.shop_order_review_info(j);
+  IF n <> 0 THEN RAISE EXCEPTION 'info given for an order that is not in needs_review'; END IF;
+  INSERT INTO public.shop_orders (customer_first_name, customer_last_name, customer_mobile, province_id, city_id, postal_code, address, plate, items_total, shipping_price, origin, status)
+    VALUES ('A', 'B', '09990000009', 1, 1, '1234567890', 'some address', '1', 1000, 100, 'bot', 'needs_review') RETURNING id INTO j;
+  SELECT count(*) INTO n FROM public.shop_order_review_info(j);
+  IF n <> 0 THEN RAISE EXCEPTION 'info given for a bot-origin order'; END IF;
+`,
+);
+
+scenario(
+  'operator: a note is append-only; the refund for a lower live price is once per (order, n); a sent order can still get a note but a status never goes back',
+  `
+  INSERT INTO order_notes (order_id, body) VALUES (o, 'first');
+  ${mustRaise('integrity_constraint_violation', `UPDATE order_notes SET body = 'changed' WHERE order_id = o;`)}
+  ${mustRaise('integrity_constraint_violation', `DELETE FROM order_notes WHERE order_id = o;`)}
+  ${mustRaise('check_violation', `INSERT INTO order_notes (order_id, body) VALUES (o, '');`)}
+  ${mustRaise('check_violation', `INSERT INTO order_notes (order_id, body) VALUES (o, repeat('x', 1001));`)}
+  INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key, order_id) VALUES (u, 'refund', 100000, 0, 'review-diff:' || o || ':1', o);
+  INSERT INTO wallet_ledger (user_id, kind, amount, balance_after, idempotency_key, order_id) VALUES (u, 'refund', 100000, 0, 'review-diff:' || o || ':1', o) ON CONFLICT (idempotency_key) DO NOTHING;
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'the price-drop refund was written twice'; END IF;
+`,
+);
+
+scenario(
   'wallet task: a top-up payment has no order and is confirmed once; withdrawal hold / return rows are once per key, the balance never goes negative, a withdrawal moves only forward',
   `
   INSERT INTO payments (kind, user_id, method, gateway, amount, idempotency_key) VALUES ('wallet_topup', u, 'gateway', 'dev', 100000, 'topup-attempt-00001');
