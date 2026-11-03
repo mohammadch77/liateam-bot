@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { CATEGORY_BASE, PRODUCT_BASE, categoryPath, idFromSlug, legacyRoute, productPath, type LegacyTarget } from '@/lib/urls';
 import { SEARCH_HEADER } from '@/lib/internal-headers';
+import { settingsRead } from '@/server/services/settings-read.service';
 import { catalogRepository } from '@/server/repositories/catalog.repository';
 import { indexingBlocked } from '@/server/seo-policy';
 
@@ -26,7 +27,7 @@ export async function proxy(request: NextRequest) {
     const target = await legacyTarget(old);
     if (target && decoded(target) !== decoded(pathname)) {
       const query = /^\?[^\s#]{0,500}$/.test(search) ? search : '';
-      return NextResponse.redirect(new URL(target + query, request.url), 301);
+      return NextResponse.redirect(new URL(target + query, await publicBase(request)), 301);
     }
   }
   const headers = new Headers(request.headers);
@@ -35,6 +36,23 @@ export async function proxy(request: NextRequest) {
   // search engines kept out (outside production always; in production the admin's switch): on every response
   if (await indexingBlocked()) response.headers.set('X-Robots-Tag', 'noindex, nofollow');
   return response;
+}
+
+/**
+ * The public address for a redirect (the proxy layer wants an absolute Location). Behind nginx request.url carries the internal
+ * host (localhost:port), so it is never used: the admin's site.base_url, else the forwarded host and scheme, else the Host header.
+ */
+async function publicBase(request: NextRequest): Promise<string> {
+  try {
+    const configured = await settingsRead.get('site.base_url');
+    if (configured) return configured;
+  } catch {
+    // the setting is a convenience, the headers below still give a right answer
+  }
+  const h = request.headers;
+  const host = h.get('x-forwarded-host') ?? h.get('host') ?? request.nextUrl.host;
+  const local = host.startsWith('localhost') || host.startsWith('127.');
+  return `${h.get('x-forwarded-proto') ?? (local ? 'http' : 'https')}://${host}`;
 }
 
 async function legacyTarget(t: NonNullable<ReturnType<typeof legacyRoute>>): Promise<string | null> {
