@@ -7,6 +7,7 @@ import { orderPaymentService } from '@/server/services/order-payment.service';
 import { orderService } from '@/server/services/order.service';
 import { Alert, Breadcrumb, Button, Container } from '@/ui';
 import s from '../../checkout/checkout.module.css';
+import { CartRefresh } from '../../_cart/CartRefresh';
 import { PayPanel } from '../../account/orders/[number]/PayPanel';
 
 export const metadata: Metadata = { title: 'نتیجه‌ی پرداخت', robots: { index: false, follow: false } };
@@ -49,6 +50,7 @@ export default async function PaymentCallbackPage({
           { label: 'نتیجه‌ی پرداخت' },
         ]}
       />
+      {result.kind === 'paid' && <CartRefresh />}
       <h1 className={s.title}>نتیجه‌ی پرداخت</h1>
       <div data-callback-result={result.kind} data-callback-repeat={result.repeat ? 'true' : 'false'}>
         <Alert tone={tone}>{result.message}</Alert>

@@ -13,6 +13,8 @@ import {
   holdLeft,
   methodUsable,
   parseCallbackQuery,
+  payBlocker,
+  type CheckoutGate,
   placementPlan,
   tehranMinutes,
   trackingCode,
@@ -225,4 +227,35 @@ test('a paid order with a three-level chain: each referrer once, rounded down, p
   // no rule at all, or nobody above the buyer: no commission and no failure
   assert.deepEqual(calculateCommissions({ status: 'paid', createdAt: now, lines }, [], ['a'], now).items, []);
   assert.deepEqual(calculateCommissions({ status: 'paid', createdAt: now, lines }, rules, [], now).items, []);
+});
+
+// ── why the pay button is off ──
+const gate = (over: Partial<CheckoutGate> = {}): CheckoutGate => ({
+  hasAddress: true,
+  phase: 'ready',
+  canOrder: true,
+  expired: false,
+  reason: null,
+  pay: { online: true, walletBalance: 0 },
+  total: 1_000_000,
+  method: 'gateway',
+  ...over,
+});
+
+test('the pay button is on only when nothing is missing, and it always says what is missing otherwise (the first thing first)', () => {
+  assert.equal(payBlocker(gate()), null);
+  assert.match(payBlocker(gate({ hasAddress: false, phase: 'idle' }))!, /آدرس/);
+  assert.match(payBlocker(gate({ phase: 'pending' }))!, /بررسی/);
+  assert.match(payBlocker(gate({ phase: 'failed' }))!, /تلاش مجدد/);
+  assert.match(payBlocker(gate({ expired: true }))!, /مهلت/);
+  assert.equal(payBlocker(gate({ canOrder: false, reason: 'کالایی ناموجود است' })), 'کالایی ناموجود است');
+  assert.ok(payBlocker(gate({ canOrder: false })));
+});
+
+test('payment method reasons: online off with an empty or short wallet, a short wallet chosen, the wallet covering the total', () => {
+  const off = { online: false, walletBalance: 0 };
+  assert.match(payBlocker(gate({ pay: off }))!, /آنلاین فعلاً در دسترس نیست/);
+  assert.match(payBlocker(gate({ pay: { online: false, walletBalance: 10 } }))!, /کیف پول/);
+  assert.match(payBlocker(gate({ method: 'wallet', pay: { online: true, walletBalance: 10 } }))!, /موجودی کیف پول کافی نیست/);
+  assert.equal(payBlocker(gate({ method: 'wallet', pay: { online: false, walletBalance: 2_000_000 } })), null);
 });

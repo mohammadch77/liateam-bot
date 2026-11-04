@@ -16,6 +16,7 @@ import { orderRepository } from '@/server/repositories/order.repository';
 import { Alert, Badge, Breadcrumb } from '@/ui';
 import s from '../../../checkout/checkout.module.css';
 import a from '../../account.module.css';
+import { CartRefresh } from '../../../_cart/CartRefresh';
 import { CancelPanel } from './CancelPanel';
 import { PayPanel } from './PayPanel';
 
@@ -69,6 +70,7 @@ export default async function OrderPage({
         </span>
         <Badge tone="neutral">{ORDER_STATUS_LABEL[order.status] ?? order.status}</Badge>
       </div>
+      {sp.paid === '1' && <CartRefresh />}
       {error && <Alert tone="danger">{error}</Alert>}
       {order.status === 'pending_payment' && (
         <Alert tone="warning">

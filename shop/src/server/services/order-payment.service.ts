@@ -26,7 +26,7 @@ import { cartRepository } from '@/server/repositories/cart.repository';
  *          in one transaction).
  * handleCallback(): verify with the gateway (server side), then settle; cancel / failure leave the order pending_payment so
  *          the customer can try again.
- * settle(): payment confirmed, order → queued (paid), the order's commissions, the cart closed — one transaction. After it:
+ * settle(): payment confirmed, order → queued (paid), the order's commissions, the ordered items taken out of the cart — one transaction. After it:
  *          the SMS and the bot hand-over (order-flow.service), whose failures never undo the payment.
  */
 export type PayMethod = 'gateway' | 'wallet';
@@ -103,8 +103,9 @@ async function settle(
     { method, paymentId, refId: detail.refId ?? null, card: detail.card ?? null },
     db,
   );
-  await orderCommissionService.register(order, await orderRepository.items(orderId, db), db);
-  if (order.review_id !== null) await cartRepository.markOrderedByReview(order.user_id, order.review_id, db);
+  const items = await orderRepository.items(orderId, db);
+  await orderCommissionService.register(order, items, db);
+  await cartRepository.removeOrdered(order.user_id, order.review_id, items, db);
   return 'settled';
 }
 

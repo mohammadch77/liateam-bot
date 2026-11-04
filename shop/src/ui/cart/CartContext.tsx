@@ -25,6 +25,8 @@ export type CartApi = {
   setQuantity: (productId: number, quantity: number, base?: CartSnapshot | null) => Promise<CartResult>;
   /** takes a newer snapshot from the server (a pack was added) */
   adopt: (snapshot: CartSnapshot) => void;
+  /** reads the cart from the server again (after a purchase took its items out) */
+  refresh: () => void;
   /** tells the customer something, politely (the toast) */
   notify: (text: string, ok: boolean) => void;
   /** the product is being added now / was just added */

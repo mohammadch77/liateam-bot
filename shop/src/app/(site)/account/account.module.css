@@ -363,3 +363,20 @@
   right: 2px;
   top: 4px;
 }
+
+/* the «بازگشت» link of the panels */
+.back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  color: var(--color-primary);
+  font-size: 14px;
+  font-weight: 700;
+}
+.back:hover {
+  background: var(--color-blush);
+}

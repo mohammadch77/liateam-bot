@@ -47,6 +47,7 @@ export default async function CheckoutPage() {
         defaultPhone={user.phone}
         defaultName={user.fullName ?? ''}
         pay={pay}
+        cart={{ units: cart.units, itemsTotal: cart.itemsTotal, discountTotal: cart.discountTotal }}
       />
     </Container>
   );

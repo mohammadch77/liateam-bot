@@ -122,12 +122,30 @@ export const cartRepository = {
     await query('cart.set_review', 'UPDATE carts SET review_id = $2 WHERE id = $1', [cartId, reviewId], db);
   },
 
-  /** The cart became an order (it is not shown again). */
-  /** The customer's open cart that was checked out with this review becomes ordered (a cart changed since stays open). */
-  async markOrderedByReview(userId: string, reviewId: number, db?: Queryable): Promise<void> {
+  /**
+   * A paid order takes ITS items out of the customer's open cart: each product's quantity is lowered by what the order holds (never
+   * below 0), so anything added after the order was made stays. The live check the cart waited on is forgotten when it is the
+   * order's. Called once per order, inside the payment's transaction.
+   */
+  async removeOrdered(
+    userId: string,
+    reviewId: number | null,
+    items: ReadonlyArray<{ product_id: number; quantity: number }>,
+    db?: Queryable,
+  ): Promise<void> {
+    if (items.length > 0)
+      await query(
+        'cart.remove_ordered',
+        `UPDATE cart_items i SET quantity = greatest(0, i.quantity - o.q)
+           FROM carts c, unnest($2::int[], $3::int[]) AS o(product_id, q)
+          WHERE c.id = i.cart_id AND c.user_id = $1 AND c.status = 'open' AND i.product_id = o.product_id AND i.quantity > 0`,
+        [userId, items.map((i) => i.product_id), items.map((i) => i.quantity)],
+        db,
+      );
     await query(
-      'cart.ordered_by_review',
-      `UPDATE carts SET status = 'ordered' WHERE user_id = $1 AND review_id = $2 AND status = 'open'`,
+      'cart.after_order',
+      `UPDATE carts SET review_id = CASE WHEN review_id IS NOT DISTINCT FROM $2 THEN NULL ELSE review_id END, updated_at = now()
+        WHERE user_id = $1 AND status = 'open'`,
       [userId, reviewId],
       db,
     );

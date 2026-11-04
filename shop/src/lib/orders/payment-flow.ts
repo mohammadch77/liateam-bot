@@ -114,3 +114,38 @@ export function defaultMethod(o: PayOptions, total: number | null): PayMethodId 
   if (methodUsable('gateway', o, total)) return 'gateway';
   return methodUsable('wallet', o, total) ? 'wallet' : 'gateway';
 }
+
+/** The checkout's state as far as the pay button is concerned. */
+export type CheckoutGate = {
+  hasAddress: boolean;
+  /** the live check: none yet, waiting, answered, failed */
+  phase: 'idle' | 'pending' | 'ready' | 'failed';
+  /** the answer allows an order (nothing missing) */
+  canOrder: boolean;
+  /** the hold of the answer ran out */
+  expired: boolean;
+  /** the answer's own reason when it does not allow an order */
+  reason: string | null;
+  pay: PayOptions;
+  total: number | null;
+  method: PayMethodId;
+};
+
+/**
+ * Why the «پرداخت» button is off, in words for the customer, or null when it is on. A button is never off without a reason: the
+ * first thing missing is named (address, then the check, then the payment method).
+ */
+export function payBlocker(g: CheckoutGate): string | null {
+  if (!g.hasAddress) return 'آدرس تحویل را انتخاب کنید.';
+  if (g.phase === 'idle' || g.phase === 'pending') return 'منتظر پایان بررسی قیمت و موجودی بمانید.';
+  if (g.phase === 'failed') return 'بررسی قیمت و موجودی انجام نشد؛ «تلاش مجدد» را بزنید.';
+  if (g.expired) return 'مهلت نگه‌داری موجودی تمام شد؛ دوباره بررسی کنید.';
+  if (!g.canOrder) return g.reason ?? 'سبد را اصلاح و دوباره بررسی کنید.';
+  if (methodUsable(g.method, g.pay, g.total)) return null;
+  if (!g.pay.online && !methodUsable('wallet', g.pay, g.total))
+    return g.pay.walletBalance > 0
+      ? 'پرداخت آنلاین فعلاً در دسترس نیست و موجودی کیف پول برای این سفارش کافی نیست.'
+      : 'پرداخت آنلاین فعلاً در دسترس نیست.';
+  if (g.method === 'wallet') return 'موجودی کیف پول کافی نیست؛ روش پرداخت دیگری را انتخاب کنید.';
+  return 'روش پرداخت را انتخاب کنید.';
+}
