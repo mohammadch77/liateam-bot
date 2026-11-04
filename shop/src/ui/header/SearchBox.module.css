@@ -338,3 +338,53 @@
   font: inherit;
   font-weight: 700;
 }
+
+/* task N2: products are the answer (a picture, the whole name, brand, price with the old price, stock); categories and brands are chips */
+.list:has(.chip) {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.list > li {
+  flex: 1 0 100%;
+}
+.list > li.chip {
+  flex: 0 0 auto;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: var(--color-white);
+  color: var(--color-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.chip.active {
+  background: var(--color-blush);
+  border-color: var(--color-accent);
+}
+.chipCount {
+  color: var(--color-muted);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.card {
+  min-height: 88px;
+}
+.card .thumb {
+  width: 72px;
+  height: 72px;
+}
+.card .thumbImg {
+  width: 72px;
+  height: 72px;
+}
+.card .productName {
+  -webkit-line-clamp: unset;
+  display: block;
+}

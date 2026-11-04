@@ -1,4 +1,3 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { discountPercent, type Toman } from '@/lib/format/money';
@@ -9,6 +8,7 @@ import { Price } from '../price/Price';
 import { Skeleton } from '../skeleton/Skeleton';
 import { AddToCartButton } from './AddToCartButton';
 import { CartAddButton } from './CartAddButton';
+import { CardImage } from './CardImage';
 import { FavoriteButton } from './FavoriteButton';
 import { FavoriteToggle } from './FavoriteToggle';
 import { cx } from '../cx';
@@ -51,24 +51,7 @@ export function ProductCard({ product: p, action, favorite, priority }: ProductC
     <article className={cx(s.card, out && s.out)}>
       <div className={s.stage}>
         <span className={s.pedestal} aria-hidden="true" />
-        {p.imageUrl ? (
-          // Through our image optimiser (next.config images): resized WebP, never hot-linked from the supplier.
-          <span className={s.imageBox}>
-            <Image
-              src={p.imageUrl}
-              alt=""
-              fill
-              sizes="(min-width: 1440px) 240px, (min-width: 1024px) 22vw, (min-width: 768px) 30vw, 46vw"
-              className={s.image}
-              priority={priority}
-              draggable={false}
-            />
-          </span>
-        ) : (
-          <span className={s.noImage} aria-hidden="true">
-            <Icon name="spa" size={56} />
-          </span>
-        )}
+        <CardImage src={p.imageUrl} priority={priority} />
         {off > 0 && <DiscountRibbon percent={off} className={s.ribbon} />}
         <span className={s.fav}>
           {favorite ?? (p.id !== undefined ? <FavoriteToggle productId={p.id} name={p.name} /> : <FavoriteButton unavailableReason={SOON} />)}

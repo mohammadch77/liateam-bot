@@ -26,12 +26,12 @@ try {
   const card = popup.locator('[data-search-card="product"]').first();
   const cardText = await card.innerText();
   check('1a a product suggestion is a card: a picture, the name, the brand and the price in tomans', (await card.locator('img').count()) === 1 && /ریمل/.test(cardText) && /تومان/.test(cardText), cardText.replace(/\s+/g, ' '));
-  check('1b the matched categories come as cards with their count', (await popup.locator('[data-search-card="cat"]').count()) >= 1 && /محصول/.test(await popup.locator('[data-search-card="cat"]').first().innerText()));
-  check('1c the groups have titles (دسته‌بندی‌ها, محصولات)', (await popup.locator('[data-search-group="cat"]').count()) === 1 && (await popup.locator('[data-search-group="product"]').count()) === 1);
+  check('1b the matched categories come as cards with their count', (await popup.locator('[data-search-card="cat"]').count()) >= 1 && /[0-9۰-۹]/.test(await popup.locator('[data-search-card="cat"]').first().innerText()));
+  check('1c the products come as full cards under the chips: more than the one line, the picture bigger', (await popup.locator('[data-search-card="product"]').count()) >= 3 && (await card.evaluate((e) => e.getBoundingClientRect().height)) >= 80 && (await popup.locator('[data-search-card="cat"]').first().evaluate((e) => e.getBoundingClientRect().height)) <= 50);
   check('1d a link to all the results is the last option', /مشاهده/.test(await popup.locator('[data-search-card="all"]').innerText()));
   await box.fill('سرژه');
   await popup.locator('[data-search-card="brand"]').first().waitFor({ timeout: 15000 });
-  check('1e a brand matches as a card (name, how many products)', /سرژه/.test(await popup.locator('[data-search-card="brand"]').first().innerText()) && /محصول/.test(await popup.locator('[data-search-card="brand"]').first().innerText()));
+  check('1e a brand matches as a card (name, how many products)', /سرژه/.test(await popup.locator('[data-search-card="brand"]').first().innerText()) && /[0-9۰-۹]/.test(await popup.locator('[data-search-card="brand"]').first().innerText()));
   await box.fill('ماشین لباسشویی');
   await popup.locator('[data-search-empty]').waitFor({ timeout: 15000 });
   check('1f nothing found: the message and the main categories and a few products to go to', (await popup.locator('[data-search-card="fb-cat"]').count()) >= 1 && (await popup.locator('[data-search-card="fb-product"]').count()) >= 1);

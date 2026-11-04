@@ -10,7 +10,7 @@ import { logger } from '@/lib/logger';
 /** The single rule for what the shop shows: sellable, a real price, and still listed by the supplier. */
 const VISIBLE = `p.is_sellable AND p.price > 0 AND p.missing_since IS NULL`;
 
-const PRODUCT_COLS = `p.id, p.name, p.price, p.stock, p.category, p.category_names, p.image_url,
+const PRODUCT_COLS = `p.id, p.name, p.price, p.stock, p.category, p.category_names, NULLIF(btrim(p.image_url), '') AS image_url,
   p.first_seen_at, p.updated_at, p.brand, p.slug_en`;
 
 /**
@@ -408,7 +408,7 @@ export const catalogRepository = {
        SELECT DISTINCT ON (t.root) t.root AS code, p.image_url
          FROM tree t
          JOIN product_catalog p ON t.code = ANY (p.category) AND ${VISIBLE}
-        WHERE p.image_url IS NOT NULL
+        WHERE NULLIF(btrim(p.image_url), '') IS NOT NULL
         ORDER BY t.root, (p.stock > 0) DESC, p.first_seen_at DESC`,
       [codes],
     );

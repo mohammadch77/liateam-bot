@@ -61,6 +61,7 @@ const ALL = [
   'favorites-nav',
   'panels-mobile',
   'search-menu',
+  'search-cards-mobile',
 ];
 const wanted = process.argv.slice(2);
 const unknown = wanted.filter((n) => !ALL.includes(n));

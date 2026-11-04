@@ -77,8 +77,8 @@ export default async function SearchPage({ searchParams }: Props) {
 
       {groups && (
         <>
-          <SearchGroups title="دسته‌بندی‌های مرتبط" items={groups.categories} kind="category" />
-          <SearchGroups title="برندهای مرتبط" items={groups.brands} kind="brand" />
+          <SearchGroups title="دسته‌بندی‌های مرتبط" items={groups.categories} kind="category" chips />
+          <SearchGroups title="برندهای مرتبط" items={groups.brands} kind="brand" chips />
         </>
       )}
 

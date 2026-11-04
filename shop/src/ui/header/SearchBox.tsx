@@ -144,26 +144,16 @@ export function SearchBox({
 
   // the options, in screen order, each a card: matching categories, brands, products, «all results»; nothing found: a way on
   type Option = { group: string; href: string; className: string | undefined; content: ReactNode };
+  // a matching category or brand is a small chip above the products (one tap to its page), never in the place of a product
   const groupCard = (g: Group, kind: 'cat' | 'brand'): Option => ({
     group: kind,
     href: g.href,
-    className: s.card,
+    className: s.chip,
     content: (
       <>
-        <span className={s.thumb}>
-          {g.imageUrl ? (
-            <Image src={g.imageUrl} alt="" width={48} height={48} className={s.thumbImg} />
-          ) : (
-            <Icon name={kind === 'cat' ? 'category' : 'verified'} size={22} className={s.catIcon} />
-          )}
-        </span>
-        <span className={s.productText}>
-          <span className={s.productName}>{marked(g.name)}</span>
-          <span className={s.muted}>
-            {formatNumber(g.count)} محصول{g.parent ? ` · در ${g.parent}` : ''}
-          </span>
-        </span>
-        <Icon name="chevron_left" size={18} className={s.muted} />
+        <Icon name={kind === 'cat' ? 'category' : 'verified'} size={16} className={s.catIcon} />
+        <span>{marked(g.name)}</span>
+        <span className={s.chipCount}>{formatNumber(g.count)}</span>
       </>
     ),
   });
@@ -174,7 +164,11 @@ export function SearchBox({
     content: (
       <>
         <span className={s.thumb}>
-          {p.imageUrl ? <Image src={p.imageUrl} alt="" width={56} height={56} className={s.thumbImg} /> : null}
+          {p.imageUrl ? (
+            <Image src={p.imageUrl} alt="" width={72} height={72} className={s.thumbImg} />
+          ) : (
+            <Icon name="spa" size={30} className={s.catIcon} />
+          )}
         </span>
         <span className={s.productText}>
           <span className={s.productName}>{marked(p.name)}</span>
@@ -223,8 +217,6 @@ export function SearchBox({
       ]
     : [];
   const GROUP_TITLE: Record<string, string> = {
-    cat: 'دسته‌بندی‌ها',
-    brand: 'برندها',
     product: 'محصولات',
     'fb-cat': 'دسته‌بندی‌های پیشنهادی',
     'fb-product': 'محصولات پیشنهادی',

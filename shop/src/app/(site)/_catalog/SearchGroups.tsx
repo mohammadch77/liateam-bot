@@ -13,12 +13,29 @@ export function SearchGroups({
   title,
   items,
   kind,
+  chips,
 }: {
   title: string;
   items: readonly SearchGroupItem[];
   kind: 'category' | 'brand';
+  /** small chips (the matched categories and brands above the products) instead of picture cards */
+  chips?: boolean;
 }) {
   if (!items.length) return null;
+  if (chips)
+    return (
+      <ul className={s.chips} aria-label={title} data-search-group={kind}>
+        {items.map((g) => (
+          <li key={g.href}>
+            <Link href={g.href} className={s.chip} data-search-card={kind}>
+              <Icon name={kind === 'category' ? 'category' : 'verified'} size={16} />
+              {g.name}
+              <span className={s.chipCount}>{formatNumber(g.count)}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    );
   return (
     <section className={s.group} aria-label={title} data-search-group={kind}>
       <h2 className={s.title}>{title}</h2>
