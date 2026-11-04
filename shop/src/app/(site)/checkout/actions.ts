@@ -13,6 +13,8 @@ import { addressService } from '@/server/services/address.service';
 import { checkoutService, type CheckoutView } from '@/server/services/checkout.service';
 import { geoService } from '@/server/services/geo.service';
 import { orderPaymentService } from '@/server/services/order-payment.service';
+import { referralService } from '@/server/services/referral.service';
+import { requestMeta } from '@/server/http/request';
 
 /**
  * Checkout actions. All need a signed-in user; the browser sends an address id and the id of the live check — never a
@@ -136,4 +138,12 @@ export async function payAction(
   redirect(
     made.data.started.kind === 'redirect' ? made.data.started.url : `${orderPath(made.data.number)}?paid=1`,
   );
+}
+
+/**
+ * «کد معرف (اختیاری)»: a customer without a referrer and without a paid order types a code. It is checked on the server (an active
+ * affiliate who was not referred, not the customer's own, rate limited) and, once recorded, it is locked for good.
+ */
+export async function enterReferralAction(code: string): Promise<ActionResult<{ code: string }>> {
+  return runAction('checkout.referral', async () => referralService.enter(String(code ?? '').slice(0, 40), await requestMeta()));
 }

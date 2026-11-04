@@ -38,9 +38,11 @@
     "perf": "node scripts/perf.mjs"
   },
   "dependencies": {
+    "fflate": "^0.8.3",
     "next": "^16.4.1",
     "node-pg-migrate": "^9.0.0",
     "pg": "^8.23.1",
+    "qrcode": "^1.5.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "server-only": "^0.0.1",
@@ -51,12 +53,16 @@
     "@material-symbols/svg-400": "^0.48.0",
     "@types/node": "^26.6.5",
     "@types/pg": "^8.23.1",
+    "@types/pngjs": "^6.0.5",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.4.1",
     "eslint-config-prettier": "^10.1.8",
+    "jsqr": "^1.4.0",
     "lighthouse": "^12.8.2",
+    "pngjs": "^7.0.0",
     "prettier": "^3.9.10",
     "typescript": "^6.0.3"
   }

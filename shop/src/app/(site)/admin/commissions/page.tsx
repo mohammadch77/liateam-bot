@@ -31,7 +31,10 @@ export default async function AdminCommissionsPage({
   const sp = await searchParams;
   const tab = TABS.find((t) => t.key === sp.status) ?? TABS[0]!;
   const phone = typeof sp.phone === 'string' ? normalizeMobile(sp.phone) : null;
-  const data = await commissionAdminService.list(tab.status, phone, Number(sp.page) || 1);
+  const [data, noRule] = await Promise.all([
+    commissionAdminService.list(tab.status, phone, Number(sp.page) || 1),
+    commissionAdminService.noUsableRule().catch(() => false),
+  ]);
   const here = (p = 1) =>
     `/admin/commissions?status=${tab.key}${phone ? `&phone=${phone}` : ''}${p > 1 ? `&page=${p}` : ''}`;
 
@@ -42,6 +45,9 @@ export default async function AdminCommissionsPage({
         <h1 id="com-title" className={s.title}>
           پورسانت‌ها
         </h1>
+        {noRule && <Alert tone="warning">
+          <span data-no-rule-warning>هیچ قاعده‌ی پورسانت فعالی نیست؛ پورسانت ساخته نمی‌شود. از تنظیمات ← پورسانت یک قاعده بسازید.</span>
+        </Alert>}
         <nav aria-label="وضعیت" className={a.tabs}>
           {TABS.map((t) => (
             <Link

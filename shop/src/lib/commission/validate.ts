@@ -18,7 +18,8 @@ const int = (s: string): number | null => {
   return /^\d{1,12}$/.test(t) ? Number(t) : null;
 };
 
-export const MAX_LEVEL = 5;
+/** One level only: the buyer's own referrer. The engine can still weigh a longer chain; the form and the checks accept 1. */
+export const MAX_LEVEL = 1;
 
 export function parseScope(type: string, idRaw: string): Parsed<RuleScope> {
   if (type === 'all') return { ok: true, value: { type: 'all' } };
@@ -40,9 +41,9 @@ export function parseRuleForm(f: FormLike): Parsed<RuleInput> {
   if (name.length < 2 || name.length > 80) return { ok: false, error: 'نام قاعده باید ۲ تا ۸۰ نویسه باشد.' };
   const scope = parseScope(str(f, 'scope'), str(f, 'scopeId'));
   if (!scope.ok) return scope;
-  const level = int(str(f, 'level'));
-  if (level === null || level < 1 || level > MAX_LEVEL)
-    return { ok: false, error: `سطح باید بین ۱ و ${MAX_LEVEL} باشد.` };
+  const levelRaw = str(f, 'level');
+  const level = levelRaw === '' ? 1 : int(levelRaw);
+  if (level === null || level < 1 || level > MAX_LEVEL) return { ok: false, error: 'پورسانت فقط برای معرف مستقیم است (سطح ۱).' };
   const kind = str(f, 'kind');
   if (kind !== 'percent' && kind !== 'fixed')
     return { ok: false, error: 'نوع پورسانت (درصد یا مبلغ ثابت) را انتخاب کنید.' };

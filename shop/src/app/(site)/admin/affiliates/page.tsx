@@ -33,7 +33,11 @@ export default async function AdminAffiliatesPage({
   await requireRole('admin', '/admin/affiliates');
   const sp = await searchParams;
   const status = TABS.find((t) => t.status === sp.status)?.status ?? 'pending';
-  const [rows, counts] = await Promise.all([affiliateService.list(status), affiliateService.counts()]);
+  const [rows, counts, referredAffiliates] = await Promise.all([
+    affiliateService.list(status),
+    affiliateService.counts(),
+    affiliateService.referredAffiliates(),
+  ]);
 
   return (
     <Container className={s.page}>
@@ -64,7 +68,14 @@ export default async function AdminAffiliatesPage({
           <Alert tone="success">تأیید شد؛ نقش «فروشنده‌ی همکار» به کاربر داده شد.</Alert>
         )}
         {sp.done === 'rejected' && <Alert tone="success">درخواست رد شد.</Alert>}
-        {sp.error && <Alert tone="danger">این درخواست پیدا نشد یا قبلاً بررسی شده است.</Alert>}
+        {sp.error && <Alert tone="danger">این درخواست پیدا نشد، قبلاً بررسی شده یا متقاضی معرف دارد (در این صورت فقط رد ممکن است).</Alert>}
+        {referredAffiliates > 0 && (
+          <Alert tone="warning">
+            <span data-referred-affiliates>
+              {toFaDigits(referredAffiliates)} همکار خودشان با معرف ثبت شده‌اند؛ برنامه فقط یک سطح است و کد آن‌ها معرف جدید ثبت نمی‌کند.
+            </span>
+          </Alert>
+        )}
         {rows.length === 0 ? (
           <EmptyState icon="check_circle" title="درخواستی در این بخش نیست." />
         ) : (
@@ -96,6 +107,13 @@ export default async function AdminAffiliatesPage({
                     <dd>{r.followers ? FOLLOWERS[r.followers] : '—'}</dd>
                   </div>
                 </dl>
+                {r.referred && r.status === 'pending' && (
+                  <Alert tone="warning">
+                    <span data-referred-applicant>
+                      این متقاضی با کد یا لینک معرف ثبت شده است؛ برنامه فقط یک سطح است و تأیید او ممکن نیست.
+                    </span>
+                  </Alert>
+                )}
                 <p className={a.description}>{r.description}</p>
                 {r.status === 'rejected' && r.reject_reason && (
                   <p className={a.muted}>دلیل رد: {r.reject_reason}</p>
@@ -103,9 +121,11 @@ export default async function AdminAffiliatesPage({
                 {r.status === 'pending' && (
                   <form action={decideAffiliateAction} className={a.actions}>
                     <input type="hidden" name="id" value={r.id} />
-                    <Button type="submit" name="decision" value="approve" size="sm" icon="check">
-                      تأیید و ارتقای نقش
-                    </Button>
+                    {!r.referred && (
+                      <Button type="submit" name="decision" value="approve" size="sm" icon="check">
+                        تأیید و ارتقای نقش
+                      </Button>
+                    )}
                     <input
                       name="reason"
                       maxLength={300}

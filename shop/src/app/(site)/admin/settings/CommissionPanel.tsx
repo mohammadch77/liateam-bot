@@ -29,17 +29,7 @@ function RuleForm({ rule }: { rule: CommissionRule | null }) {
           نام قاعده
           <input name="name" defaultValue={rule?.name ?? ''} maxLength={80} required />
         </label>
-        <label className={a.field}>
-          سطح معرف (۱ = معرف مستقیم خریدار)
-          <input
-            name="level"
-            defaultValue={rule?.level ?? ''}
-            inputMode="numeric"
-            dir="ltr"
-            required
-            placeholder={`1 تا ${MAX_LEVEL}`}
-          />
-        </label>
+        <input type="hidden" name="level" value="1" />
         <label className={a.field}>
           محدوده
           <select name="scope" defaultValue={scope.type}>
@@ -156,16 +146,7 @@ function Simulator({ input, result }: { input: SimulatorInput | null; result: Co
           </div>
         ))}
         <div className={a.grid}>
-          <label className={a.field}>
-            تعداد سطح‌های زنجیره‌ی معرف
-            <select name="depth" defaultValue={input?.chainDepth ?? 2}>
-              {Array.from({ length: MAX_LEVEL + 1 }, (_, i) => (
-                <option key={i} value={i}>
-                  {formatNumber(i)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <input type="hidden" name="depth" value="1" />
           <label className={a.field}>
             وضعیت سفارش
             <select name="status" defaultValue={input?.status ?? 'paid'}>
@@ -192,8 +173,7 @@ function Simulator({ input, result }: { input: SimulatorInput | null; result: Co
             <table className={a.table}>
               <thead>
                 <tr>
-                  <th>سطح</th>
-                  <th>پورسانت (تومان)</th>
+                    <th>پورسانت (تومان)</th>
                   <th>مبنا</th>
                   <th>قاعده‌ها</th>
                   <th>وضعیت</th>
@@ -270,7 +250,6 @@ export function CommissionPanel({
               {rules.map((r) => (
                 <tr key={r.id} data-rule={r.id}>
                   <td>{r.name}</td>
-                  <td>{formatNumber(r.level)}</td>
                   <td>
                     {SCOPE_LABEL[r.scope.type]}
                     {'id' in r.scope && ` ${formatNumber(r.scope.id)}`}
@@ -283,9 +262,11 @@ export function CommissionPanel({
                     {r.maxPerOrder === null ? '—' : formatNumber(r.maxPerOrder)}
                   </td>
                   <td>{formatNumber(r.holdDays)} روز</td>
-                  <td>{r.active ? 'فعال' : 'غیرفعال'}</td>
+                  <td>{r.level > MAX_LEVEL ? 'نادیده گرفته می‌شود (سطح بالاتر از ۱)' : r.active ? 'فعال' : 'غیرفعال'}</td>
                   <td>
-                    <Link href={`${adminSettingsPath('commission')}&edit=${r.id}`}>ویرایش</Link>
+                    {r.level > MAX_LEVEL ? null : (
+                      <Link href={`${adminSettingsPath('commission')}&edit=${r.id}`}>ویرایش</Link>
+                    )}
                   </td>
                 </tr>
               ))}

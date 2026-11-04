@@ -183,9 +183,8 @@ try {
     JSON.stringify(placed),
   );
   check(
-    '1i commissions: level 1 = 5% and level 2 = 2% of the goods (rounded down), pending, with their holds; one per referrer',
-    commissions(o1.number) ===
-      `1:${floor(o1.itemsTotal, 5)}:pending:7,2:${floor(o1.itemsTotal, 2)}:pending:0`,
+    '1i commissions: ONE level only (task K): level 1 = 5% of the goods (rounded down), pending, with its hold; an older data chain (the referrer was referred too) and the level-2 rule earn nothing',
+    commissions(o1.number) === `1:${floor(o1.itemsTotal, 5)}:pending:7`,
     commissions(o1.number),
   );
   check(
@@ -229,10 +228,10 @@ try {
     bodies.every((b) => b.includes('data-callback-result="paid"')),
   );
   check(
-    '2b … but the money is counted once: one confirmed payment, one «paid» event, two commissions',
+    '2b … but the money is counted once: one confirmed payment, one «paid» event, one commission',
     confirmed(o2.number) === 1 &&
       (events(o2.number).match(/\bpaid\b/g) ?? []).length === 1 &&
-      commissions(o2.number).split(',').length === 2,
+      commissions(o2.number).split(',').length === 1,
     `${payments(o2.number)} | ${events(o2.number)}`,
   );
   const smsBefore = smsFor(buyer.phone, 'order');
@@ -373,7 +372,7 @@ try {
     '5c the order is paid by the wallet payment, once, and goes the same way after payment (bot order, commissions)',
     payments(o5.number) === `wallet:confirmed:${o5.payable}` &&
       orderRow(o5.number)[2] === 'wallet' &&
-      commissions(o5.number).split(',').length === 2 &&
+      commissions(o5.number).split(',').length === 1 &&
       orderRow(o5.number)[1] !== '',
     payments(o5.number),
   );
@@ -511,7 +510,7 @@ try {
         sql(
           `select count(*) from ${S}.commissions where order_id = ${o2.id} and release_at is not null and abs(extract(epoch from release_at - ((select sent_at from ${S}.orders where id = ${o2.id}) + hold_days * interval '1 day'))) < 0.01`,
         ),
-      ) === 2,
+      ) === 1,
     commissions(o2.number),
   );
   check(

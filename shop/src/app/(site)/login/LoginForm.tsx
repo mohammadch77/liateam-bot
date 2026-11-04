@@ -81,6 +81,16 @@ export function LoginForm({ next }: { next: string }) {
             autoFocus
             error={send.error ?? undefined}
           />
+          <TextField
+            name="ref"
+            label="کد معرف"
+            labelNote="اختیاری"
+            ltr
+            autoCapitalize="none"
+            autoComplete="off"
+            maxLength={20}
+            hint="اگر کسی شما را معرفی کرده، کدش را اینجا بنویسید. فقط برای ثبت‌نام اولیه کاربرد دارد."
+          />
           <Submit pendingText="در حال ارسال کد…">دریافت کد تأیید</Submit>
         </form>
         <p className={s.terms}>ورود شما به معنای پذیرش شرایط و قوانین حریم خصوصی فروشگاه است.</p>

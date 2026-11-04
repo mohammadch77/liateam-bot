@@ -57,6 +57,7 @@ const ALL = [
   'admin-orders-mobile',
   'redirect-host',
   'checkout-cart',
+  'referral-flow',
 ];
 const wanted = process.argv.slice(2);
 const unknown = wanted.filter((n) => !ALL.includes(n));

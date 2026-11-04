@@ -17,7 +17,7 @@ import {
   safeEqualHex,
 } from '@/server/security/crypto';
 import { clearReferralCode, readReferralCode } from '@/server/auth/referral-cookie';
-import { commissionRepository } from '@/server/repositories/commission.repository';
+import { referralService } from './referral.service';
 import { smsService } from './sms.service';
 
 /** Security policy for sign-in. All limits in one place. */
@@ -169,14 +169,7 @@ export const authService = {
         db,
       );
       // a FIRST sign-up through a referral link: the referrer is fixed now (a repeat changes nothing, nobody refers themselves)
-      if (created && refCode) {
-        try {
-          const referrer = await commissionRepository.userByCode(refCode, db);
-          if (referrer && referrer !== user.id) await commissionRepository.refer(user.id, referrer, refCode, db);
-        } catch (e) {
-          logger.warn('auth.referral_failed', { err: e instanceof Error ? e.message : 'unknown' });
-        }
-      }
+      if (created && refCode) await referralService.attachAtSignup(user.id, refCode, db);
       return { userId: user.id, expiresAt: session.expires_at, isNewUser: created };
     });
     if (refCode) await clearReferralCode().catch(() => {});

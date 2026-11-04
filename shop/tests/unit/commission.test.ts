@@ -316,18 +316,18 @@ const good = {
   active: '1',
 };
 
-test('rule form: a valid rule, Persian digits, no defaults', () => {
+test('rule form: a valid rule, Persian digits, no defaults (the level is always 1 since task K)', () => {
   const r = parseRuleForm(
-    form({ ...good, level: '۲', value: '۲٫۵', minOrderTotal: '۵۰۰٬۰۰۰', maxPerOrder: '۱۰۰۰۰۰' }),
+    form({ ...good, level: '۱', value: '۲٫۵', minOrderTotal: '۵۰۰٬۰۰۰', maxPerOrder: '۱۰۰۰۰۰' }),
   );
   assert.ok(r.ok);
   if (!r.ok) return;
   assert.deepEqual(
     [r.value.level, r.value.value, r.value.minOrderTotal, r.value.maxPerOrder, r.value.active],
-    [2, 2.5, 500_000, 100_000, true],
+    [1, 2.5, 500_000, 100_000, true],
   );
-  // nothing is filled in for the admin: empty required fields are errors
-  for (const blank of ['name', 'level', 'value', 'minOrderTotal', 'holdDays'])
+  // nothing is filled in for the admin: empty required fields are errors (the level is the one thing that has a value: 1)
+  for (const blank of ['name', 'value', 'minOrderTotal', 'holdDays'])
     assert.equal(parseRuleForm(form({ ...good, [blank]: '' })).ok, false, blank);
 });
 
@@ -335,6 +335,7 @@ test('rule form: limits and scope', () => {
   const bad = (o: Record<string, string>) =>
     assert.equal(parseRuleForm(form({ ...good, ...o })).ok, false, JSON.stringify(o));
   bad({ level: '0' });
+  bad({ level: '2' }); // one level only
   bad({ level: '6' });
   bad({ value: '0' });
   bad({ value: '100.5' });

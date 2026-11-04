@@ -25,6 +25,7 @@ export const orderCommissionService = {
   ): Promise<number> {
     const rules = (await commissionRuleRepository.list(db)).filter((r) => r.active);
     if (!rules.length) return 0;
+    // one level: only the buyer's own referrer earns (older rules for a higher level never match a chain of one)
     const chain = await commissionRepository.referralChain(order.user_id, MAX_LEVEL, db);
     if (!chain.length) return 0;
     const facts = await commissionRepository.lineFacts(
@@ -50,8 +51,11 @@ export const orderCommissionService = {
     let made = 0;
     for (const it of result.items) {
       if (it.amount <= 0) continue;
+      const first = rules.find((r) => String(r.id) === String(it.ruleIds[0]));
       const ok = await commissionRepository.create(
         {
+          ruleKind: first?.kind ?? null,
+          ruleValue: first?.value ?? null,
           orderId: order.id,
           affiliateUserId: it.affiliateUserId,
           ruleId: String(it.ruleIds[0]),

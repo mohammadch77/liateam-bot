@@ -1,13 +1,15 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import { formatToman } from '@/lib/format/money';
 import { toFaDigits } from '@/lib/format/number';
 import { walletPath } from '@/lib/urls';
 import { requireUser } from '@/server/auth/guards';
 import { affiliatePanelService, isAffiliateUser } from '@/server/services/affiliate-panel.service';
+import { affiliateService } from '@/server/services/affiliate.service';
+import { AffiliateApply, AffiliateIntro } from '../../affiliate/AffiliateSections';
 import { Breadcrumb, Button, EmptyState } from '@/ui';
 import s from '../account.module.css';
 import { CopyButton } from './_ui/CopyButton';
-import { NotAffiliate } from './_ui/NotAffiliate';
 
 export const metadata: Metadata = { title: 'همکاری در فروش', robots: { index: false } };
 
@@ -15,13 +17,19 @@ export const metadata: Metadata = { title: 'همکاری در فروش', robots:
 export default async function AffiliateDashboard() {
   const user = await requireUser('/account/affiliate');
   const crumbs = [{ label: 'خانه', href: '/' }, { label: 'حساب کاربری', href: '/account' }, { label: 'همکاری در فروش' }];
-  if (!isAffiliateUser(user))
+  if (!isAffiliateUser(user)) {
+    // the introduction and, under it, the application / its state: one address for a customer, a pending applicant and an affiliate
+    const status = await affiliateService.statusFor(user);
     return (
       <>
         <Breadcrumb items={crumbs} />
-        <NotAffiliate />
+        <div data-affiliate-join={status.kind}>
+          <AffiliateIntro />
+        </div>
+        <AffiliateApply user={user} status={status} source="account" here="/account/affiliate" />
       </>
     );
+  }
   const o = await affiliatePanelService.overview(user).catch(() => null);
   return (
     <>
@@ -71,12 +79,42 @@ export default async function AffiliateDashboard() {
               <b data-stat-total>{formatToman(o.totals.total)} تومان</b>
             </div>
             <div className={s.stat}>
-              <span>معرفی‌شده‌ها (همه‌ی سطح‌ها)</span>
-              <b data-stat-network>{toFaDigits(o.network.reduce((a, b) => a + b, 0))} نفر</b>
+              <span>افراد معرفی‌شده</span>
+              <b data-stat-network>{toFaDigits(o.network)} نفر</b>
             </div>
             <div className={s.stat}>
               <span>موجودی قابل برداشت</span>
               <b data-stat-withdrawable>{formatToman(o.withdrawable)} تومان</b>
+            </div>
+          </section>
+          <section className={`${s.card} ${s.wide}`} aria-labelledby="aff-uses" data-affiliate-uses>
+            <h2 id="aff-uses" className={s.h2}>
+              کد معرف کجا به کار می‌آید؟
+            </h2>
+            <ol className={s.rows} style={{ paddingInlineStart: 20, gap: 8 }}>
+              <li>
+                <b>لینک:</b> مشتری با کلیک روی لینک ثبت‌نام می‌کند و به شما نسبت داده می‌شود.
+              </li>
+              <li>
+                <b>کد:</b> مشتری جدید می‌تواند کد را هنگام ثبت‌نام یا در تسویه‌ی اولین خرید وارد کند.
+              </li>
+              <li>
+                <b>QR:</b> برای بنر و پوستر در داروخانه و مغازه‌ها.
+              </li>
+            </ol>
+            <div className={s.row} style={{ alignItems: 'center' }}>
+              <Image src="/account/affiliate/qr" alt="QR کد لینک معرفی شما" width={168} height={168} unoptimized data-qr />
+              <div className={s.btnRow}>
+                <Button href="/account/affiliate/qr?f=svg&download=1" variant="outline" prefetch={false} data-qr-svg>
+                  دانلود QR (SVG)
+                </Button>
+                <Button href="/account/affiliate/qr?f=png&download=1" variant="outline" prefetch={false} data-qr-png>
+                  دانلود QR (PNG)
+                </Button>
+                <Button href="/account/affiliate/banner" variant="outline" data-qr-banner>
+                  بنر چاپی (A5)
+                </Button>
+              </div>
             </div>
           </section>
           <div className={s.btnRow}>

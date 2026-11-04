@@ -8,6 +8,8 @@ import { safeNextPath } from '@/server/auth/guards';
 import { logger } from '@/lib/logger';
 import { authService, type OtpRequested } from '@/server/services/auth.service';
 import { cartService } from '@/server/services/cart.service';
+import { referralService } from '@/server/services/referral.service';
+import { AppError } from '@/lib/errors';
 
 export type RequestCodeState = ActionResult<
   Pick<OtpRequested, 'phone' | 'masked' | 'resendAfterSeconds'>
@@ -17,7 +19,11 @@ export type VerifyCodeState = ActionResult<null> | null;
 /** Step 1: phone → SMS code. */
 export async function requestCodeAction(_prev: RequestCodeState, form: FormData): Promise<RequestCodeState> {
   return runAction('auth.request_code', async () => {
-    const r = await authService.requestOtp(String(form.get('phone') ?? ''), await requestMeta());
+    const meta = await requestMeta();
+    // a typed referral code is checked and remembered like the link's; a wrong one stops here with its message
+    const refused = await referralService.rememberTyped(String(form.get('ref') ?? ''), meta.ip);
+    if (refused) throw new AppError('INVALID_DATA', { message: refused });
+    const r = await authService.requestOtp(String(form.get('phone') ?? ''), meta);
     return { phone: r.phone, masked: r.masked, resendAfterSeconds: r.resendAfterSeconds };
   });
 }

@@ -14,6 +14,7 @@ import {
   addAddressAction,
   applyReviewAction,
   citiesAction,
+  enterReferralAction,
   payAction,
   provincesAction,
   reviewStatusAction,
@@ -55,6 +56,7 @@ export function CheckoutFlow({
   defaultName,
   pay,
   cart,
+  referral,
 }: {
   addresses: AddressView[];
   defaultPhone: string;
@@ -63,6 +65,8 @@ export function CheckoutFlow({
   pay: PayOptions;
   /** the cart's own numbers (before the live check): shown in the summary from the start */
   cart: { units: number; itemsTotal: number; discountTotal: number };
+  /** the referral code: may one still be typed, and the one the account has (locked) */
+  referral: { canEnter: boolean; code: string | null };
 }) {
   const [addresses, setAddresses] = useState(initial);
   const [addressId, setAddressId] = useState<string | null>(
@@ -228,6 +232,8 @@ export function CheckoutFlow({
             </Button>
           )}
         </section>
+
+        {(referral.canEnter || referral.code) && <ReferralBox state={referral} />}
 
         <section
           className={s.card}
@@ -571,5 +577,47 @@ function AddressForm({
         )}
       </div>
     </form>
+  );
+}
+
+/** «کد معرف (اختیاری)»: a field before the first paid order; once a code is recorded it is shown locked. */
+function ReferralBox({ state }: { state: { canEnter: boolean; code: string | null } }) {
+  const [code, setCode] = useState(state.code);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const submit = (form: FormData) =>
+    start(async () => {
+      setError(null);
+      const r = await enterReferralAction(String(form.get('ref') ?? ''));
+      if (r.ok) setCode(r.data.code);
+      else setError(r.error);
+    });
+  return (
+    <section className={s.card} aria-labelledby="co-ref" data-referral-box>
+      <h2 id="co-ref" className={s.h2}>
+        کد معرف <span className={s.muted}>(اختیاری)</span>
+      </h2>
+      {code ? (
+        <p data-referral-locked>
+          کد معرف شما: <b dir="ltr">{code}</b> — ثبت شد و قابل تغییر نیست.
+        </p>
+      ) : (
+        <form action={submit} className={s.form}>
+          <TextField
+            name="ref"
+            label="کد معرف"
+            ltr
+            autoCapitalize="none"
+            autoComplete="off"
+            maxLength={20}
+            hint="فقط تا قبل از اولین خرید پرداخت‌شده؛ بعد از ثبت قابل تغییر نیست."
+            error={error ?? undefined}
+          />
+          <Button type="submit" variant="outline" loading={pending} loadingText="در حال بررسی…">
+            ثبت کد معرف
+          </Button>
+        </form>
+      )}
+    </section>
   );
 }

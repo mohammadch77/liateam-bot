@@ -5,6 +5,7 @@ import { requireUser } from '@/server/auth/guards';
 import { addressService } from '@/server/services/address.service';
 import { cartService } from '@/server/services/cart.service';
 import { orderPaymentService } from '@/server/services/order-payment.service';
+import { referralService } from '@/server/services/referral.service';
 import { Breadcrumb, Container } from '@/ui';
 import type { AddressView } from './actions';
 import { CheckoutFlow } from './CheckoutFlow';
@@ -32,6 +33,7 @@ export default async function CheckoutPage() {
     is_default: a.is_default,
   }));
   const pay = await orderPaymentService.options(user.id);
+  const referral = await referralService.stateFor(user.id).catch(() => ({ canEnter: false, code: null }));
   return (
     <Container className={s.page}>
       <Breadcrumb
@@ -47,6 +49,7 @@ export default async function CheckoutPage() {
         defaultPhone={user.phone}
         defaultName={user.fullName ?? ''}
         pay={pay}
+        referral={referral}
         cart={{ units: cart.units, itemsTotal: cart.itemsTotal, discountTotal: cart.discountTotal }}
       />
     </Container>

@@ -31,6 +31,7 @@ const ACTION_LABEL: Record<string, string> = {
   'review.approve': 'تأیید دیدگاه',
   'review.reject': 'رد دیدگاه',
   'affiliate.apply': 'درخواست همکاری در فروش',
+  'referral.enter': 'ثبت کد معرف',
   'affiliate.approve': 'تأیید همکاری در فروش',
   'affiliate.reject': 'رد همکاری در فروش',
   'discount.create': 'ساخت تخفیف',
@@ -58,13 +59,14 @@ const timeFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'short
 /** Role-restricted example: admins only (everyone else gets HTTP 403). Placeholder for the phase-3 admin panel. */
 export default async function AdminPage() {
   const user = await requireRole('admin', '/admin');
-  const [events, sync, previous, attention, pendingWithdrawals, manualCommissions] = await Promise.all([
+  const [events, sync, previous, attention, pendingWithdrawals, manualCommissions, noRule] = await Promise.all([
     auditService.recent(20),
     healthService.syncStatus().catch(() => null),
     auditService.previousLogin().catch(() => null),
     orderService.needingAttention().catch(() => []),
     withdrawalService.pendingCount().catch(() => 0),
     commissionAdminService.awaitingManual().catch(() => 0),
+    commissionAdminService.noUsableRule().catch(() => false),
   ]);
   const when = (d: Date | null) => (d ? timeFa.format(d) : '—');
 
@@ -110,6 +112,11 @@ export default async function AdminPage() {
         <h2 id="attention-title" className={s.title}>
           نیازمند توجه
         </h2>
+        {noRule && (
+          <p data-attention-no-rule>
+            <Link href="/admin/settings?section=commission">هیچ قاعده‌ی پورسانت فعالی نیست؛ پورسانت ساخته نمی‌شود</Link>
+          </p>
+        )}
         {manualCommissions > 0 && (
           <p data-attention-commissions>
             <Link href="/admin/commissions?status=pending">

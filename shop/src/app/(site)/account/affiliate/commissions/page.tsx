@@ -9,6 +9,7 @@ import {
 } from '@/server/services/affiliate-panel.service';
 import { Badge, Breadcrumb, Button, EmptyState, Pagination } from '@/ui';
 import s from '../../account.module.css';
+import { PrintButton, PrintStyles } from '../../_ui/PrintButton';
 import { NotAffiliate } from '../_ui/NotAffiliate';
 
 export const metadata: Metadata = { title: 'پورسانت‌ها', robots: { index: false } };
@@ -70,6 +71,7 @@ export default async function CommissionsPage({
   const max = Math.max(1, ...(months ?? []).map((m) => m.total));
   return (
     <>
+      <PrintStyles />
       <Breadcrumb items={crumbs} />
       <h1 className={s.title}>پورسانت‌ها</h1>
       {months && (
@@ -122,6 +124,10 @@ export default async function CommissionsPage({
         <Button href={`/account/affiliate/export?${qs(f)}`} variant="outline" prefetch={false} data-csv>
           خروجی CSV
         </Button>
+        <Button href={`/account/affiliate/export?${qs(f)}&format=xlsx`} variant="outline" prefetch={false} data-xlsx>
+          خروجی Excel
+        </Button>
+        <PrintButton />
       </form>
       {!data ? (
         <EmptyState icon="error" tone="danger" title="فهرست پورسانت‌ها بارگذاری نشد">
@@ -139,14 +145,14 @@ export default async function CommissionsPage({
                     {formatToman(c.amount)} تومان
                   </b>
                   <span className={s.muted}>
-                    سطح {toFaDigits(c.level)} · بر مبنای {formatToman(c.base_amount)} تومان
+                    مبلغ سفارش پایه: {formatToman(c.base_amount)} تومان
                     {c.rule_kind === 'percent' && c.rule_value !== null && ` · ${toFaDigits(c.rule_value)}٪`}
                     {c.rule_kind === 'fixed' && c.rule_value !== null && ` · مبلغ ثابت ${formatToman(c.rule_value)}`}
                   </span>
                   <span className={s.muted}>
                     {dateFa.format(c.created_at)}
                     {c.status === 'pending' && c.release_at && ` · آزادسازی: ${dateFa.format(c.release_at)}`}
-                    {c.status === 'pending' && !c.release_at && ' · پس از ارسال سفارش'}
+                    {c.status === 'pending' && !c.release_at && ' · بعد از ارسال سفارش و پایان مهلت، به کیف پول شما واریز می‌شود.'}
                     {c.paid_at && ` · واریز: ${dateFa.format(c.paid_at)}`}
                   </span>
                 </div>

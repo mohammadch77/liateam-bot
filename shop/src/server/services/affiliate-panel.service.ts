@@ -1,6 +1,19 @@
 import 'server-only';
 import { AppError } from '@/lib/errors';
-import { monthlyTotals, reportSince, type MonthTotal } from '@/lib/affiliate/report';
+import {
+  commissionsTable,
+  monthlyTotals,
+  personTable,
+  personTotals,
+  reportSince,
+  type CommissionExportRow,
+  type MonthTotal,
+  type PersonOrder,
+  type ReportTable,
+} from '@/lib/affiliate/report';
+import { ORDER_STATUS_LABEL } from '@/lib/orders/filters';
+import { readPersonToken, personToken } from '@/server/security/crypto';
+import { siteOrigin } from '@/server/http/site-origin';
 import { rateLimit } from '@/server/http/rate-limit';
 import { affiliateRepository } from '@/server/repositories/affiliate.repository';
 import {
@@ -53,7 +66,7 @@ export const affiliatePanelService = {
     const code = await affiliateRepository.ensureCode(user.id);
     const [totals, network, balance, wd, base] = await Promise.all([
       commissionRepository.totalsForAffiliate(user.id),
-      commissionRepository.networkCounts(user.id),
+      commissionRepository.networkCount(user.id),
       walletRepository.balance(user.id),
       withdrawalService.overview(user),
       settingsRead.get('site.base_url'),
@@ -68,22 +81,55 @@ export const affiliatePanelService = {
     };
   },
 
-  async network(user: CurrentUser, level: number | null, page: number) {
+  /** The people this affiliate referred (one level), each with the opaque token of their page. */
+  async network(user: CurrentUser, page: number) {
     need(user);
     const p = Number.isInteger(page) && page > 0 && page < 10_000 ? page : 1;
-    const lv = level !== null && Number.isInteger(level) && level >= 1 && level <= 5 ? level : null;
-    const [rows, counts] = await Promise.all([
-      commissionRepository.networkPage(user.id, lv, NETWORK_PER_PAGE + 1, (p - 1) * NETWORK_PER_PAGE),
-      commissionRepository.networkCounts(user.id),
+    const [rows, total] = await Promise.all([
+      commissionRepository.networkPage(user.id, NETWORK_PER_PAGE, (p - 1) * NETWORK_PER_PAGE),
+      commissionRepository.networkCount(user.id),
     ]);
-    const total = lv ? counts[lv - 1]! : counts.reduce((a, b) => a + b, 0);
     return {
-      rows: rows.slice(0, NETWORK_PER_PAGE) as NetworkRow[],
-      counts,
+      rows: rows.map((r) => ({ ...r, token: personToken(user.id, r.buyer_id) })) as Array<NetworkRow & { token: string }>,
+      total,
       page: p,
       pages: Math.max(1, Math.ceil(total / NETWORK_PER_PAGE)),
-      level: lv,
     };
+  },
+
+  /**
+   * One referred person's paid orders and the commission each gave. Only the affiliate who referred them: a token that is not theirs,
+   * or a person someone else referred, is a plain NOT_FOUND (never "forbidden", so nothing is confirmed).
+   */
+  async person(user: CurrentUser, token: string) {
+    need(user);
+    const buyerId = readPersonToken(user.id, token);
+    const person = buyerId ? await commissionRepository.referredPerson(user.id, buyerId) : null;
+    if (!buyerId || !person) throw new AppError('NOT_FOUND');
+    const orders = (await commissionRepository.personOrders(user.id, buyerId, EXPORT_LIMIT)) as PersonOrder[];
+    return { person, orders, totals: personTotals(orders) };
+  },
+
+  /** the table of one person's orders for Excel (rate limited like the other exports) */
+  async personExport(user: CurrentUser, token: string): Promise<ReportTable> {
+    rateLimit(`affiliate-csv:${user.id}`, 5, 10 * 60_000);
+    const d = await affiliatePanelService.person(user, token);
+    const name = d.person.first_name?.trim() || 'کاربر';
+    return personTable(`${name} (${d.person.phone_last4})`, d.orders, (s) => ORDER_STATUS_LABEL[s as keyof typeof ORDER_STATUS_LABEL] ?? s);
+  },
+
+  /** the table of the user's own commissions for Excel (the page's filters) */
+  async commissionsExport(user: CurrentUser, f: CommissionFilter): Promise<ReportTable> {
+    const rows = await affiliatePanelService.exportRows(user, f);
+    return commissionsTable(rows as CommissionExportRow[]);
+  },
+
+  /** the link a QR code points at: the shop's own address (the setting, else the address this request came on) */
+  async qrLink(user: CurrentUser): Promise<{ code: string; link: string }> {
+    need(user);
+    const code = await affiliateRepository.ensureCode(user.id);
+    const base = (await settingsRead.get('site.base_url')) || (await siteOrigin());
+    return { code, link: `${String(base).replace(/\/+$/, '')}/r/${code}` };
   },
 
   async commissions(user: CurrentUser, f: CommissionFilter, page: number) {

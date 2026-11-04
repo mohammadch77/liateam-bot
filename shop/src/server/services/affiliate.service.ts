@@ -8,7 +8,9 @@ import {
   type ChannelType,
   type Followers,
 } from '@/server/repositories/affiliate.repository';
+import { APPLICATION_REFUSED_REFERRED } from '@/lib/affiliate/referral';
 import { auditRepository } from '@/server/repositories/audit.repository';
+import { commissionRepository } from '@/server/repositories/commission.repository';
 import { withTransaction } from '@/server/repositories/transaction';
 import { userRepository } from '@/server/repositories/user.repository';
 import type { RequestMeta } from '@/server/http/request';
@@ -153,6 +155,8 @@ export const affiliateService = {
   /** The signed-in user's state on the page: already a seller, or their latest application (if any). */
   async statusFor(user: CurrentUser) {
     if (isAffiliate(user)) return { kind: 'affiliate' as const };
+    // one level only: a person who was referred never becomes an affiliate
+    if (await commissionRepository.referrerOf(user.id)) return { kind: 'referred' as const };
     const latest = await affiliateRepository.latestFor(user.id);
     if (!latest) return { kind: 'none' as const };
     if (latest.status === 'rejected') {
@@ -173,6 +177,8 @@ export const affiliateService = {
     }
     const a = parsed.data;
     return withTransaction(async (db) => {
+      if (await commissionRepository.referrerOf(user.id, db))
+        throw new AppError('CONFLICT', { message: APPLICATION_REFUSED_REFERRED });
       const latest = await affiliateRepository.latestFor(user.id, db);
       if (latest?.status === 'pending') {
         throw new AppError('CONFLICT', { message: 'درخواست قبلی شما در حال بررسی است.' });
@@ -240,6 +246,12 @@ export const affiliateService = {
     if (!/^\d{1,18}$/.test(id)) throw new AppError('INVALID_DATA');
     const why = decision === 'rejected' ? line(reason).slice(0, 300) || null : null;
     return withTransaction(async (db) => {
+      if (decision === 'approved') {
+        // refused BEFORE it is decided, so the application stays pending (the admin can reject it with a reason)
+        const owner = await affiliateRepository.ownerOf(id, db);
+        if (owner && (await commissionRepository.referrerOf(owner, db)))
+          throw new AppError('CONFLICT', { message: 'این کاربر با کد یا لینک معرف ثبت شده و نمی‌تواند همکار شود؛ درخواست را رد کنید.' });
+      }
       const row = await affiliateRepository.decide(id, decision, admin.id, why, db);
       if (!row) throw new AppError('NOT_FOUND');
       let granted = false;
@@ -275,6 +287,13 @@ export const affiliateService = {
     });
   },
 
-  list: (status: AffiliateStatus, limit = 100) => affiliateRepository.list(status, limit),
+  async list(status: AffiliateStatus, limit = 100) {
+    const rows = await affiliateRepository.list(status, limit);
+    const referred = await commissionRepository.referredAmong(rows.map((r) => r.user_id)).catch(() => new Set<string>());
+    return rows.map((r) => ({ ...r, referred: referred.has(r.user_id) }));
+  },
+
+  /** affiliates who were themselves referred (their own code brings no new referrals; reported on the admin's page) */
+  referredAffiliates: () => commissionRepository.referredAffiliateCount().catch(() => 0),
   counts: () => affiliateRepository.counts(),
 };

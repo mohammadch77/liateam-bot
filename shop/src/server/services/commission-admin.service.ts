@@ -16,6 +16,12 @@ export const commissionAdminService = {
     return { rows: r.rows, total: r.total, sum: r.sum, counts, page: p };
   },
 
+  /** With no usable rule an affiliate's order makes NO commission: the admin is told (nothing is invented for them). */
+  async noUsableRule(): Promise<boolean> {
+    await authorize('admin');
+    return (await commissionRepository.usableRuleCount()) === 0;
+  },
+
   /** commissions of manual-approval rules, their order sent, waiting for an admin: shown under «نیازمند توجه» */
   async awaitingManual(): Promise<number> {
     await authorize('admin');

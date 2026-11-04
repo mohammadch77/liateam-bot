@@ -130,6 +130,17 @@ export const affiliateRepository = {
     );
   },
 
+  /** The user an application belongs to. */
+  async ownerOf(id: string, db?: Queryable): Promise<string | null> {
+    const r = await queryOne<{ user_id: string }>(
+      'affiliate.owner',
+      'SELECT user_id::text FROM affiliate_applications WHERE id = $1',
+      [id],
+      db,
+    );
+    return r?.user_id ?? null;
+  },
+
   /** Does this user have a referral code (an active affiliate)? */
   async hasCode(userId: string, db?: Queryable): Promise<boolean> {
     const r = await queryOne<{ ok: boolean }>(

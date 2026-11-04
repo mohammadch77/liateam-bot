@@ -54,11 +54,27 @@ export type AffiliateCommissionRow = {
 
 /** a person in an affiliate's network: nothing but what the privacy rule allows (first name, last four digits, join date, order count) */
 export type NetworkRow = {
-  level: number;
+  /** the referred user's id: only ever turned into an opaque token for the address (never shown) */
+  buyer_id: string;
   first_name: string | null;
   phone_last4: string;
   joined_at: Date;
   orders: number;
+  /** what this affiliate earned from the person so far (cancelled ones left out) */
+  commission: number;
+};
+
+/** one paid order of a referred person, as the affiliate may see it */
+export type PersonOrderRow = {
+  order_number: string;
+  paid_at: Date;
+  order_status: string;
+  items_total: number;
+  base_amount: number | null;
+  commission: number | null;
+  commission_status: CommissionStatus | null;
+  rule_kind: 'percent' | 'fixed' | null;
+  rule_value: number | null;
 };
 
 export type AdminCommissionRow = {
@@ -110,13 +126,6 @@ function filterSql(f: CommissionFilter, startAt: number): { sql: string; args: u
   return { sql: parts.length ? ` AND ${parts.join(' AND ')}` : '', args };
 }
 
-const NETWORK_CTE = `WITH RECURSIVE net(user_id, level, path) AS (
-  SELECT r.buyer_user_id, 1, ARRAY[$1::bigint, r.buyer_user_id] FROM affiliate_referrals r WHERE r.referrer_user_id = $1::bigint
-  UNION ALL
-  SELECT r.buyer_user_id, n.level + 1, n.path || r.buyer_user_id
-    FROM net n JOIN affiliate_referrals r ON r.referrer_user_id = n.user_id
-   WHERE n.level < 5 AND NOT r.buyer_user_id = ANY(n.path))`;
-
 export const commissionRepository = {
   async referrerOf(buyerUserId: string, db?: Queryable): Promise<string | null> {
     const row = await queryOne<{ referrer: string }>(
@@ -162,6 +171,18 @@ export const commissionRepository = {
     );
   },
 
+  /** How many rules can make a commission right now: active, inside their dates, and for the one level that exists. */
+  async usableRuleCount(db?: Queryable): Promise<number> {
+    const r = await queryOne<{ n: number }>(
+      'commission.usable_rules',
+      `SELECT count(*)::int AS n FROM commission_rules
+        WHERE active AND level = 1 AND (valid_from IS NULL OR valid_from <= now()) AND (valid_to IS NULL OR valid_to > now())`,
+      [],
+      db,
+    );
+    return r?.n ?? 0;
+  },
+
   /** One commission per order and affiliate (a repeat returns false). */
   async create(
     c: {
@@ -173,15 +194,18 @@ export const commissionRepository = {
       level?: number;
       holdDays?: number;
       manualApproval?: boolean;
+      /** the rule's kind and value as they are now (kept on the row) */
+      ruleKind?: 'percent' | 'fixed' | null;
+      ruleValue?: number | null;
     },
     db?: Queryable,
   ): Promise<boolean> {
     const rows = await query<{ id: string }>(
       'commission.create',
-      `INSERT INTO commissions (order_id, affiliate_user_id, rule_id, base_amount, amount, level, hold_days, manual_approval)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      `INSERT INTO commissions (order_id, affiliate_user_id, rule_id, base_amount, amount, level, hold_days, manual_approval, rule_kind, rule_value)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        ON CONFLICT (order_id, affiliate_user_id) DO NOTHING RETURNING id::text`,
-      [c.orderId, c.affiliateUserId, c.ruleId, c.baseAmount, c.amount, c.level ?? 1, c.holdDays ?? 0, c.manualApproval === true],
+      [c.orderId, c.affiliateUserId, c.ruleId, c.baseAmount, c.amount, c.level ?? 1, c.holdDays ?? 0, c.manualApproval === true, c.ruleKind ?? null, c.ruleValue ?? null],
       db,
     );
     return rows.length === 1;
@@ -357,7 +381,7 @@ export const commissionRepository = {
     const rows = await query<AffiliateCommissionRow>(
       'commission.affiliate_page',
       `SELECT c.id::text, c.level, c.status, c.base_amount::float8, c.amount::float8, c.hold_days, c.created_at, c.release_at, c.paid_at,
-              r.kind AS rule_kind, r.value::float8 AS rule_value
+              coalesce(c.rule_kind, r.kind) AS rule_kind, coalesce(c.rule_value, r.value)::float8 AS rule_value
          FROM commissions c LEFT JOIN commission_rules r ON r.id = c.rule_id
         WHERE c.affiliate_user_id = $1${w.sql} ORDER BY c.id DESC LIMIT $${w.args.length + 2} OFFSET $${w.args.length + 3}`,
       [userId, ...w.args, limit, offset],
@@ -379,7 +403,7 @@ export const commissionRepository = {
     return query<AffiliateCommissionRow>(
       'commission.affiliate_export',
       `SELECT c.id::text, c.level, c.status, c.base_amount::float8, c.amount::float8, c.hold_days, c.created_at, c.release_at, c.paid_at,
-              r.kind AS rule_kind, r.value::float8 AS rule_value
+              coalesce(c.rule_kind, r.kind) AS rule_kind, coalesce(c.rule_value, r.value)::float8 AS rule_value
          FROM commissions c LEFT JOIN commission_rules r ON r.id = c.rule_id
         WHERE c.affiliate_user_id = $1${w.sql} ORDER BY c.id DESC LIMIT $${w.args.length + 2}`,
       [userId, ...w.args, limit],
@@ -416,32 +440,132 @@ export const commissionRepository = {
 
   // ───────── the people the affiliate brought (privacy: no address, no order details, no whole number) ─────────
 
-  async networkPage(userId: string, level: number | null, limit: number, offset: number, db?: Queryable) {
+  /** The people this affiliate referred directly (one level), newest first. */
+  async networkPage(userId: string, limit: number, offset: number, db?: Queryable) {
     return query<NetworkRow>(
       'commission.network_page',
-      `${NETWORK_CTE}
-       SELECT n.level, nullif(split_part(coalesce(u.full_name, ''), ' ', 1), '') AS first_name, right(u.phone, 4) AS phone_last4,
-              u.created_at AS joined_at,
-              (SELECT count(*)::int FROM orders o WHERE o.user_id = n.user_id AND o.paid_at IS NOT NULL) AS orders
-         FROM net n JOIN users u ON u.id = n.user_id
-        WHERE ($2::int IS NULL OR n.level = $2::int)
-        ORDER BY n.level, u.created_at DESC, u.id LIMIT $3 OFFSET $4`,
-      [userId, level, limit, offset],
+      `SELECT r.buyer_user_id::text AS buyer_id, nullif(split_part(coalesce(u.full_name, ''), ' ', 1), '') AS first_name,
+              right(u.phone, 4) AS phone_last4, u.created_at AS joined_at,
+              (SELECT count(*)::int FROM orders o WHERE o.user_id = r.buyer_user_id AND o.paid_at IS NOT NULL) AS orders,
+              coalesce((SELECT sum(c.amount) FILTER (WHERE c.status <> 'cancelled') FROM commissions c
+                         WHERE c.affiliate_user_id = r.referrer_user_id
+                           AND c.order_id IN (SELECT o.id FROM orders o WHERE o.user_id = r.buyer_user_id)), 0)::float8 AS commission
+         FROM affiliate_referrals r JOIN users u ON u.id = r.buyer_user_id
+        WHERE r.referrer_user_id = $1
+        ORDER BY u.created_at DESC, u.id LIMIT $2 OFFSET $3`,
+      [userId, limit, offset],
       db,
     );
   },
 
-  /** people per level (1..5) */
-  async networkCounts(userId: string, db?: Queryable): Promise<number[]> {
-    const rows = await query<{ level: number; n: number }>(
-      'commission.network_counts',
-      `${NETWORK_CTE} SELECT level, count(*)::int AS n FROM net GROUP BY level`,
+  /** how many people this affiliate referred */
+  async networkCount(userId: string, db?: Queryable): Promise<number> {
+    const r = await queryOne<{ n: number }>(
+      'commission.network_count',
+      'SELECT count(*)::int AS n FROM affiliate_referrals WHERE referrer_user_id = $1',
       [userId],
       db,
     );
-    const out = [0, 0, 0, 0, 0];
-    for (const r of rows) if (r.level >= 1 && r.level <= 5) out[r.level - 1] = r.n;
-    return out;
+    return r?.n ?? 0;
+  },
+
+  /**
+   * One referred person, only when THIS affiliate referred them (the pair is the key: another affiliate's person, or any other id,
+   * finds nothing). Privacy: a first name and the last four digits.
+   */
+  async referredPerson(affiliateId: string, buyerId: string, db?: Queryable) {
+    return queryOne<{ first_name: string | null; phone_last4: string; joined_at: Date }>(
+      'commission.referred_person',
+      `SELECT nullif(split_part(coalesce(u.full_name, ''), ' ', 1), '') AS first_name, right(u.phone, 4) AS phone_last4, u.created_at AS joined_at
+         FROM affiliate_referrals r JOIN users u ON u.id = r.buyer_user_id
+        WHERE r.referrer_user_id = $1 AND r.buyer_user_id = $2`,
+      [affiliateId, buyerId],
+      db,
+    );
+  },
+
+  /**
+   * The paid orders of one referred person with the commission this affiliate got for each: the order's goods total (the base the
+   * commission was computed on), the rule's percent or fixed amount as it was, the commission and its status. No item, no address.
+   */
+  async personOrders(affiliateId: string, buyerId: string, limit: number, db?: Queryable) {
+    return query<PersonOrderRow>(
+      'commission.person_orders',
+      `SELECT o.number AS order_number, o.paid_at, o.status::text AS order_status, o.items_total::float8 AS items_total,
+              c.base_amount::float8 AS base_amount, c.amount::float8 AS commission, c.status AS commission_status,
+              coalesce(c.rule_kind, r.kind) AS rule_kind, coalesce(c.rule_value, r.value)::float8 AS rule_value
+         FROM orders o
+         JOIN affiliate_referrals ref ON ref.buyer_user_id = o.user_id AND ref.referrer_user_id = $1
+         LEFT JOIN commissions c ON c.order_id = o.id AND c.affiliate_user_id = $1
+         LEFT JOIN commission_rules r ON r.id = c.rule_id
+        WHERE o.user_id = $2 AND o.paid_at IS NOT NULL
+        ORDER BY o.paid_at DESC, o.id DESC LIMIT $3`,
+      [affiliateId, buyerId, limit],
+      db,
+    );
+  },
+
+  // ───────── who may refer whom (one level) ─────────
+
+  /** The code's owner and what disqualifies the code (not an affiliate, owner is referred themselves). Null = no such code. */
+  async referrerFacts(code: string, db?: Queryable) {
+    return queryOne<{ referrer_id: string; is_affiliate: boolean; has_referrer: boolean }>(
+      'commission.referrer_facts',
+      `SELECT ac.user_id::text AS referrer_id,
+              EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = ac.user_id AND ur.role = 'affiliate') AS is_affiliate,
+              EXISTS (SELECT 1 FROM affiliate_referrals r WHERE r.buyer_user_id = ac.user_id) AS has_referrer
+         FROM affiliate_codes ac WHERE ac.code = $1`,
+      [code],
+      db,
+    );
+  },
+
+  /** What the rules ask about the person being referred. */
+  async userFacts(userId: string, db?: Queryable) {
+    const r = await queryOne<{ has_referrer: boolean; is_affiliate: boolean; has_paid_order: boolean }>(
+      'commission.user_facts',
+      `SELECT EXISTS (SELECT 1 FROM affiliate_referrals WHERE buyer_user_id = $1) AS has_referrer,
+              EXISTS (SELECT 1 FROM user_roles WHERE user_id = $1 AND role = 'affiliate') AS is_affiliate,
+              EXISTS (SELECT 1 FROM orders WHERE user_id = $1 AND paid_at IS NOT NULL) AS has_paid_order`,
+      [userId],
+      db,
+    );
+    return r ?? { has_referrer: false, is_affiliate: false, has_paid_order: false };
+  },
+
+  /** Which of these users have a referrer (the admin's applications list warns about them). */
+  async referredAmong(userIds: readonly string[], db?: Queryable): Promise<Set<string>> {
+    if (userIds.length === 0) return new Set();
+    const rows = await query<{ id: string }>(
+      'commission.referred_among',
+      'SELECT buyer_user_id::text AS id FROM affiliate_referrals WHERE buyer_user_id = ANY($1::bigint[])',
+      [userIds],
+      db,
+    );
+    return new Set(rows.map((r) => r.id));
+  },
+
+  /** The code this user was referred with (shown locked), or null. */
+  async referredByCode(userId: string, db?: Queryable): Promise<string | null> {
+    const r = await queryOne<{ code: string }>(
+      'commission.referred_by_code',
+      'SELECT code FROM affiliate_referrals WHERE buyer_user_id = $1',
+      [userId],
+      db,
+    );
+    return r?.code ?? null;
+  },
+
+  /** Affiliates who were themselves referred (a one-level programme should have none; their code brings no new referrals). */
+  async referredAffiliateCount(db?: Queryable): Promise<number> {
+    const r = await queryOne<{ n: number }>(
+      'commission.referred_affiliates',
+      `SELECT count(*)::int AS n FROM affiliate_referrals r
+        WHERE EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = r.buyer_user_id AND ur.role = 'affiliate')`,
+      [],
+      db,
+    );
+    return r?.n ?? 0;
   },
 
   // ───────── admin ─────────
