@@ -100,7 +100,7 @@ await p.goto(BASE + '/', { waitUntil: 'load' });
 await box.fill('شامپو');
 await options.first().waitFor();
 await p.waitForTimeout(400);
-const firstProduct = list.locator('[role=option][class*=productRow]').first();
+const firstProduct = list.locator('[role=option][data-search-card="product"]').first();
 const name = (await firstProduct.innerText()).split('\n')[0];
 await firstProduct.click();
 await p.waitForURL(PRODUCT_URL, { timeout: 30000 });

@@ -93,7 +93,13 @@ function searchSql(
       );
     }
   }
-  if (withScore) scores.push(`similarity(${add(t.text)}, public.search_norm(p.name))`);
+  if (withScore) {
+    scores.push(`similarity(${add(t.text)}, public.search_norm(p.name))`);
+    // the name IS the query: first; the name starts with it: next
+    scores.push(
+      `CASE WHEN public.search_norm(p.name) = ${add(t.text)} THEN 4 WHEN public.search_norm(p.name) LIKE ${add(`${t.text}%`)} THEN 1.5 ELSE 0 END`,
+    );
+  }
   return { where, score: withScore ? scores.join(' + ') : null };
 }
 
@@ -237,10 +243,13 @@ export const catalogRepository = {
     if (q.priceOrder && (q.sort === 'price_asc' || q.sort === 'price_desc'))
       order = `array_position(${add(q.priceOrder)}::int[], p.id) ${q.sort === 'price_asc' ? 'ASC' : 'DESC'} NULLS LAST, ${order}`;
     if (q.search?.words.length) {
+      // a sample (سمپل) or a tool is never a search result, even when it is sellable
+      where.push(`NOT EXISTS (SELECT 1 FROM unnest(p.category_names) AS cn WHERE cn LIKE '%سمپل%')`);
       if (await hasSearchFunctions()) {
         const { where: w, score } = searchSql(q.search, add, q.sort === 'relevance');
         where.push(...w);
-        if (score) order = `${score} DESC, (p.stock > 0) DESC, p.id DESC`;
+        // in stock first, then the better match (a sold-out product is never above one that can be bought)
+        if (score) order = `(p.stock > 0) DESC, ${score} DESC, p.id DESC`;
       } else {
         for (const { word } of q.search.words)
           where.push(`${NORMALIZED_NAME} LIKE ${add(`%${likeEscape(word)}%`)}`);
@@ -260,7 +269,7 @@ export const catalogRepository = {
   },
 
   /**
-   * Distinct words (3+ letters) of the visible catalog's names and brands, normalised: the dictionary the
+   * Distinct words (2+ letters; the corrections use the 3+ ones, a joined pair uses the short ones too) of the visible catalog's names and brands, normalised: the dictionary the
    * service corrects misspelt query words against. Small (a few thousand words); the service caches it.
    */
   async searchVocabulary(): Promise<string[]> {
@@ -268,7 +277,7 @@ export const catalogRepository = {
     const rows = await query<{ w: string }>(
       'catalog.search_vocabulary',
       `SELECT DISTINCT w FROM product_catalog p, regexp_split_to_table(${DOC}, ' ') AS w
-        WHERE ${VISIBLE} AND length(w) >= 3`,
+        WHERE ${VISIBLE} AND length(w) >= 2`,
     );
     return rows.map((r) => r.w);
   },

@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getConfig } from '@/lib/config';
@@ -7,7 +6,7 @@ import { toAppError } from '@/lib/errors';
 import { formatToman } from '@/lib/format/money';
 import { toFaDigits } from '@/lib/format/number';
 import { packPath, packService } from '@/server/services/pack.service';
-import { Breadcrumb, Container, Icon, Price } from '@/ui';
+import { Breadcrumb, Container, Icon, ProductCard } from '@/ui';
 import { CatalogUnavailable } from '@/app/(site)/_catalog/CatalogListing';
 import { AddPackButton } from '@/app/(site)/_cart/AddPackButton';
 import s from './pack.module.css';
@@ -66,37 +65,21 @@ export default async function PackPage({ params }: Props) {
       </header>
 
       <div className={s.layout}>
-        <ol className={s.steps}>
+        <ol className={s.steps} data-pack-cards>
           {p.steps.map((st, i) => (
             <li key={i} className={s.step} data-status={st.status}>
-              <span className={s.no} aria-hidden="true">
-                {toFaDigits(i + 1)}
+              <span className={s.stepTag}>
+                <b aria-hidden="true">{toFaDigits(i + 1)}</b>
+                {st.label}
               </span>
-              <div className={s.stepBody}>
-                <span className={s.label}>{st.label}</span>
-                {st.product ? (
-                  <Link href={st.product.href} className={s.product}>
-                    <span className={s.thumb}>
-                      {st.product.imageUrl ? (
-                        <Image src={st.product.imageUrl} alt="" fill sizes="88px" />
-                      ) : (
-                        <Icon name="spa" size={28} />
-                      )}
-                    </span>
-                    <span className={s.info}>
-                      {st.product.brandName && <span className={s.brand}>{st.product.brandName}</span>}
-                      <b className={s.name}>{st.product.name}</b>
-                      {st.status === 'ok' ? (
-                        <Price toman={st.product.priceToman} oldToman={st.product.oldPriceToman} size="sm" />
-                      ) : (
-                        <span className={s.out}>ناموجود</span>
-                      )}
-                    </span>
-                  </Link>
-                ) : (
-                  <span className={s.soon}>به‌زودی</span>
-                )}
-              </div>
+              {st.product ? (
+                <ProductCard product={st.product} />
+              ) : (
+                <div className={s.soonCard}>
+                  <Icon name="spa" size={36} />
+                  <b>به‌زودی</b>
+                </div>
+              )}
             </li>
           ))}
         </ol>

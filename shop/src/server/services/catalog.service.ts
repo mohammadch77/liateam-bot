@@ -16,6 +16,7 @@ import { priceRange } from '@/lib/price-range';
 import { heroSkipReason, logSkippedHeroSlides } from '@/lib/hero-slides';
 import { logger } from '@/lib/logger';
 import { editDistance, normalizeSearch, searchWords } from '@/lib/search/normalize';
+import { matchRank } from '@/lib/search/rank';
 import {
   catalogRepository,
   type CategoryRow,
@@ -53,24 +54,33 @@ export const OFFER_SORTS: ReadonlyArray<{ value: OfferSort; label: string }> = [
 
 export type Category = { code: number; name: string; parentCode: number | null; count: number; href: string };
 
-export const SUGGEST_LIMITS = { products: 7, categories: 2, minLength: 2, maxLength: 60 } as const;
+export const SUGGEST_LIMITS = { products: 6, categories: 3, brands: 3, minLength: 2, maxLength: 60 } as const;
+
+/** One product as the search shows it: a card (picture, name, brand, price with the old price, stock). */
+export type SearchProduct = {
+  href: string;
+  name: string;
+  brand: string | null;
+  imageUrl: string | null;
+  priceToman: number;
+  oldPriceToman: number | null;
+  stock: StockState;
+};
+/** A category or a brand that matches the query, as a card (picture or none, name, how many products). */
+export type SearchGroupItem = { name: string; href: string; imageUrl: string | null; count: number; parent?: string | null };
 
 /** Search-as-you-type response (also the JSON of GET /api/search/suggest). */
 export type Suggestions = {
   query: string;
   /** normalised query words and their spelling corrections, for highlighting */
   words: string[];
-  products: Array<{
-    href: string;
-    name: string;
-    brand: string | null;
-    imageUrl: string | null;
-    priceToman: number;
-    inStock: boolean;
-  }>;
-  categories: Array<{ name: string; href: string; parent: string | null }>;
+  products: SearchProduct[];
+  categories: SearchGroupItem[];
+  brands: SearchGroupItem[];
   /** all matching products (the results page shows them) */
   total: number;
+  /** only when nothing matched: where to go instead (the main categories and the best sellers) */
+  fallback: { categories: SearchGroupItem[]; products: SearchProduct[] } | null;
 };
 
 export type ProductView = ProductCardData & {
@@ -315,12 +325,22 @@ async function vocabulary(): Promise<string[]> {
 function corrections(word: string, words: readonly string[]): string[] {
   if (word.length < 3 || /^\d+$/.test(word) || words.some((v) => v.includes(word))) return [];
   const max = word.length >= 6 ? 2 : 1;
-  return words
+  const near = words
+    .filter((v) => v.length >= 3)
     .map((v) => ({ v, d: editDistance(word, v, max) }))
     .filter((x) => x.d <= max)
     .sort((a, b) => a.d - b.d || a.v.length - b.v.length)
     .slice(0, 5)
     .map((x) => x.v);
+  if (near.length || word.length < 4) return near;
+  // two words typed as one («رژلب» → «رژ لب»): a split in which both parts are words of the catalog
+  const have = new Set(words);
+  for (let i = 2; i <= word.length - 2; i++) {
+    const a = word.slice(0, i);
+    const b = word.slice(i);
+    if (have.has(a) && have.has(b)) return [`${a} ${b}`];
+  }
+  return [];
 }
 
 /** The normalised query, its words and their spelling corrections; null for an empty query. */
@@ -333,6 +353,16 @@ async function searchTerms(q: string | undefined): Promise<SearchTerms | null> {
     words: words.map((word) => ({ word, alts: corrections(word, known) })),
   };
 }
+
+const searchProductOf = (v: ProductView): SearchProduct => ({
+  href: v.href,
+  name: v.name,
+  brand: v.brandName,
+  imageUrl: v.imageUrl ?? null,
+  priceToman: v.priceToman,
+  oldPriceToman: v.oldPriceToman ?? null,
+  stock: v.stock,
+});
 
 // ── mapping DB rows → view models ──
 /** Supplier names sometimes carry doubled or stray spaces («سرم  تخصصی»). */
@@ -726,13 +756,70 @@ export const catalogService = {
   }),
 
   /**
-   * Search-as-you-type: the best few products (same ranking as the results page) and matching categories.
-   * The response is an explicit, minimal shape — nothing else from the catalog leaves the server.
+   * The categories and brands that match a query, best first (the name is the query, starts with it, has a word starting with it,
+   * contains it), each with its count and a picture. Shared by the live suggestions and the results page.
+   */
+  async searchGroups(
+    q: string,
+    limits: { categories: number; brands: number },
+  ): Promise<{ categories: SearchGroupItem[]; brands: SearchGroupItem[] }> {
+    const terms = await searchTerms(q);
+    if (!terms) return { categories: [], brands: [] };
+    const [{ list, names }, brands] = await Promise.all([categoryNames(), brandList()]);
+    const cats = list
+      .flatMap((c) => {
+        const r = matchRank(c.name, terms);
+        return r === null ? [] : [{ c, r }];
+      })
+      .sort((x, y) => x.r - y.r || y.c.count - x.c.count)
+      .slice(0, limits.categories);
+    const covers = cats.length ? await catalogRepository.categoryCovers(cats.map((x) => x.c.code)) : new Map<number, string>();
+    const brs = brands
+      .flatMap((b) => {
+        const ranks = [matchRank(b.name, terms), b.latin ? matchRank(b.latin, terms) : null].filter((r): r is number => r !== null);
+        return ranks.length ? [{ b, r: Math.min(...ranks) }] : [];
+      })
+      .sort((x, y) => x.r - y.r || y.b.count - x.b.count)
+      .slice(0, limits.brands);
+    return {
+      categories: cats.map(({ c }) => ({
+        name: c.name,
+        href: c.href,
+        imageUrl: covers.get(c.code) ?? null,
+        count: c.count,
+        parent: c.parentCode !== null ? (names.get(c.parentCode) ?? null) : null,
+      })),
+      brands: brs.map(({ b }) => ({ name: b.name, href: b.href, imageUrl: b.logoUrl ?? b.imageUrl, count: b.count })),
+    };
+  },
+
+  /** What to offer when a search finds nothing: the main categories (with a picture) and a few products that are in stock. */
+  async searchFallback(): Promise<{ categories: SearchGroupItem[]; products: SearchProduct[] }> {
+    const [menu, best] = await Promise.all([catalogService.menu(), catalogService.fallbackViews(4)]);
+    return {
+      categories: menu.slice(0, 6).map((c) => ({ name: c.name, href: c.href, imageUrl: c.imageUrl, count: c.count })),
+      products: best.map(searchProductOf),
+    };
+  },
+
+  /** A few products to show instead of nothing: the newest ones in stock (the best sellers of the home page when it has them). */
+  async fallbackViews(n: number): Promise<ProductView[]> {
+    const [{ rows }, { names }, offers] = await Promise.all([
+      catalogRepository.listProducts({ sort: 'newest', inStockOnly: true, limit: n, offset: 0 }),
+      categoryNames(),
+      pricingService.offers(),
+    ]);
+    return rows.map((r) => toView(r, names, offers));
+  },
+
+  /**
+   * Search-as-you-type: the best few products (same ranking as the results page), the matching categories and brands as cards, and —
+   * when nothing matches — a fallback. The response is an explicit, minimal shape: nothing else from the catalog leaves the server.
    */
   async suggest(q: string): Promise<Suggestions> {
     const terms = await searchTerms(q);
-    if (!terms) return { query: q, words: [], products: [], categories: [], total: 0 };
-    const [{ list, names }, { rows, total }, offers] = await Promise.all([
+    if (!terms) return { query: q, words: [], products: [], categories: [], brands: [], total: 0, fallback: null };
+    const [{ names }, { rows, total }, offers, groups] = await Promise.all([
       categoryNames(),
       catalogRepository.listProducts({
         search: terms,
@@ -741,34 +828,17 @@ export const catalogService = {
         offset: 0,
       }),
       pricingService.offers(),
+      catalogService.searchGroups(q, SUGGEST_LIMITS),
     ]);
-    const all = terms.words.flatMap((w) => [w.word, ...w.alts]);
-    const categories = list
-      .filter((c) =>
-        terms.words.every((w) => [w.word, ...w.alts].some((x) => normalizeSearch(c.name).includes(x))),
-      )
-      .slice(0, SUGGEST_LIMITS.categories)
-      .map((c) => ({
-        name: c.name,
-        href: c.href,
-        parent: c.parentCode !== null ? (names.get(c.parentCode) ?? null) : null,
-      }));
+    const empty = total === 0 && !groups.categories.length && !groups.brands.length;
     return {
       query: q,
-      words: all,
+      words: terms.words.flatMap((w) => [w.word, ...w.alts]),
       total,
-      categories,
-      products: rows.map((r) => {
-        const v = toView(r, names, offers);
-        return {
-          href: v.href,
-          name: v.name,
-          brand: v.brandName,
-          imageUrl: v.imageUrl ?? null,
-          priceToman: v.priceToman,
-          inStock: r.stock > 0,
-        };
-      }),
+      categories: groups.categories,
+      brands: groups.brands,
+      products: rows.map((r) => searchProductOf(toView(r, names, offers))),
+      fallback: empty ? await catalogService.searchFallback().catch(() => null) : null,
     };
   },
 

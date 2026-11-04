@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { formatToman } from '@/lib/format/money';
 import { formatNumber } from '@/lib/format/number';
 import { highlight, normalizeSearch } from '@/lib/search/normalize';
@@ -12,19 +12,24 @@ import s from './SearchBox.module.css';
 import { searchPath } from '@/lib/urls';
 
 /** Shape of GET /api/search/suggest (Suggestions in the catalog service). */
+type Product = {
+  href: string;
+  name: string;
+  brand: string | null;
+  imageUrl: string | null;
+  priceToman: number;
+  oldPriceToman: number | null;
+  stock: 'in' | 'limited' | 'out';
+};
+type Group = { name: string; href: string; imageUrl: string | null; count: number; parent?: string | null };
 type Suggestions = {
   query: string;
   words: string[];
-  products: Array<{
-    href: string;
-    name: string;
-    brand: string | null;
-    imageUrl: string | null;
-    priceToman: number;
-    inStock: boolean;
-  }>;
-  categories: Array<{ name: string; href: string; parent: string | null }>;
+  products: Product[];
+  categories: Group[];
+  brands: Group[];
   total: number;
+  fallback: { categories: Group[]; products: Product[] } | null;
 };
 type State =
   | { kind: 'idle' }
@@ -63,6 +68,7 @@ export function SearchBox({
   const [state, setState] = useState<State>({ kind: 'idle' });
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
+  const [retry, setRetry] = useState(0); // «تلاش دوباره» after an error
   const input = useRef<HTMLInputElement>(null);
   const root = useRef<HTMLFormElement>(null);
   const cacheRef = useRef(new Map<string, Suggestions>());
@@ -103,7 +109,7 @@ export function SearchBox({
     };
     // value is read only for the request text; the key decides when to search
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, suggestUrl]);
+  }, [key, suggestUrl, retry]);
 
   // a click or tap outside closes the list
   useEffect(() => {
@@ -136,54 +142,78 @@ export function SearchBox({
       ),
     );
 
-  // the options, in screen order: matching categories, products, «all results»
-  const options: Array<{ href: string; className: string | undefined; content: ReactNode }> = data
+  // the options, in screen order, each a card: matching categories, brands, products, «all results»; nothing found: a way on
+  type Option = { group: string; href: string; className: string | undefined; content: ReactNode };
+  const groupCard = (g: Group, kind: 'cat' | 'brand'): Option => ({
+    group: kind,
+    href: g.href,
+    className: s.card,
+    content: (
+      <>
+        <span className={s.thumb}>
+          {g.imageUrl ? (
+            <Image src={g.imageUrl} alt="" width={48} height={48} className={s.thumbImg} />
+          ) : (
+            <Icon name={kind === 'cat' ? 'category' : 'verified'} size={22} className={s.catIcon} />
+          )}
+        </span>
+        <span className={s.productText}>
+          <span className={s.productName}>{marked(g.name)}</span>
+          <span className={s.muted}>
+            {formatNumber(g.count)} محصول{g.parent ? ` · در ${g.parent}` : ''}
+          </span>
+        </span>
+        <Icon name="chevron_left" size={18} className={s.muted} />
+      </>
+    ),
+  });
+  const productCard = (p: Product, group: string): Option => ({
+    group,
+    href: p.href,
+    className: cx(s.card, p.stock === 'out' && s.cardOut),
+    content: (
+      <>
+        <span className={s.thumb}>
+          {p.imageUrl ? <Image src={p.imageUrl} alt="" width={56} height={56} className={s.thumbImg} /> : null}
+        </span>
+        <span className={s.productText}>
+          <span className={s.productName}>{marked(p.name)}</span>
+          {p.brand && <span className={s.brand}>{marked(p.brand)}</span>}
+          {p.stock === 'limited' && <span className={s.limited}>موجودی محدود</span>}
+        </span>
+        {p.stock === 'out' ? (
+          <span className={s.soldOut}>ناموجود</span>
+        ) : (
+          <span className={s.priceBox}>
+            <span className={s.price}>
+              {formatToman(p.priceToman)} <span className={s.unit}>تومان</span>
+            </span>
+            {p.oldPriceToman != null && p.oldPriceToman > p.priceToman && (
+              <del className={s.oldPrice}>{formatToman(p.oldPriceToman)}</del>
+            )}
+          </span>
+        )}
+      </>
+    ),
+  });
+  const options: Option[] = data
     ? [
-        ...data.categories.map((c) => ({
-          href: c.href,
-          className: s.catRow,
-          content: (
-            <>
-              <Icon name="category" size={18} className={s.catIcon} />
-              <span className={s.catText}>
-                {marked(c.name)}
-                {c.parent && <span className={s.muted}> در {c.parent}</span>}
-              </span>
-            </>
-          ),
-        })),
-        ...data.products.map((p) => ({
-          href: p.href,
-          className: s.productRow,
-          content: (
-            <>
-              <span className={s.thumb}>
-                {p.imageUrl ? (
-                  <Image src={p.imageUrl} alt="" width={40} height={40} className={s.thumbImg} />
-                ) : null}
-              </span>
-              <span className={s.productText}>
-                <span className={s.productName}>{marked(p.name)}</span>
-                {p.brand && <span className={s.brand}>{marked(p.brand)}</span>}
-              </span>
-              {p.inStock ? (
-                <span className={s.price}>
-                  {formatToman(p.priceToman)} <span className={s.unit}>تومان</span>
-                </span>
-              ) : (
-                <span className={s.soldOut}>ناموجود</span>
-              )}
-            </>
-          ),
-        })),
-        ...(data.total > 0
+        ...data.categories.map((c) => groupCard(c, 'cat')),
+        ...data.brands.map((b) => groupCard(b, 'brand')),
+        ...data.products.map((p) => productCard(p, 'product')),
+        ...(data.fallback?.categories ?? []).map((c) => groupCard({ ...c, parent: null }, 'cat')).map((o) => ({ ...o, group: 'fb-cat' })),
+        ...(data.fallback?.products ?? []).map((p) => productCard(p, 'fb-product')),
+        ...(data.total > 0 || data.categories.length > 0 || data.brands.length > 0
           ? [
               {
+                group: 'all',
                 href: searchHref(action, value),
                 className: s.allRow,
                 content: (
                   <>
-                    مشاهده‌ی همه‌ی {formatNumber(data.total)} نتیجه برای «{value.trim()}»
+                    {data.total > 0
+                      ? `مشاهده‌ی همه‌ی ${formatNumber(data.total)} نتیجه برای «${value.trim()}»`
+                      : `مشاهده‌ی نتایج «${value.trim()}»`}
                     <Icon name="arrow_back" size={18} />
                   </>
                 ),
@@ -192,6 +222,13 @@ export function SearchBox({
           : []),
       ]
     : [];
+  const GROUP_TITLE: Record<string, string> = {
+    cat: 'دسته‌بندی‌ها',
+    brand: 'برندها',
+    product: 'محصولات',
+    'fb-cat': 'دسته‌بندی‌های پیشنهادی',
+    'fb-product': 'محصولات پیشنهادی',
+  };
   const showList = open && !tooShort && (data !== null || loading || state.kind === 'error');
   const activeIndex = active < options.length ? active : -1;
 
@@ -265,26 +302,49 @@ export function SearchBox({
         autoComplete="off"
         spellCheck={false}
       />
+      {value && (
+        <button
+          type="button"
+          className={s.clear}
+          aria-label="پاک کردن جست‌وجو"
+          onClick={() => {
+            setValue('');
+            setActive(-1);
+            setState({ kind: 'idle' });
+            input.current?.focus();
+          }}
+          data-search-clear
+        >
+          <Icon name="close" size={20} />
+        </button>
+      )}
 
       <div className={s.popup} hidden={!showList}>
         <ul id={listId} role="listbox" aria-label="پیشنهادهای جست‌وجو" aria-busy={loading} className={s.list}>
           {options.map((o, i) => (
-            <li
-              key={`${i}-${o.href}`}
-              id={optId(i)}
-              role="option"
-              aria-selected={i === activeIndex}
-              className={cx(o.className, i === activeIndex && s.active)}
-              // mouse: keep focus in the input. Not for touch: cancelling a touch pointerdown makes WebKit (every iPhone
-              // browser) drop the tap's click, so a tapped suggestion never opened.
-              onPointerDown={(e) => {
-                if (e.pointerType === 'mouse') e.preventDefault();
-              }}
-              onPointerEnter={() => setActive(i)}
-              onClick={() => go(o.href)}
-            >
-              {o.content}
-            </li>
+            <Fragment key={`${i}-${o.href}`}>
+              {GROUP_TITLE[o.group] && options[i - 1]?.group !== o.group && (
+                <li role="presentation" className={s.groupTitle} data-search-group={o.group}>
+                  {GROUP_TITLE[o.group]}
+                </li>
+              )}
+              <li
+                id={optId(i)}
+                role="option"
+                aria-selected={i === activeIndex}
+                className={cx(o.className, i === activeIndex && s.active)}
+                data-search-card={o.group}
+                // mouse: keep focus in the input. Not for touch: cancelling a touch pointerdown makes WebKit (every iPhone
+                // browser) drop the tap's click, so a tapped suggestion never opened.
+                onPointerDown={(e) => {
+                  if (e.pointerType === 'mouse') e.preventDefault();
+                }}
+                onPointerEnter={() => setActive(i)}
+                onClick={() => go(o.href)}
+              >
+                {o.content}
+              </li>
+            </Fragment>
           ))}
         </ul>
         {loading && !data && (
@@ -297,14 +357,19 @@ export function SearchBox({
             ))}
           </div>
         )}
-        {data && !data.total && !data.categories.length && (
-          <p className={s.empty}>
+        {data && !data.total && !data.categories.length && !data.brands.length && (
+          <p className={s.empty} data-search-empty>
             <Icon name="search_off" size={20} />
-            نتیجه‌ای برای «{value.trim()}» پیدا نشد. املای دیگری را امتحان کنید.
+            نتیجه‌ای برای «{value.trim()}» پیدا نشد. املای دیگری را امتحان کنید یا از پیشنهادها بروید.
           </p>
         )}
         {state.kind === 'error' && !data && (
-          <p className={s.empty}>پیشنهادها در دسترس نیست؛ Enter را بزنید.</p>
+          <p className={s.empty} data-search-error>
+            پیشنهادها در دسترس نیست.{' '}
+            <button type="button" className={s.retry} onClick={() => setRetry((n) => n + 1)}>
+              تلاش دوباره
+            </button>
+          </p>
         )}
       </div>
       <span className="sr-only" role="status" aria-live="polite">

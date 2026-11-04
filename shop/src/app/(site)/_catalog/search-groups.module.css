@@ -1,0 +1,69 @@
+/* The categories and brands a search matched: picture cards, 2 columns on a phone (task N). */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.title {
+  font-size: var(--type-h3-size);
+  font-weight: 800;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  height: 100%;
+  padding: 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-white);
+  color: var(--color-ink);
+  text-align: center;
+}
+.card:hover {
+  border-color: var(--color-accent);
+}
+.photo {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1.3;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 30%, var(--color-white), var(--color-blush-2));
+  color: var(--color-accent-text);
+}
+.img {
+  object-fit: contain;
+}
+.name {
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.count {
+  font-size: 12px;
+  color: var(--color-muted);
+}

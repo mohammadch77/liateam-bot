@@ -29,8 +29,8 @@ const SWIPE_CLOSE_PX = 70;
  * Mobile menu (below 1024px): the header's ☰ opens a full-height drawer with two levels instead of one long list.
  * Level one: «همه‌ی محصولات», the top-level categories (small picture each), «برندها» and the about / contact /
  * FAQ pages. A category with sub-categories opens its own page in the drawer — «همه‌ی محصولات <category>» first,
- * then the sub-categories — with «بازگشت»; «برندها» likewise. A fixed footer: sign in (or the account), the wallet,
- * order tracking. A modal <dialog>: focus stays inside, Esc or a swipe towards the edge closes it, the page behind
+ * then the sub-categories — with «بازگشت»; «برندها» likewise. A fixed footer: the support call button only — the account / sign-in,
+ * the wallet and the order tracking are the tab bar's «حساب» (task N). A modal <dialog>: focus stays inside, Esc or a swipe towards the edge closes it, the page behind
  * does not scroll; the content is built on the first open only. (Without JavaScript the tab bar's «دسته‌ها» works.)
  */
 export function MobileMenu({
@@ -41,8 +41,6 @@ export function MobileMenu({
   brandsHref,
   pages,
   brandName,
-  signedIn,
-  links,
   supportPhone,
 }: {
   items: readonly NavItem[];
@@ -52,8 +50,6 @@ export function MobileMenu({
   brandsHref: string;
   pages: readonly { label: string; href: string }[];
   brandName: string;
-  signedIn: boolean;
-  links: { login: string; account: string; wallet: string; orders: string };
   /** SUPPORT_PHONE (server env); empty = no call button */
   supportPhone?: string;
 }) {
@@ -281,25 +277,6 @@ export function MobileMenu({
             </div>
 
             <div className={s.footer}>
-              {signedIn ? (
-                <Link href={links.account} className={s.foot}>
-                  <Icon name="person" size={22} />
-                  حساب کاربری
-                </Link>
-              ) : (
-                <Link href={links.login} className={s.foot}>
-                  <Icon name="person" size={22} />
-                  ورود | ثبت‌نام
-                </Link>
-              )}
-              <Link href={links.wallet} className={s.foot}>
-                <Icon name="account_balance_wallet" size={22} />
-                کیف پول
-              </Link>
-              <Link href={links.orders} className={s.foot}>
-                <Icon name="local_shipping" size={22} />
-                پیگیری سفارش
-              </Link>
               {supportPhone && (
                 <a href={`tel:${supportPhone.replace(/[^\d+]/g, '')}`} className={s.foot} data-support-phone>
                   <Icon name="call" size={22} />

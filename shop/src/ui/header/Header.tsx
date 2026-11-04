@@ -187,8 +187,6 @@ export function Header(p: HeaderProps) {
               brandsHref={p.brandsHref}
               pages={p.pages}
               brandName={p.brand.name}
-              signedIn={p.signedIn}
-              links={p.links}
               supportPhone={p.supportPhone}
             />
             <Link href={home} className={s.mobileLogo} aria-label={`${p.brand.name} — صفحه اصلی`}>

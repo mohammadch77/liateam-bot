@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import { formatToman } from '@/lib/format/money';
@@ -106,35 +105,8 @@ export function SkinRoutine({
       <div className={s.card} role="tabpanel" id={`${uid}-panel`} aria-labelledby={`${uid}-tab-${pack.key}`}>
         <ol className={s.steps} aria-label={pack.title} data-routine-compact>
           {pack.steps.map((st, i) => (
-            <li key={i} className={s.step} data-status={st.status}>
-              <span className={s.thumb} aria-hidden="true">
-                {st.product?.imageUrl ? (
-                  <Image src={st.product.imageUrl} alt="" fill sizes="56px" draggable={false} />
-                ) : (
-                  <Icon name="spa" size={22} />
-                )}
-                <span className={s.stepNo}>{toFaDigits(i + 1)}</span>
-              </span>
-              <span className={s.stepText}>
-                <span className={s.stepLabel}>{st.label}</span>
-                {st.product ? (
-                  <Link href={st.product.href} className={s.name}>
-                    {st.product.name}
-                  </Link>
-                ) : (
-                  <span className={s.soon}>به‌زودی</span>
-                )}
-              </span>
-              <span className={s.price}>
-                {st.status === 'ok' && st.price !== null ? (
-                  <>
-                    <b className="tnum">{formatToman(st.price)}</b>
-                    <span className={s.unit}>تومان</span>
-                  </>
-                ) : st.status === 'out' ? (
-                  <span className={s.out}>ناموجود</span>
-                ) : null}
-              </span>
+            <li key={i} className={s.stepItem} data-status={st.status}>
+              <StepCard st={st} i={i} />
             </li>
           ))}
         </ol>
@@ -144,29 +116,7 @@ export function SkinRoutine({
           <Carousel key={pack.key} label={`مراحل ${pack.title}`}>
             {pack.steps.map((st, i) => (
               <div key={i} className={s.stepItem} data-status={st.status}>
-                <span className={s.stepTag}>
-                  <b>{toFaDigits(i + 1)}</b>
-                  {st.label}
-                </span>
-                {st.product && st.status !== 'soon' ? (
-                  <ProductCard
-                    product={{
-                      id: st.product.id,
-                      href: st.product.href,
-                      name: st.product.name,
-                      brand: st.product.brand,
-                      imageUrl: st.product.imageUrl,
-                      priceToman: st.price ?? 0,
-                      stock: st.status === 'out' ? 'out' : 'in',
-                    }}
-                  />
-                ) : (
-                  <div className={s.soonCard}>
-                    <Icon name="spa" size={40} />
-                    <b>به‌زودی</b>
-                    <span>محصول این مرحله به‌زودی اضافه می‌شود.</span>
-                  </div>
-                )}
+                <StepCard st={st} i={i} />
               </div>
             ))}
           </Carousel>
@@ -206,5 +156,36 @@ export function SkinRoutine({
         </aside>
       </div>
     </section>
+  );
+}
+
+/** One step of a pack as the shop's product card (the step's name above it); a step that is not ready yet is a dashed «به‌زودی» card. */
+function StepCard({ st, i }: { st: RoutinePack['steps'][number]; i: number }) {
+  return (
+    <>
+      <span className={s.stepTag}>
+        <b>{toFaDigits(i + 1)}</b>
+        {st.label}
+      </span>
+      {st.product && st.status !== 'soon' ? (
+        <ProductCard
+          product={{
+            id: st.product.id,
+            href: st.product.href,
+            name: st.product.name,
+            brand: st.product.brand,
+            imageUrl: st.product.imageUrl,
+            priceToman: st.price ?? 0,
+            stock: st.status === 'out' ? 'out' : 'in',
+          }}
+        />
+      ) : (
+        <div className={s.soonCard}>
+          <Icon name="spa" size={40} />
+          <b>به‌زودی</b>
+          <span>محصول این مرحله به‌زودی اضافه می‌شود.</span>
+        </div>
+      )}
+    </>
   );
 }

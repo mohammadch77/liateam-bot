@@ -65,95 +65,72 @@
     gap: 28px;
   }
 }
+/* the pack's steps are the shop's product cards: two columns on a phone (one on a very narrow one), more as the room grows */
 .steps {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
+@media (max-width: 339px) {
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (min-width: 640px) {
+  .steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
 .step {
   display: flex;
-  gap: 12px;
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-lg);
-  background: var(--color-white);
-}
-.no {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--color-blush);
-  color: var(--color-primary);
-  font-weight: 800;
-}
-.stepBody {
-  display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
+}
+.step > article,
+.step > .soonCard {
   flex: 1;
 }
-.label {
-  font-size: 12.5px;
+.step[data-status='soon'] {
+  opacity: 0.7;
+}
+.stepTag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
   font-weight: 800;
   color: var(--color-primary);
 }
-.product {
-  display: flex;
-  gap: 12px;
-  min-width: 0;
-  color: inherit;
+.stepTag b {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 12px;
 }
-.thumb {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 88px;
-  height: 88px;
-  border-radius: 12px;
-  background: var(--color-surface);
-  color: var(--color-muted);
-  overflow: hidden;
-}
-.thumb img {
-  object-fit: contain;
-  padding: 6px;
-  mix-blend-mode: multiply;
-}
-.info {
+.soonCard {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-.brand {
-  font-size: 11.5px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 220px;
+  border: 1px dashed var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
   color: var(--color-muted);
-}
-.name {
-  font-size: 14px;
-  line-height: 1.7;
-  overflow-wrap: anywhere;
 }
 .out,
 .unavailable {
   color: var(--color-danger, #b3261e);
   font-weight: 700;
-}
-.soon {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--color-muted);
 }
 .summary {
   display: flex;

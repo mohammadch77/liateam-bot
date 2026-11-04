@@ -87,24 +87,24 @@
   background: var(--color-white);
   overflow: hidden;
 }
+/* on a phone the five steps are the shop's product cards, two columns (one on a very narrow screen) */
 .steps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
   margin: 0;
-  padding: 4px 14px;
+  padding: 12px;
   list-style: none;
 }
-.step {
-  display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  height: 68px;
-  border-bottom: 1px solid var(--color-line);
+@media (max-width: 339px) {
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
-.step:last-child {
-  border-bottom: 0;
-}
-.step[data-status='soon'] {
-  opacity: 0.6;
+@media (min-width: 640px) and (max-width: 1023px) {
+  .steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 .thumb {
   position: relative;
