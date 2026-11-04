@@ -58,6 +58,8 @@ const ALL = [
   'redirect-host',
   'checkout-cart',
   'referral-flow',
+  'favorites-nav',
+  'panels-mobile',
 ];
 const wanted = process.argv.slice(2);
 const unknown = wanted.filter((n) => !ALL.includes(n));

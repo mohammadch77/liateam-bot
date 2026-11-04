@@ -179,6 +179,12 @@
   font-size: 13px;
   color: var(--color-muted);
 }
+.titleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
 .name {
   font-size: 22px;
   font-weight: 800;

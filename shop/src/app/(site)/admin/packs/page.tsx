@@ -5,7 +5,7 @@ import { toFaDigits } from '@/lib/format/number';
 import { requireRole } from '@/server/auth/guards';
 import { catalogService } from '@/server/services/catalog.service';
 import { PACK_POLICY, packPath, packService } from '@/server/services/pack.service';
-import { Alert, Breadcrumb, Button, Container, EmptyState } from '@/ui';
+import { Alert, Breadcrumb, Button, EmptyState } from '@/ui';
 import s from '../../account/account.module.css';
 import a from '../admin-forms.module.css';
 import { moveAction, togglePackAction } from './actions';
@@ -103,7 +103,7 @@ export default async function AdminPacksPage({
     : { id: null, slug: '', title: '', subtitle: '', variantLabel: '', active: true, sortOrder: '0' };
 
   return (
-    <Container className={s.page}>
+    <div className={s.page}>
       <Breadcrumb
         items={[{ label: 'خانه', href: '/' }, { label: 'مدیریت', href: '/admin' }, { label: 'پک‌ها' }]}
       />
@@ -208,6 +208,6 @@ export default async function AdminPacksPage({
           <CollectionForm key={`col-${editCollection?.id ?? 'new'}`} draft={collectionDraft} />
         </div>
       </section>
-    </Container>
+    </div>
   );
 }

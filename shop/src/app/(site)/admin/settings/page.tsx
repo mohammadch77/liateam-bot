@@ -9,7 +9,7 @@ import { SMS_PROVIDERS } from '@/lib/sms/registry';
 import { settingsService, type FieldView } from '@/server/services/settings.service';
 import { shippingAdminService } from '@/server/services/shipping-admin.service';
 import { siteSettingsService } from '@/server/services/site-settings.service';
-import { Alert, Breadcrumb, Button, Container } from '@/ui';
+import { Alert, Breadcrumb, Button } from '@/ui';
 import s from '../../account/account.module.css';
 import a from '../admin-forms.module.css';
 import { saveGroupAction, setSecretAction, testPaymentAction, testSmsAction } from './actions';
@@ -186,7 +186,7 @@ export default async function AdminSettingsPage({
   const forced = group === 'general' && siteSettingsService.indexingForcedByEnvironment();
 
   return (
-    <Container className={s.page}>
+    <div className={s.page}>
       <Breadcrumb
         items={[{ label: 'خانه', href: '/' }, { label: 'مدیریت', href: adminPath() }, { label: 'تنظیمات' }]}
       />
@@ -303,6 +303,6 @@ export default async function AdminSettingsPage({
             </Alert>
           ))}
       </section>
-    </Container>
+    </div>
   );
 }

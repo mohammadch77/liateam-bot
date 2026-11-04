@@ -6,6 +6,7 @@ import { cache, type ReactNode } from 'react';
 import { getConfig } from '@/lib/config';
 import { jsonLd as toJsonLd } from '@/lib/json-ld';
 import { contactPath, idFromSlug } from '@/lib/urls';
+import { FavoriteToggle } from '@/ui/product-card/FavoriteToggle';
 import { ProductBuy } from '@/app/(site)/_cart/ProductBuy';
 import { siteOrigin } from '@/server/http/site-origin';
 import { toAppError } from '@/lib/errors';
@@ -208,7 +209,10 @@ export default async function ProductPage({ params, searchParams }: Props) {
               </Link>
             )}
           </div>
-          <h1 className={s.name}>{p.name}</h1>
+          <div className={s.titleRow}>
+            <h1 className={s.name}>{p.name}</h1>
+            <FavoriteToggle productId={p.id} name={p.name} />
+          </div>
 
           <p className={s.ratingLine}>
             {c.recommendPercent !== null && (

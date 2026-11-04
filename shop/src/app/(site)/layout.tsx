@@ -7,6 +7,7 @@ import {
   headerCategories,
   headerProps,
 } from '@/server/site/chrome';
+import { FavoritesProvider } from './_favorites/FavoritesProvider';
 import { CartProvider } from './_cart/CartProvider';
 import { cartService } from '@/server/services/cart.service';
 import { freeShippingFrom } from '@/lib/shipping';
@@ -29,6 +30,7 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
   return (
     <>
       <CartProvider initial={cart}>
+        <FavoritesProvider>
         <Header
           {...headerProps(
             user,
@@ -43,6 +45,7 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
         <Footer {...footerProps()} />
         <BottomNavSpacer />
         <BottomNav items={bottomNavItems(user, cart.units)} />
+        </FavoritesProvider>
       </CartProvider>
     </>
   );

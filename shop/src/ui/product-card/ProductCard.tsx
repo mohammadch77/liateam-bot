@@ -9,6 +9,8 @@ import { Price } from '../price/Price';
 import { Skeleton } from '../skeleton/Skeleton';
 import { AddToCartButton } from './AddToCartButton';
 import { CartAddButton } from './CartAddButton';
+import { FavoriteButton } from './FavoriteButton';
+import { FavoriteToggle } from './FavoriteToggle';
 import { cx } from '../cx';
 import s from './ProductCard.module.css';
 
@@ -68,7 +70,9 @@ export function ProductCard({ product: p, action, favorite, priority }: ProductC
           </span>
         )}
         {off > 0 && <DiscountRibbon percent={off} className={s.ribbon} />}
-        <span className={s.fav}>{favorite ?? <FavoriteButton unavailableReason={SOON} />}</span>
+        <span className={s.fav}>
+          {favorite ?? (p.id !== undefined ? <FavoriteToggle productId={p.id} name={p.name} /> : <FavoriteButton unavailableReason={SOON} />)}
+        </span>
         {(p.stock === 'limited' || out) && (
           <span className={s.badges}>
             <Badge tone={out ? 'outOfStock' : 'limited'} size="sm" />
@@ -127,28 +131,6 @@ export function ProductCard({ product: p, action, favorite, priority }: ProductC
   );
 }
 
-export function FavoriteButton({
-  on = false,
-  unavailableReason,
-}: {
-  on?: boolean;
-  unavailableReason?: string;
-}) {
-  const label = on ? 'حذف از علاقه‌مندی‌ها' : 'افزودن به علاقه‌مندی‌ها';
-  return (
-    <button
-      type="button"
-      className={cx(s.iconButton, s.favButton, on && s.favOn, unavailableReason && s.placeholder)}
-      aria-pressed={on}
-      aria-label={unavailableReason ? `${label} (${unavailableReason})` : label}
-      aria-disabled={unavailableReason ? true : undefined}
-      title={unavailableReason}
-    >
-      <Icon name="favorite" filled={on} size={21} />
-    </button>
-  );
-}
-
 export function ProductCardSkeleton() {
   return (
     <div className={cx(s.card, s.skeleton)} aria-busy="true" aria-label="در حال بارگذاری">
@@ -166,4 +148,4 @@ export function ProductCardSkeleton() {
   );
 }
 
-export { AddToCartButton };
+export { AddToCartButton, FavoriteButton };

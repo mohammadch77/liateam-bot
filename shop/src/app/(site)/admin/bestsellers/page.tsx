@@ -5,7 +5,7 @@ import { toFaDigits } from '@/lib/format/number';
 import { BESTSELLER_LIMIT, BESTSELLER_TABS, isTabKey } from '@/lib/bestsellers';
 import { requireRole } from '@/server/auth/guards';
 import { bestsellerService } from '@/server/services/bestseller.service';
-import { Alert, Breadcrumb, Button, Container, EmptyState } from '@/ui';
+import { Alert, Breadcrumb, Button, EmptyState } from '@/ui';
 import s from '../../account/account.module.css';
 import a from '../admin-forms.module.css';
 import { addPickAction, pickAction, useTagAction } from './actions';
@@ -41,7 +41,7 @@ export default async function AdminBestsellersPage({
   const off = data.picks.filter((p) => !p.enabled);
 
   return (
-    <Container className={s.page}>
+    <div className={s.page}>
       <Breadcrumb
         items={[
           { label: 'خانه', href: '/' },
@@ -198,6 +198,6 @@ export default async function AdminBestsellersPage({
           </table>
         </div>
       </section>
-    </Container>
+    </div>
   );
 }

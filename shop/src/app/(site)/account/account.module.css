@@ -364,7 +364,20 @@
   top: 4px;
 }
 
-/* the «بازگشت» link of the panels */
+/* a number beside a menu item (what waits for the staff) and the «بازگشت» link of the panels */
+.navBadge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  color: var(--color-white);
+  font-size: 12px;
+  font-weight: 800;
+  font-feature-settings: 'tnum';
+}
 .back {
   align-self: flex-start;
   display: inline-flex;

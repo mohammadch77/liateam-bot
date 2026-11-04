@@ -6,7 +6,7 @@ import { normalizeMobile } from '@/lib/phone';
 import type { CommissionStatus } from '@/server/repositories/commission.repository';
 import { requireRole } from '@/server/auth/guards';
 import { commissionAdminService } from '@/server/services/commission-admin.service';
-import { Alert, Breadcrumb, Button, Container, EmptyState, Pagination } from '@/ui';
+import { Alert, Breadcrumb, Button, EmptyState, Pagination } from '@/ui';
 import s from '../../account/account.module.css';
 import a from '../affiliates/admin-affiliates.module.css';
 import { decideCommissionAction } from './actions';
@@ -39,7 +39,7 @@ export default async function AdminCommissionsPage({
     `/admin/commissions?status=${tab.key}${phone ? `&phone=${phone}` : ''}${p > 1 ? `&page=${p}` : ''}`;
 
   return (
-    <Container className={s.page}>
+    <div className={s.page}>
       <Breadcrumb items={[{ label: 'خانه', href: '/' }, { label: 'مدیریت', href: '/admin' }, { label: 'پورسانت‌ها' }]} />
       <section className={s.card} aria-labelledby="com-title" style={{ maxWidth: 'none' }}>
         <h1 id="com-title" className={s.title}>
@@ -140,6 +140,6 @@ export default async function AdminCommissionsPage({
         )}
         <Pagination page={data.page} totalPages={data.page + (data.rows.length === 30 ? 1 : 0)} hrefFor={here} />
       </section>
-    </Container>
+    </div>
   );
 }

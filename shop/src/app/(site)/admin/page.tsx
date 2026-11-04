@@ -8,7 +8,7 @@ import { auditService } from '@/server/services/audit.service';
 import { orderService } from '@/server/services/order.service';
 import { commissionAdminService } from '@/server/services/commission-admin.service';
 import { withdrawalService } from '@/server/services/withdrawal.service';
-import { Breadcrumb, Container } from '@/ui';
+import { Breadcrumb } from '@/ui';
 import s from '../account/account.module.css';
 
 export const metadata: Metadata = { title: 'مدیریت', robots: { index: false } };
@@ -71,7 +71,7 @@ export default async function AdminPage() {
   const when = (d: Date | null) => (d ? timeFa.format(d) : '—');
 
   return (
-    <Container className={s.page}>
+    <div className={s.page}>
       <Breadcrumb items={[{ label: 'خانه', href: '/' }, { label: 'مدیریت' }]} />
       <section className={s.card} aria-labelledby="admin-title" style={{ maxWidth: 'none' }}>
         <h1 id="admin-title" className={s.title}>
@@ -222,6 +222,6 @@ export default async function AdminPage() {
           ))}
         </dl>
       </section>
-    </Container>
+    </div>
   );
 }

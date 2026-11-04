@@ -8,7 +8,7 @@ import type { DiscountRow } from '@/server/repositories/discount.repository';
 import { toDiscount } from '@/server/repositories/discount.repository';
 import { catalogService } from '@/server/services/catalog.service';
 import { discountService } from '@/server/services/discount.service';
-import { Alert, Breadcrumb, Button, Container, EmptyState } from '@/ui';
+import { Alert, Breadcrumb, Button, EmptyState } from '@/ui';
 import s from '../../account/account.module.css';
 import a from '../admin-forms.module.css';
 import { toggleDiscountAction } from './actions';
@@ -91,7 +91,7 @@ export default async function AdminDiscountsPage({
       };
 
   return (
-    <Container className={s.page}>
+    <div className={s.page}>
       <Breadcrumb
         items={[{ label: 'خانه', href: '/' }, { label: 'مدیریت', href: '/admin' }, { label: 'تخفیف‌ها' }]}
       />
@@ -184,6 +184,6 @@ export default async function AdminDiscountsPage({
           </div>
         )}
       </section>
-    </Container>
+    </div>
   );
 }

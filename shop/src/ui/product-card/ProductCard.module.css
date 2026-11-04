@@ -234,8 +234,8 @@
   color: var(--color-white);
 }
 .favButton {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.92);
   color: var(--color-ink-2);

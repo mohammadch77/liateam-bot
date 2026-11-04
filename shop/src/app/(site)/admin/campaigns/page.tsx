@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { toFaDigits } from '@/lib/format/number';
 import { requireRole } from '@/server/auth/guards';
 import { discountService } from '@/server/services/discount.service';
-import { Breadcrumb, Container, EmptyState } from '@/ui';
+import { Breadcrumb, EmptyState } from '@/ui';
 import s from '../../account/account.module.css';
 import a from '../admin-forms.module.css';
 import { CampaignForm, type CampaignDraft } from './CampaignForm';
@@ -37,7 +37,7 @@ export default async function AdminCampaignsPage({
   const now = new Date();
 
   return (
-    <Container className={s.page}>
+    <div className={s.page}>
       <Breadcrumb
         items={[{ label: 'خانه', href: '/' }, { label: 'مدیریت', href: '/admin' }, { label: 'کمپین‌ها' }]}
       />
@@ -98,6 +98,6 @@ export default async function AdminCampaignsPage({
           </div>
         )}
       </section>
-    </Container>
+    </div>
   );
 }

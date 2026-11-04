@@ -5,7 +5,7 @@ import { toFaDigits } from '@/lib/format/number';
 import type { WithdrawalStatus } from '@/lib/wallet/withdraw';
 import { requireRole } from '@/server/auth/guards';
 import { withdrawalService } from '@/server/services/withdrawal.service';
-import { Alert, Breadcrumb, Button, Container, EmptyState, Pagination } from '@/ui';
+import { Alert, Breadcrumb, Button, EmptyState, Pagination } from '@/ui';
 import s from '../../account/account.module.css';
 import a from '../affiliates/admin-affiliates.module.css';
 import { decideWithdrawalAction } from './actions';
@@ -36,7 +36,7 @@ export default async function AdminWithdrawalsPage({
   const hrefFor = (p: number) => `/admin/withdrawals?status=${tab.key}${p > 1 ? `&page=${p}` : ''}`;
 
   return (
-    <Container className={s.page}>
+    <div className={s.page}>
       <Breadcrumb
         items={[{ label: 'خانه', href: '/' }, { label: 'مدیریت', href: '/admin' }, { label: 'برداشت‌ها' }]}
       />
@@ -126,6 +126,6 @@ export default async function AdminWithdrawalsPage({
         )}
         <Pagination page={page} totalPages={page + (rows.length === 30 ? 1 : 0)} hrefFor={hrefFor} />
       </section>
-    </Container>
+    </div>
   );
 }

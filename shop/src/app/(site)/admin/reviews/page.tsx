@@ -4,7 +4,7 @@ import { productPath } from '@/lib/urls';
 import { toFaDigits } from '@/lib/format/number';
 import { requireRole } from '@/server/auth/guards';
 import { reviewService } from '@/server/services/review.service';
-import { Alert, Breadcrumb, Button, Container, EmptyState } from '@/ui';
+import { Alert, Breadcrumb, Button, EmptyState } from '@/ui';
 import s from '../../account/account.module.css';
 import { moderateReviewAction } from './actions';
 
@@ -22,7 +22,7 @@ export default async function AdminReviewsPage({
   const [pending, sp] = await Promise.all([reviewService.pending(), searchParams]);
 
   return (
-    <Container className={s.page}>
+    <div className={s.page}>
       <Breadcrumb
         items={[{ label: 'خانه', href: '/' }, { label: 'مدیریت', href: '/admin' }, { label: 'دیدگاه‌ها' }]}
       />
@@ -59,6 +59,6 @@ export default async function AdminReviewsPage({
           </dl>
         )}
       </section>
-    </Container>
+    </div>
   );
 }

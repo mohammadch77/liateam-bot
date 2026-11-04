@@ -142,7 +142,7 @@ try {
     num(await page.locator('[data-stat-active]').innerText()) === 1 &&
       num(await page.locator('[data-stat-balance]').innerText()) === 20_000_000,
   );
-  check('1b the side menu has the five pages', (await page.locator('[data-account-nav] a').count()) === 5);
+  check('1b the side menu has the seven pages (favourites and the affiliate entry for everyone since task K)', (await page.locator('[data-account-nav] a').count()) === 7);
   await page.goto(`${BASE}/account/orders`);
   check(
     '1c the order list shows the order',

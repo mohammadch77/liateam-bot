@@ -6,7 +6,7 @@ import { ORDER_STATUS_LABEL } from '@/lib/orders/filters';
 import { ADMIN_SORTS, ADMIN_STATUS_FILTERS, type AdminStatusFilter } from '@/lib/orders/operator';
 import { requireRole } from '@/server/auth/guards';
 import { orderAdminService } from '@/server/services/order-admin.service';
-import { Badge, Breadcrumb, Button, Container, EmptyState, Pagination } from '@/ui';
+import { Badge, Breadcrumb, Button, EmptyState, Pagination } from '@/ui';
 import s from '../../account/account.module.css';
 import a from '../affiliates/admin-affiliates.module.css';
 
@@ -58,7 +58,7 @@ export default async function AdminOrdersPage({
   };
 
   return (
-    <Container className={s.page}>
+    <div className={s.page}>
       <Breadcrumb items={[{ label: 'خانه', href: '/' }, { label: 'مدیریت', href: '/admin' }, { label: 'سفارش‌ها' }]} />
       <section className={s.card} aria-labelledby="orders-title" style={{ maxWidth: 'none' }}>
         <h1 id="orders-title" className={s.title}>
@@ -131,6 +131,6 @@ export default async function AdminOrdersPage({
         </p>
         <Pagination page={v.page} totalPages={v.pages} hrefFor={(p) => qs({ page: p > 1 ? p : null })} />
       </section>
-    </Container>
+    </div>
   );
 }

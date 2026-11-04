@@ -67,6 +67,16 @@ export const reviewRepository = {
     );
   },
 
+  async pendingCount(db?: Queryable): Promise<number> {
+    const row = await queryOne<{ n: number }>(
+      'review.pending_count',
+      "SELECT count(*)::int AS n FROM site_reviews WHERE status = 'pending'",
+      [],
+      db,
+    );
+    return row?.n ?? 0;
+  },
+
   async moderate(id: string, status: 'approved' | 'rejected', adminId: string, db?: Queryable) {
     return queryOne<{ id: string; product_id: number }>(
       'review.moderate',

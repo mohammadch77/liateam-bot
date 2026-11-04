@@ -8,7 +8,7 @@ import { OPERATOR_EVENT_LABEL } from '@/lib/orders/operator';
 import { trackingCode } from '@/lib/orders/payment-flow';
 import { requireRole } from '@/server/auth/guards';
 import { orderAdminService, type AdminDetailView } from '@/server/services/order-admin.service';
-import { Alert, Badge, Breadcrumb, Container } from '@/ui';
+import { Alert, Badge, Breadcrumb } from '@/ui';
 import s from '../../../account/account.module.css';
 import a from '../../affiliates/admin-affiliates.module.css';
 import { LinkCountdown } from './LinkCountdown';
@@ -65,7 +65,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ num
       : null;
 
   return (
-    <Container className={s.page}>
+    <div className={s.page}>
       <Breadcrumb
         items={[
           { label: 'خانه', href: '/' },
@@ -338,6 +338,6 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ num
             })}
         </ol>
       </section>
-    </Container>
+    </div>
   );
 }

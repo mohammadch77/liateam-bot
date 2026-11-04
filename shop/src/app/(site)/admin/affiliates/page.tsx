@@ -4,7 +4,7 @@ import { toFaDigits } from '@/lib/format/number';
 import type { AffiliateStatus } from '@/server/repositories/affiliate.repository';
 import { requireRole } from '@/server/auth/guards';
 import { CHANNEL_TYPES, FOLLOWERS, affiliateService } from '@/server/services/affiliate.service';
-import { Alert, Breadcrumb, Button, Container, EmptyState } from '@/ui';
+import { Alert, Breadcrumb, Button, EmptyState } from '@/ui';
 import s from '../../account/account.module.css';
 import a from './admin-affiliates.module.css';
 import { decideAffiliateAction } from './actions';
@@ -40,7 +40,7 @@ export default async function AdminAffiliatesPage({
   ]);
 
   return (
-    <Container className={s.page}>
+    <div className={s.page}>
       <Breadcrumb
         items={[
           { label: 'خانه', href: '/' },
@@ -143,6 +143,6 @@ export default async function AdminAffiliatesPage({
           </ul>
         )}
       </section>
-    </Container>
+    </div>
   );
 }
