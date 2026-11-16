@@ -3,7 +3,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  width: 100%;
   min-width: 0;
   background: var(--color-white);
   border: 1px solid var(--color-line);
@@ -38,7 +38,9 @@
 /* Image stage: warm radial gradient + oval pedestal with a soft contact shadow. */
 .stage {
   position: relative;
+  width: 100%;
   aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
   background: radial-gradient(
     110% 85% at 50% 18%,
     var(--color-white) 0%,
@@ -109,7 +111,8 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 12px 14px 14px;
   min-width: 0;
 }
@@ -182,6 +185,7 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 8px;
+  flex-shrink: 0;
   margin-top: auto;
   padding-top: 6px;
   min-height: 44px;
@@ -278,6 +282,7 @@
 /*
  * Narrow cards (2 columns on a 360–390px phone, or inside a padded panel): sized by the card's own width,
  * not the viewport. A 7-digit price + «تومان» + the 40px button must fit in ~140px of content.
+ * Both container query and media query are provided for full compatibility across older WebKit (e.g. iOS 14/15/16).
  */
 .card {
   container-type: inline-size;
@@ -311,6 +316,48 @@
     border-radius: 10px;
   }
   /* out of stock: «ناموجود» above a full-width «خبرم کن» */
+  .footer:has(.notify) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .footer:has(.notify) .action {
+    position: static;
+  }
+  .notify {
+    justify-content: center;
+    height: 36px;
+    font-size: 11.5px;
+  }
+}
+
+@media (max-width: 640px) {
+  .body {
+    padding: 8px 10px 10px;
+    gap: 3px;
+  }
+  .name {
+    font-size: 12.5px;
+    line-height: 1.45;
+    min-height: 36px;
+  }
+  .footer {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 4px;
+    min-height: 38px;
+    --price-md-amount: 14px;
+    --price-md-unit: 10px;
+    --price-md-old: 11px;
+  }
+  .action {
+    position: static;
+  }
+  .iconButton {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
   .footer:has(.notify) {
     flex-direction: column;
     align-items: stretch;
