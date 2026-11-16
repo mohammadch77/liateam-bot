@@ -32,7 +32,13 @@ export default async function OrdersPage({
 
   return (
     <>
-      <Breadcrumb items={[{ label: 'خانه', href: '/' }, { label: 'حساب کاربری', href: '/account' }, { label: 'سفارش‌ها' }]} />
+      <Breadcrumb
+        items={[
+          { label: 'خانه', href: '/' },
+          { label: 'حساب کاربری', href: '/account' },
+          { label: 'سفارش‌ها' },
+        ]}
+      />
       <h1 className={s.title}>سفارش‌های من</h1>
       <nav className={s.chips} aria-label="فیلتر وضعیت" data-order-filters>
         {(Object.keys(ORDER_FILTERS) as OrderFilterKey[]).map((k) => (

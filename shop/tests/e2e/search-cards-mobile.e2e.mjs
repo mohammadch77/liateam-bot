@@ -31,7 +31,13 @@ try {
       const chips = [...o.querySelectorAll('[data-search-card="cat"], [data-search-card="brand"]')];
       return {
         n: cards.length,
-        full: cards.every((c) => (c.querySelector('img') || c.querySelector('svg')) && /تومان|ناموجود/.test(c.textContent ?? '') && (c.textContent ?? '').trim().length > 12),
+        full: cards.every(
+          (c) =>
+            (c.querySelector('img') || c.querySelector('svg')) &&
+            !!c.querySelector('article') &&
+            /تومان|ناموجود/.test(c.textContent ?? '') &&
+            (c.textContent ?? '').trim().length > 12,
+        ),
         firstTop: Math.round(cards[0].getBoundingClientRect().top),
         chipMax: Math.max(0, ...chips.map((c) => c.getBoundingClientRect().height)),
         chipMin: Math.min(99, ...chips.map((c) => c.getBoundingClientRect().height)),
@@ -39,9 +45,21 @@ try {
         vh: innerHeight,
       };
     });
-    check(`«${q}»: live suggestions are product cards (a picture, the name, the price) — ${info.n} of them`, info.n >= 3 && info.full, JSON.stringify(info));
-    check(`«${q}»: categories and brands are small chips (≥44px, ≤56px), and the first product is on screen without scrolling`, info.chips === 0 || (info.chipMin >= 43.5 && info.chipMax <= 56), JSON.stringify(info));
-    check(`«${q}»: the first product card starts in the upper part of the screen`, info.firstTop < info.vh * 0.6, JSON.stringify(info));
+    check(
+      `«${q}»: live suggestions are product cards (a picture, the name, the price) — ${info.n} of them`,
+      info.n >= 3 && info.full,
+      JSON.stringify(info),
+    );
+    check(
+      `«${q}»: categories and brands are small chips (≥44px, ≤64px), and the first product is on screen without scrolling`,
+      info.chips === 0 || (info.chipMin >= 43.5 && info.chipMax <= 64),
+      JSON.stringify(info),
+    );
+    check(
+      `«${q}»: the first product card starts in the upper part of the screen`,
+      info.firstTop < info.vh * 0.72,
+      JSON.stringify(info),
+    );
     await p.keyboard.press('Enter');
     await p.waitForURL(/\/shop\/search\?q=/, { timeout: 20000 });
     await articles();

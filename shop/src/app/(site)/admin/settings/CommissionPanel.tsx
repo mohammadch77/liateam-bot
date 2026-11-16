@@ -87,11 +87,17 @@ function RuleForm({ rule }: { rule: CommissionRule | null }) {
         <span>فعال</span>
       </label>
       <label className={a.check}>
-        <input type="checkbox" name="manualApproval" value="1" defaultChecked={rule?.manualApproval ?? false} />
+        <input
+          type="checkbox"
+          name="manualApproval"
+          value="1"
+          defaultChecked={rule?.manualApproval ?? false}
+        />
         <span>تأیید دستی: پورسانت این قاعده فقط پس از تأیید ادمین به کیف پول همکار واریز شود</span>
       </label>
       <p className={a.hint}>
-        هیچ مقداری از قبل پر نشده است. شرط تأیید همیشه «بعد از ارسال شدن سفارش» است؛ پس از گذشتن مدت نگهداری، پورسانت خودکار (یا با تأیید ادمین برای قاعدهٔ دستی) به کیف پول واریز می‌شود. قاعده حذف نمی‌شود؛
+        هیچ مقداری از قبل پر نشده است. شرط تأیید همیشه «بعد از ارسال شدن سفارش» است؛ پس از گذشتن مدت نگهداری،
+        پورسانت خودکار (یا با تأیید ادمین برای قاعدهٔ دستی) به کیف پول واریز می‌شود. قاعده حذف نمی‌شود؛
         غیرفعالش کنید.
       </p>
       <div className={a.actions}>
@@ -173,7 +179,7 @@ function Simulator({ input, result }: { input: SimulatorInput | null; result: Co
             <table className={a.table}>
               <thead>
                 <tr>
-                    <th>پورسانت (تومان)</th>
+                  <th>پورسانت (تومان)</th>
                   <th>مبنا</th>
                   <th>قاعده‌ها</th>
                   <th>وضعیت</th>
@@ -262,7 +268,13 @@ export function CommissionPanel({
                     {r.maxPerOrder === null ? '—' : formatNumber(r.maxPerOrder)}
                   </td>
                   <td>{formatNumber(r.holdDays)} روز</td>
-                  <td>{r.level > MAX_LEVEL ? 'نادیده گرفته می‌شود (سطح بالاتر از ۱)' : r.active ? 'فعال' : 'غیرفعال'}</td>
+                  <td>
+                    {r.level > MAX_LEVEL
+                      ? 'نادیده گرفته می‌شود (سطح بالاتر از ۱)'
+                      : r.active
+                        ? 'فعال'
+                        : 'غیرفعال'}
+                  </td>
                   <td>
                     {r.level > MAX_LEVEL ? null : (
                       <Link href={`${adminSettingsPath('commission')}&edit=${r.id}`}>ویرایش</Link>

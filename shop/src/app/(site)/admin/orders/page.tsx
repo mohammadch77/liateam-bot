@@ -59,7 +59,9 @@ export default async function AdminOrdersPage({
 
   return (
     <div className={s.page}>
-      <Breadcrumb items={[{ label: 'خانه', href: '/' }, { label: 'مدیریت', href: '/admin' }, { label: 'سفارش‌ها' }]} />
+      <Breadcrumb
+        items={[{ label: 'خانه', href: '/' }, { label: 'مدیریت', href: '/admin' }, { label: 'سفارش‌ها' }]}
+      />
       <section className={s.card} aria-labelledby="orders-title" style={{ maxWidth: 'none' }}>
         <h1 id="orders-title" className={s.title}>
           سفارش‌ها
@@ -89,8 +91,22 @@ export default async function AdminOrdersPage({
             dir="ltr"
             maxLength={20}
           />
-          <input type="date" name="from" defaultValue={v.from ?? ''} className={s.chip} aria-label="از تاریخ" dir="ltr" />
-          <input type="date" name="to" defaultValue={v.to ?? ''} className={s.chip} aria-label="تا تاریخ" dir="ltr" />
+          <input
+            type="date"
+            name="from"
+            defaultValue={v.from ?? ''}
+            className={s.chip}
+            aria-label="از تاریخ"
+            dir="ltr"
+          />
+          <input
+            type="date"
+            name="to"
+            defaultValue={v.to ?? ''}
+            className={s.chip}
+            aria-label="تا تاریخ"
+            dir="ltr"
+          />
           <select name="sort" defaultValue={v.sort} className={s.chip} aria-label="مرتب‌سازی">
             {Object.entries(ADMIN_SORTS).map(([k, x]) => (
               <option key={k} value={k}>

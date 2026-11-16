@@ -40,8 +40,13 @@ export async function createAddressAction(input: Input): Promise<ActionResult<Ad
   return runAction('account.address_add', async () => view(await addressService.add(input)));
 }
 
-export async function updateAddressAction(addressId: string, input: Input): Promise<ActionResult<AddressView>> {
-  return runAction('account.address_update', async () => view(await addressService.update(id.parse(addressId), input)));
+export async function updateAddressAction(
+  addressId: string,
+  input: Input,
+): Promise<ActionResult<AddressView>> {
+  return runAction('account.address_update', async () =>
+    view(await addressService.update(id.parse(addressId), input)),
+  );
 }
 
 export async function makeDefaultAddressAction(addressId: string): Promise<ActionResult<null>> {

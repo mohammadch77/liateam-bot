@@ -18,6 +18,8 @@ export async function decideWithdrawalAction(form: FormData): Promise<void> {
       : withdrawalService.reject(id, String(form.get('reason') ?? ''), meta);
   });
   redirect(
-    r.ok ? `/admin/withdrawals?done=${paid ? 'paid' : 'rejected'}` : `/admin/withdrawals?error=${encodeURIComponent(r.error)}`,
+    r.ok
+      ? `/admin/withdrawals?done=${paid ? 'paid' : 'rejected'}`
+      : `/admin/withdrawals?error=${encodeURIComponent(r.error)}`,
   );
 }

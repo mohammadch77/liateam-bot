@@ -3,7 +3,13 @@ import { notFound } from 'next/navigation';
 import { formatToman } from '@/lib/format/money';
 import { toFaDigits } from '@/lib/format/number';
 import { ORDER_STATUS_LABEL } from '@/lib/orders/filters';
-import { COMMISSION_STATUS_LABEL, maskOrderNumber, maskedPhone, networkName, ruleLabel } from '@/lib/affiliate/report';
+import {
+  COMMISSION_STATUS_LABEL,
+  maskOrderNumber,
+  maskedPhone,
+  networkName,
+  ruleLabel,
+} from '@/lib/affiliate/report';
 import { requireUser } from '@/server/auth/guards';
 import { affiliatePanelService, isAffiliateUser } from '@/server/services/affiliate-panel.service';
 import { Badge, Breadcrumb, Button, EmptyState } from '@/ui';
@@ -65,7 +71,12 @@ export default async function PersonPage({ params }: { params: Promise<{ token: 
         </div>
       </section>
       <div className={s.btnRow} data-no-print>
-        <Button href={`/account/affiliate/network/${token}/export`} variant="outline" prefetch={false} data-xlsx>
+        <Button
+          href={`/account/affiliate/network/${token}/export`}
+          variant="outline"
+          prefetch={false}
+          data-xlsx
+        >
           خروجی Excel
         </Button>
         <PrintButton />
@@ -82,8 +93,9 @@ export default async function PersonPage({ params }: { params: Promise<{ token: 
                     {maskOrderNumber(o.order_number)}
                   </b>
                   <span className={s.muted}>
-                    {dateFa.format(o.paid_at)} · مبلغ سفارش: <span className="tnum">{formatToman(o.base_amount ?? o.items_total)}</span>{' '}
-                    تومان · {ORDER_STATUS_LABEL[o.order_status as keyof typeof ORDER_STATUS_LABEL] ?? o.order_status}
+                    {dateFa.format(o.paid_at)} · مبلغ سفارش:{' '}
+                    <span className="tnum">{formatToman(o.base_amount ?? o.items_total)}</span> تومان ·{' '}
+                    {ORDER_STATUS_LABEL[o.order_status as keyof typeof ORDER_STATUS_LABEL] ?? o.order_status}
                   </span>
                   <span className={s.muted}>
                     {o.commission === null

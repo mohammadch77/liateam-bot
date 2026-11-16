@@ -68,11 +68,16 @@ export default async function AdminAffiliatesPage({
           <Alert tone="success">تأیید شد؛ نقش «فروشنده‌ی همکار» به کاربر داده شد.</Alert>
         )}
         {sp.done === 'rejected' && <Alert tone="success">درخواست رد شد.</Alert>}
-        {sp.error && <Alert tone="danger">این درخواست پیدا نشد، قبلاً بررسی شده یا متقاضی معرف دارد (در این صورت فقط رد ممکن است).</Alert>}
+        {sp.error && (
+          <Alert tone="danger">
+            این درخواست پیدا نشد، قبلاً بررسی شده یا متقاضی معرف دارد (در این صورت فقط رد ممکن است).
+          </Alert>
+        )}
         {referredAffiliates > 0 && (
           <Alert tone="warning">
             <span data-referred-affiliates>
-              {toFaDigits(referredAffiliates)} همکار خودشان با معرف ثبت شده‌اند؛ برنامه فقط یک سطح است و کد آن‌ها معرف جدید ثبت نمی‌کند.
+              {toFaDigits(referredAffiliates)} همکار خودشان با معرف ثبت شده‌اند؛ برنامه فقط یک سطح است و کد
+              آن‌ها معرف جدید ثبت نمی‌کند.
             </span>
           </Alert>
         )}

@@ -59,7 +59,10 @@ export default async function CartPage() {
   return (
     <Container className={s.page}>
       <Breadcrumb items={[{ label: 'خانه', href: '/' }, { label: 'سبد خرید' }]} />
-      <CartView initial={await cartService.snapshot()} freeFromToman={freeShippingFrom(settings.freeShipping)} />
+      <CartView
+        initial={await cartService.snapshot()}
+        freeFromToman={freeShippingFrom(settings.freeShipping)}
+      />
     </Container>
   );
 }

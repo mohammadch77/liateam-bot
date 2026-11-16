@@ -20,5 +20,7 @@ export async function decideCommissionAction(form: FormData): Promise<void> {
       : commissionPayoutService.cancel(id, String(form.get('reason') ?? ''), meta);
   });
   const sep = to.includes('?') ? '&' : '?';
-  redirect(`${to}${sep}${r.ok ? `done=${approve ? 'approved' : 'cancelled'}` : `error=${encodeURIComponent(r.error)}`}`);
+  redirect(
+    `${to}${sep}${r.ok ? `done=${approve ? 'approved' : 'cancelled'}` : `error=${encodeURIComponent(r.error)}`}`,
+  );
 }

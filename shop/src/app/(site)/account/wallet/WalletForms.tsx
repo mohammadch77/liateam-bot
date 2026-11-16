@@ -10,7 +10,8 @@ import s from '../account.module.css';
 import { cancelWithdrawalAction, requestWithdrawalAction, startTopupAction } from './actions';
 
 /** digits in any script → a number (the field is typed by people) */
-const toNumber = (v: string) => Number(v.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[^0-9]/g, ''));
+const toNumber = (v: string) =>
+  Number(v.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[^0-9]/g, ''));
 
 export function TopupForm({
   online,
@@ -38,7 +39,8 @@ export function TopupForm({
       <h2 className={s.h2}>شارژ کیف پول</h2>
       {!online && <Alert tone="warning">پرداخت آنلاین فعلاً در دسترس نیست؛ شارژ کیف پول هم ممکن نیست.</Alert>}
       <p className={s.muted}>
-        مبلغ شارژ بین {formatToman(min)} و {formatToman(max)} تومان. موجودی کیف پول فقط در همین سایت خرج می‌شود.
+        مبلغ شارژ بین {formatToman(min)} و {formatToman(max)} تومان. موجودی کیف پول فقط در همین سایت خرج
+        می‌شود.
       </p>
       <div className={s.btnRow}>
         {presets.map((p) => (
@@ -73,7 +75,14 @@ export function TopupForm({
         />
         {error && <Alert tone="danger">{error}</Alert>}
         <div>
-          <Button type="submit" icon="add" disabled={!online} loading={pending} loadingText="در حال انتقال به درگاه…" data-topup-submit>
+          <Button
+            type="submit"
+            icon="add"
+            disabled={!online}
+            loading={pending}
+            loadingText="در حال انتقال به درگاه…"
+            data-topup-submit
+          >
             شارژ کیف پول
           </Button>
         </div>
@@ -94,15 +103,19 @@ export function WithdrawForm({ min, max, withdrawable }: { min: number; max: num
         iban: String(form.get('iban') ?? ''),
         holderName: String(form.get('holder') ?? ''),
       });
-      setMsg(r.ok ? { ok: true, text: 'درخواست برداشت ثبت شد و مبلغ آن از موجودی کسر شد.' } : { ok: false, text: r.error });
+      setMsg(
+        r.ok
+          ? { ok: true, text: 'درخواست برداشت ثبت شد و مبلغ آن از موجودی کسر شد.' }
+          : { ok: false, text: r.error },
+      );
       if (r.ok) router.refresh();
     });
   return (
     <section className={`${s.card} ${s.wide}`} aria-label="درخواست برداشت" data-withdraw>
       <h2 className={s.h2}>درخواست برداشت</h2>
       <p className={s.muted}>
-        قابل برداشت: <b className="tnum">{formatToman(withdrawable)}</b> تومان · حداقل {formatToman(min)} و حداکثر هر
-        درخواست {formatToman(max)} تومان. پرداخت را اپراتور به‌صورت دستی انجام می‌دهد.
+        قابل برداشت: <b className="tnum">{formatToman(withdrawable)}</b> تومان · حداقل {formatToman(min)} و
+        حداکثر هر درخواست {formatToman(max)} تومان. پرداخت را اپراتور به‌صورت دستی انجام می‌دهد.
       </p>
       <form action={submit} className={s.form}>
         <div className={s.grid}>

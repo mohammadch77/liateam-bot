@@ -92,18 +92,18 @@ export function AffiliateApply({
   here: string;
 }) {
   return (
-      <section className={s.card} aria-label="درخواست همکاری">
-        {!user || !status ? (
-          <div className={s.guest}>
-            <h2 className={s.formTitle}>برای ثبت درخواست وارد شوید</h2>
-            <p className={s.muted}>
-              ورود فقط با شماره موبایل و کد تأیید است؛ درخواست به همان شماره ثبت می‌شود.
-            </p>
-            <Button href={`/login?next=${encodeURIComponent(here)}`} icon="person">
-              ورود و ثبت درخواست
-            </Button>
-          </div>
-        ) : status.kind === 'affiliate' || status.kind === 'approved' ? (
+    <section className={s.card} aria-label="درخواست همکاری">
+      {!user || !status ? (
+        <div className={s.guest}>
+          <h2 className={s.formTitle}>برای ثبت درخواست وارد شوید</h2>
+          <p className={s.muted}>
+            ورود فقط با شماره موبایل و کد تأیید است؛ درخواست به همان شماره ثبت می‌شود.
+          </p>
+          <Button href={`/login?next=${encodeURIComponent(here)}`} icon="person">
+            ورود و ثبت درخواست
+          </Button>
+        </div>
+      ) : status.kind === 'affiliate' || status.kind === 'approved' ? (
         <div className={s.done}>
           <Alert tone="success">شما فروشنده‌ی همکار هستید.</Alert>
           <Button href="/account/affiliate" icon="verified">
@@ -115,28 +115,28 @@ export function AffiliateApply({
           <span data-affiliate-referred>{APPLICATION_REFUSED_REFERRED}</span>
         </Alert>
       ) : status.kind === 'pending' ? (
-          <div role="status" className={s.done}>
-            <Alert tone="success">
-              درخواستت ثبت شد و در حال بررسی است (ثبت‌شده در {dateFa.format(status.application.created_at)}).
-            </Alert>
-          </div>
-        ) : status.kind === 'rejected' && !status.canRetry ? (
-          <Alert tone="warning">
-            درخواست قبلی شما تأیید نشد
-            {status.application.reject_reason ? `: ${status.application.reject_reason}` : '.'} از{' '}
-            {dateFa.format(status.retryAt)} می‌توانید دوباره درخواست بدهید.
+        <div role="status" className={s.done}>
+          <Alert tone="success">
+            درخواستت ثبت شد و در حال بررسی است (ثبت‌شده در {dateFa.format(status.application.created_at)}).
           </Alert>
-        ) : (
-          <AffiliateForm
-            fullName={user.fullName ?? ''}
-            phone={toFaDigits(user.phone)}
-            source={source}
-            provinces={PROVINCES}
-            channels={Object.entries(CHANNEL_TYPES).map(([value, label]) => ({ value, label }))}
-            followers={Object.entries(FOLLOWERS).map(([value, label]) => ({ value, label }))}
-            descriptionMax={AFFILIATE_POLICY.descriptionMax}
-          />
-        )}
-      </section>
+        </div>
+      ) : status.kind === 'rejected' && !status.canRetry ? (
+        <Alert tone="warning">
+          درخواست قبلی شما تأیید نشد
+          {status.application.reject_reason ? `: ${status.application.reject_reason}` : '.'} از{' '}
+          {dateFa.format(status.retryAt)} می‌توانید دوباره درخواست بدهید.
+        </Alert>
+      ) : (
+        <AffiliateForm
+          fullName={user.fullName ?? ''}
+          phone={toFaDigits(user.phone)}
+          source={source}
+          provinces={PROVINCES}
+          channels={Object.entries(CHANNEL_TYPES).map(([value, label]) => ({ value, label }))}
+          followers={Object.entries(FOLLOWERS).map(([value, label]) => ({ value, label }))}
+          descriptionMax={AFFILIATE_POLICY.descriptionMax}
+        />
+      )}
+    </section>
   );
 }

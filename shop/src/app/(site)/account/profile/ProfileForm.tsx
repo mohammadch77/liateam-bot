@@ -19,7 +19,13 @@ export function ProfileForm({ name, phone }: { name: string; phone: string }) {
     <form action={submit} className={s.form} data-profile-form>
       <div className={s.grid}>
         <TextField label="نام و نام‌خانوادگی" name="name" defaultValue={name} autoComplete="name" required />
-        <TextField label="شماره‌ی موبایل" value={phone} readOnly ltr hint="شماره‌ی موبایل ورود شما است و تغییر نمی‌کند." />
+        <TextField
+          label="شماره‌ی موبایل"
+          value={phone}
+          readOnly
+          ltr
+          hint="شماره‌ی موبایل ورود شما است و تغییر نمی‌کند."
+        />
       </div>
       {msg && <Alert tone={msg.ok ? 'success' : 'danger'}>{msg.text}</Alert>}
       <div>

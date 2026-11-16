@@ -17,7 +17,8 @@ export async function GET(request: Request) {
       'content-type': png ? 'image/png' : 'image/svg+xml; charset=utf-8',
       'cache-control': 'private, no-store',
     };
-    if (sp.get('download') === '1') headers['content-disposition'] = `attachment; filename="referral-${code}.${png ? 'png' : 'svg'}"`;
+    if (sp.get('download') === '1')
+      headers['content-disposition'] = `attachment; filename="referral-${code}.${png ? 'png' : 'svg'}"`;
     return new Response(png ? new Uint8Array(await qrPng(link)) : await qrSvg(link), { headers });
   } catch (e) {
     logger.error('affiliate.qr_failed', { err: e instanceof Error ? e.message : 'unknown' });

@@ -109,3 +109,6 @@
   font-size: 12px;
   color: var(--color-muted);
 }
+.productsWrap {
+  margin-top: 4px;
+}

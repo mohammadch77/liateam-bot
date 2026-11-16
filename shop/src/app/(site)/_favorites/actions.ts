@@ -12,7 +12,10 @@ export async function favoritesStateAction(): Promise<ActionResult<{ signedIn: b
   return runAction('favorite.state', () => favoriteService.state());
 }
 
-export async function setFavoriteAction(productId: number, on: boolean): Promise<ActionResult<{ on: boolean }>> {
+export async function setFavoriteAction(
+  productId: number,
+  on: boolean,
+): Promise<ActionResult<{ on: boolean }>> {
   return runAction('favorite.set', async () => {
     const p = id.safeParse(productId);
     if (!p.success) throw new AppError('INVALID_DATA');

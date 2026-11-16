@@ -89,6 +89,33 @@
   padding: 0;
   list-style: none;
 }
+.catRowItem {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--color-line-row);
+}
+.catRowItem > .row {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0;
+}
+.subToggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  min-height: 56px;
+  border: 0;
+  border-inline-start: 1px solid var(--color-line-row);
+  background: none;
+  color: var(--color-primary);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.subToggle:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
 .row,
 .allProducts {
   display: flex;

@@ -8,11 +8,13 @@ import { formatNumber } from '@/lib/format/number';
 import { highlight, normalizeSearch } from '@/lib/search/normalize';
 import { cx } from '../cx';
 import { Icon } from '../icon/Icon';
+import { ProductCard } from '../product-card/ProductCard';
 import s from './SearchBox.module.css';
 import { searchPath } from '@/lib/urls';
 
 /** Shape of GET /api/search/suggest (Suggestions in the catalog service). */
 type Product = {
+  id?: number;
   href: string;
   name: string;
   brand: string | null;
@@ -143,53 +145,74 @@ export function SearchBox({
     );
 
   // the options, in screen order, each a card: matching categories, brands, products, «all results»; nothing found: a way on
-  type Option = { group: string; href: string; className: string | undefined; content: ReactNode };
+  type Option = {
+    group: string;
+    href: string;
+    className: string | undefined;
+    content: ReactNode;
+    fullCard?: boolean;
+  };
   // a matching category or brand is a small chip above the products (one tap to its page), never in the place of a product
   const groupCard = (g: Group, kind: 'cat' | 'brand'): Option => ({
     group: kind,
     href: g.href,
-    className: s.chip,
+    className: cx(s.chip, overlay && s.overlayChip),
     content: (
       <>
-        <Icon name={kind === 'cat' ? 'category' : 'verified'} size={16} className={s.catIcon} />
-        <span>{marked(g.name)}</span>
+        {overlay && g.imageUrl ? (
+          <span className={s.chipThumb}>
+            <Image src={g.imageUrl} alt="" width={28} height={28} className={s.chipImg} />
+          </span>
+        ) : (
+          <Icon name={kind === 'cat' ? 'category' : 'verified'} size={16} className={s.catIcon} />
+        )}
+        <span className={s.chipLabel}>{marked(g.name)}</span>
         <span className={s.chipCount}>{formatNumber(g.count)}</span>
       </>
     ),
   });
-  const productCard = (p: Product, group: string): Option => ({
-    group,
-    href: p.href,
-    className: cx(s.card, p.stock === 'out' && s.cardOut),
-    content: (
-      <>
-        <span className={s.thumb}>
-          {p.imageUrl ? (
-            <Image src={p.imageUrl} alt="" width={72} height={72} className={s.thumbImg} />
-          ) : (
-            <Icon name="spa" size={30} className={s.catIcon} />
-          )}
-        </span>
-        <span className={s.productText}>
-          <span className={s.productName}>{marked(p.name)}</span>
-          {p.brand && <span className={s.brand}>{marked(p.brand)}</span>}
-          {p.stock === 'limited' && <span className={s.limited}>موجودی محدود</span>}
-        </span>
-        {p.stock === 'out' ? (
-          <span className={s.soldOut}>ناموجود</span>
-        ) : (
-          <span className={s.priceBox}>
-            <span className={s.price}>
-              {formatToman(p.priceToman)} <span className={s.unit}>تومان</span>
-            </span>
-            {p.oldPriceToman != null && p.oldPriceToman > p.priceToman && (
-              <del className={s.oldPrice}>{formatToman(p.oldPriceToman)}</del>
-            )}
-          </span>
-        )}
-      </>
-    ),
-  });
+  const productCard = (p: Product, group: string): Option =>
+    overlay
+      ? {
+          group,
+          href: p.href,
+          className: s.overlayProductItem,
+          fullCard: true,
+          content: <ProductCard product={p} />,
+        }
+      : {
+          group,
+          href: p.href,
+          className: cx(s.card, p.stock === 'out' && s.cardOut),
+          content: (
+            <>
+              <span className={s.thumb}>
+                {p.imageUrl ? (
+                  <Image src={p.imageUrl} alt="" width={72} height={72} className={s.thumbImg} />
+                ) : (
+                  <Icon name="spa" size={30} className={s.catIcon} />
+                )}
+              </span>
+              <span className={s.productText}>
+                <span className={s.productName}>{marked(p.name)}</span>
+                {p.brand && <span className={s.brand}>{marked(p.brand)}</span>}
+                {p.stock === 'limited' && <span className={s.limited}>موجودی محدود</span>}
+              </span>
+              {p.stock === 'out' ? (
+                <span className={s.soldOut}>ناموجود</span>
+              ) : (
+                <span className={s.priceBox}>
+                  <span className={s.price}>
+                    {formatToman(p.priceToman)} <span className={s.unit}>تومان</span>
+                  </span>
+                  {p.oldPriceToman != null && p.oldPriceToman > p.priceToman && (
+                    <del className={s.oldPrice}>{formatToman(p.oldPriceToman)}</del>
+                  )}
+                </span>
+              )}
+            </>
+          ),
+        };
   const options: Option[] = data
     ? [
         ...data.categories.map((c) => groupCard(c, 'cat')),
@@ -217,6 +240,7 @@ export function SearchBox({
       ]
     : [];
   const GROUP_TITLE: Record<string, string> = {
+    ...(overlay ? { cat: 'دسته‌بندی‌ها', brand: 'برندها' } : {}),
     product: 'محصولات',
     'fb-cat': 'دسته‌بندی‌های پیشنهادی',
     'fb-product': 'محصولات پیشنهادی',
@@ -329,10 +353,19 @@ export function SearchBox({
                 // mouse: keep focus in the input. Not for touch: cancelling a touch pointerdown makes WebKit (every iPhone
                 // browser) drop the tap's click, so a tapped suggestion never opened.
                 onPointerDown={(e) => {
-                  if (e.pointerType === 'mouse') e.preventDefault();
+                  if (e.pointerType === 'mouse' && !(e.target as Element | null)?.closest('button')) {
+                    e.preventDefault();
+                  }
                 }}
                 onPointerEnter={() => setActive(i)}
-                onClick={() => go(o.href)}
+                onClick={(e) => {
+                  const t = e.target as Element | null;
+                  if (t?.closest('button')) return;
+                  if (o.fullCard && t?.closest('a')) {
+                    e.preventDefault();
+                  }
+                  go(o.href);
+                }}
               >
                 {o.content}
               </li>

@@ -415,6 +415,41 @@ export const catalogRepository = {
     return new Map(rows.map((r) => [r.code, r.image_url]));
   },
 
+  /** Top products per category subtree (in stock first, newest first), in a single query. */
+  async categorySamples(codes: readonly number[], perCategory = 4): Promise<Map<number, ProductRow[]>> {
+    if (!codes.length) return new Map();
+    const rows = await query<ProductRow & { root_code: number }>(
+      'catalog.category_samples',
+      `WITH RECURSIVE tree(root, code) AS (
+              SELECT r, r FROM unnest($1::int[]) AS r
+              UNION SELECT t.root, c.code FROM tree t JOIN categories c ON c.parent_code = t.code),
+            matched AS (
+              SELECT DISTINCT ON (t.root, p.id) t.root AS root_code, ${PRODUCT_COLS}
+                FROM tree t
+                JOIN product_catalog p ON t.code = ANY (p.category) AND ${VISIBLE}
+               ORDER BY t.root, p.id),
+            ranked AS (
+              SELECT m.*,
+                     row_number() OVER (
+                       PARTITION BY m.root_code
+                       ORDER BY (m.stock > 0) DESC, m.first_seen_at DESC, m.id DESC
+                     ) AS rn
+                FROM matched m)
+       SELECT root_code, id, name, price, stock, category, category_names, image_url, first_seen_at, updated_at, brand, slug_en
+         FROM ranked
+        WHERE rn <= $2
+        ORDER BY root_code, rn`,
+      [codes, perCategory],
+    );
+    const out = new Map<number, ProductRow[]>();
+    for (const r of rows) {
+      const list = out.get(r.root_code) ?? [];
+      list.push(r);
+      out.set(r.root_code, list);
+    }
+    return out;
+  },
+
   /** Visible products of one brand per category (every category, its whole subtree counted), for the filter. */
   async brandCategoryCounts(brandCode: number): Promise<Map<number, number>> {
     const rows = await query<{ code: number; n: number }>(

@@ -2,7 +2,11 @@ import { commissionsCsv } from '@/lib/affiliate/report';
 import { logger } from '@/lib/logger';
 import { buildXlsx, XLSX_TYPE } from '@/server/export/xlsx';
 import { getCurrentUser } from '@/server/services/session.service';
-import { affiliatePanelService, commissionFilterOf, isAffiliateUser } from '@/server/services/affiliate-panel.service';
+import {
+  affiliatePanelService,
+  commissionFilterOf,
+  isAffiliateUser,
+} from '@/server/services/affiliate-panel.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,7 +41,8 @@ export async function GET(request: Request) {
     });
   } catch (e) {
     const limited = e instanceof Error && 'code' in e && (e as { code?: string }).code === 'RATE_LIMITED';
-    if (!limited) logger.error('affiliate.export_failed', { err: e instanceof Error ? e.message : 'unknown' });
+    if (!limited)
+      logger.error('affiliate.export_failed', { err: e instanceof Error ? e.message : 'unknown' });
     return new Response(limited ? 'too many requests' : 'error', { status: limited ? 429 : 500 });
   }
 }

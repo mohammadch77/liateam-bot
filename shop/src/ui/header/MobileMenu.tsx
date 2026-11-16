@@ -161,9 +161,9 @@ export function MobileMenu({
                   </Link>
                   <span className={s.section}>دسته‌بندی‌ها</span>
                   <ul className={s.list}>
-                    {items.map((c) => {
-                      const inner = (
-                        <>
+                    {items.map((c) => (
+                      <li key={c.href} className={s.catRowItem}>
+                        <Link href={c.href} className={s.row} data-menu-category-link={c.code}>
                           <span className={s.thumb} aria-hidden="true">
                             {c.imageUrl ? (
                               <Image src={c.imageUrl} alt="" width={40} height={40} />
@@ -172,28 +172,22 @@ export function MobileMenu({
                             )}
                           </span>
                           <span className={s.label}>{c.label}</span>
-                          <Icon name="chevron_left" size={20} className={s.muted} />
-                        </>
-                      );
-                      return (
-                        <li key={c.href}>
-                          {c.children?.length ? (
-                            <button
-                              type="button"
-                              className={s.row}
-                              onClick={() => setPanel({ kind: 'category', item: c })}
-                              data-menu-category={c.code}
-                            >
-                              {inner}
-                            </button>
-                          ) : (
-                            <Link href={c.href} className={s.row}>
-                              {inner}
-                            </Link>
-                          )}
-                        </li>
-                      );
-                    })}
+                          {count(c.count)}
+                          {!c.children?.length && <Icon name="chevron_left" size={20} className={s.muted} />}
+                        </Link>
+                        {!!c.children?.length && (
+                          <button
+                            type="button"
+                            className={s.subToggle}
+                            aria-label={`زیردسته‌های ${c.label}`}
+                            onClick={() => setPanel({ kind: 'category', item: c })}
+                            data-menu-category={c.code}
+                          >
+                            <Icon name="chevron_left" size={20} />
+                          </button>
+                        )}
+                      </li>
+                    ))}
                   </ul>
                   <span className={s.section}>برندها</span>
                   <ul className={s.list}>

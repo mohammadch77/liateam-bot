@@ -87,16 +87,19 @@ export default async function OrderPage({
         </Alert>
       )}
       {cancelRequested && ['placing', 'awaiting_payment'].includes(order.status) && (
-        <Alert tone="warning">
-          درخواست لغو ثبت شد و پس از تأیید اپراتور مبلغ به کیف پول برمی‌گردد.
-        </Alert>
+        <Alert tone="warning">درخواست لغو ثبت شد و پس از تأیید اپراتور مبلغ به کیف پول برمی‌گردد.</Alert>
       )}
       {order.status === 'canceled' && (
-        <Alert tone="danger">این سفارش لغو شده است. اگر مبلغی پرداخت شده بود، در کیف پول شما ثبت شده است.</Alert>
+        <Alert tone="danger">
+          این سفارش لغو شده است. اگر مبلغی پرداخت شده بود، در کیف پول شما ثبت شده است.
+        </Alert>
       )}
       {tracking && (
         <div className={a.track} data-order-tracking>
-          کد رهگیری مرسوله: <span className="tnum" dir="ltr">{tracking}</span>
+          کد رهگیری مرسوله:{' '}
+          <span className="tnum" dir="ltr">
+            {tracking}
+          </span>
         </div>
       )}
       <section className={s.card} aria-label="اقلام سفارش">
@@ -173,7 +176,13 @@ export default async function OrderPage({
         <h2 className={s.h2}>روند سفارش</h2>
         <ol className={a.timeline}>
           {steps.map((st) => (
-            <li key={st.key} className={a.step} data-tone={st.tone} data-step data-final={st.final ? 'true' : undefined}>
+            <li
+              key={st.key}
+              className={a.step}
+              data-tone={st.tone}
+              data-step
+              data-final={st.final ? 'true' : undefined}
+            >
               <b>{st.label}</b>
               <span className={a.muted}>{dateTime.format(st.at)}</span>
               {st.note !== undefined && (

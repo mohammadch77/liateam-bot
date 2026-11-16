@@ -39,7 +39,9 @@ export function MiniCart({ anchor, onClose }: { anchor: Anchor | null; onClose: 
       return;
     }
     if (e.key !== 'Tab' || !panel.current) return;
-    const focusable = [...panel.current.querySelectorAll<HTMLElement>('a[href], button:not(:disabled)')].filter((x) => x.offsetParent !== null);
+    const focusable = [
+      ...panel.current.querySelectorAll<HTMLElement>('a[href], button:not(:disabled)'),
+    ].filter((x) => x.offsetParent !== null);
     if (!focusable.length) return;
     const first = focusable[0]!;
     const last = focusable[focusable.length - 1]!;
@@ -53,7 +55,9 @@ export function MiniCart({ anchor, onClose }: { anchor: Anchor | null; onClose: 
   };
 
   if (!cart) return null;
-  const style = anchor ? ({ '--mini-top': `${anchor.top}px`, '--mini-left': `${anchor.left}px` } as React.CSSProperties) : undefined;
+  const style = anchor
+    ? ({ '--mini-top': `${anchor.top}px`, '--mini-left': `${anchor.left}px` } as React.CSSProperties)
+    : undefined;
 
   return (
     <>
@@ -71,7 +75,10 @@ export function MiniCart({ anchor, onClose }: { anchor: Anchor | null; onClose: 
         <span className={s.handle} aria-hidden="true" />
         <header className={s.head}>
           <b>
-            سبد خرید{snap && snap.units > 0 ? <span className={s.count}> ({formatNumber(snap.units)} کالا)</span> : null}
+            سبد خرید
+            {snap && snap.units > 0 ? (
+              <span className={s.count}> ({formatNumber(snap.units)} کالا)</span>
+            ) : null}
           </b>
           <button type="button" className={s.close} aria-label="بستن" onClick={onClose} data-mini-close>
             <Icon name="close" size={20} />
@@ -93,7 +100,13 @@ export function MiniCart({ anchor, onClose }: { anchor: Anchor | null; onClose: 
                 {snap.items.map((i) => {
                   const busy = cart.busy(i.productId);
                   return (
-                    <li key={i.productId} className={s.item} aria-busy={busy} data-mini-line={i.productId} data-busy={busy}>
+                    <li
+                      key={i.productId}
+                      className={s.item}
+                      aria-busy={busy}
+                      data-mini-line={i.productId}
+                      data-busy={busy}
+                    >
                       <Link href={i.href} className={s.thumb} aria-hidden="true" tabIndex={-1}>
                         {i.imageUrl && <Image src={i.imageUrl} alt="" fill sizes="64px" draggable={false} />}
                       </Link>
@@ -102,7 +115,9 @@ export function MiniCart({ anchor, onClose }: { anchor: Anchor | null; onClose: 
                           {i.name}
                         </Link>
                         <span className={s.unit}>
-                          {i.unitListPrice > i.unitPrice && <del className="tnum">{formatToman(i.unitListPrice)}</del>}
+                          {i.unitListPrice > i.unitPrice && (
+                            <del className="tnum">{formatToman(i.unitListPrice)}</del>
+                          )}
                           <b className="tnum">{formatToman(i.unitPrice)}</b> تومان
                         </span>
                         {i.quantity >= i.maxQuantity && <span className={s.limit}>حداکثر موجودی</span>}

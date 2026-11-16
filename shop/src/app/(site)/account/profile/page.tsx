@@ -11,7 +11,13 @@ export default async function ProfilePage() {
   const user = await requireUser(profilePath());
   return (
     <>
-      <Breadcrumb items={[{ label: 'خانه', href: '/' }, { label: 'حساب کاربری', href: '/account' }, { label: 'پروفایل' }]} />
+      <Breadcrumb
+        items={[
+          { label: 'خانه', href: '/' },
+          { label: 'حساب کاربری', href: '/account' },
+          { label: 'پروفایل' },
+        ]}
+      />
       <h1 className={s.title}>پروفایل</h1>
       <section className={`${s.card} ${s.wide}`} aria-label="مشخصات">
         <ProfileForm name={user.fullName ?? ''} phone={user.phone} />

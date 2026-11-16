@@ -145,5 +145,7 @@ export async function payAction(
  * affiliate who was not referred, not the customer's own, rate limited) and, once recorded, it is locked for good.
  */
 export async function enterReferralAction(code: string): Promise<ActionResult<{ code: string }>> {
-  return runAction('checkout.referral', async () => referralService.enter(String(code ?? '').slice(0, 40), await requestMeta()));
+  return runAction('checkout.referral', async () =>
+    referralService.enter(String(code ?? '').slice(0, 40), await requestMeta()),
+  );
 }

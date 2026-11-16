@@ -37,37 +37,63 @@ export function SearchOverlay({ action, query }: { action?: string; query?: stri
     return () => document.removeEventListener('click', onClick, true);
   }, []);
 
-  // follow the visible area while the dialog is open
+  // follow the visible area while the dialog is open and lock the page behind in place (no scroll jump on keyboard)
   useEffect(() => {
     const d = dialog.current;
     const vv = window.visualViewport;
-    if (!d || !vv) return;
+    if (!d) return;
+    let savedY = 0;
+    let locked = false;
+    const lockBody = () => {
+      if (locked) return;
+      locked = true;
+      savedY = window.scrollY;
+      const b = document.body.style;
+      b.position = 'fixed';
+      b.top = `-${savedY}px`;
+      b.insetInline = '0';
+      b.width = '100%';
+      document.documentElement.classList.add('drawer-open');
+    };
+    const unlockBody = () => {
+      if (!locked) return;
+      locked = false;
+      const b = document.body.style;
+      b.position = '';
+      b.top = '';
+      b.insetInline = '';
+      b.width = '';
+      document.documentElement.classList.remove('drawer-open');
+      window.scrollTo(0, savedY);
+    };
     const sync = () => {
-      if (!d.open) return;
+      if (!d.open || !vv) return;
       d.style.height = `${Math.round(vv.height)}px`;
       d.style.top = `${Math.round(vv.offsetTop)}px`;
-      // the page behind must not drift while the keyboard opens
-      if (window.scrollY !== 0) window.scrollTo(0, 0);
     };
     const onClose = () => {
       d.style.height = '';
       d.style.top = '';
-      document.documentElement.classList.remove('drawer-open');
+      unlockBody();
     };
     const mo = new MutationObserver(() => {
-      if (!d.open) return;
-      document.documentElement.classList.add('drawer-open');
-      sync();
+      if (d.open) {
+        lockBody();
+        sync();
+      } else {
+        onClose();
+      }
     });
     mo.observe(d, { attributes: true, attributeFilter: ['open'] });
-    vv.addEventListener('resize', sync);
-    vv.addEventListener('scroll', sync);
+    vv?.addEventListener('resize', sync);
+    vv?.addEventListener('scroll', sync);
     d.addEventListener('close', onClose);
     return () => {
-      vv.removeEventListener('resize', sync);
-      vv.removeEventListener('scroll', sync);
+      vv?.removeEventListener('resize', sync);
+      vv?.removeEventListener('scroll', sync);
       d.removeEventListener('close', onClose);
       mo.disconnect();
+      unlockBody();
     };
   }, []);
 

@@ -85,7 +85,10 @@ export function CheckoutFlow({
   // the step after the address: the page moves there gently (not for the address that was chosen from the start)
   const toReview = useCallback(() => {
     const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    setTimeout(() => reviewRef.current?.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' }), 60);
+    setTimeout(
+      () => reviewRef.current?.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' }),
+      60,
+    );
   }, []);
 
   const check = useCallback(async (forAddress: string, notice: string | null = null) => {
@@ -133,7 +136,8 @@ export function CheckoutFlow({
   const left = ready ? Date.parse(ready.expiresAt) - now : 0;
   const expired = ready ? ready.expired || left <= 0 : false;
   // the method: the customer's choice for THIS answer, else the one that fits it (the only usable one when there is one)
-  const method: PayMethodId = chosen && chosen.job === ready?.jobId ? chosen.method : defaultMethod(pay, total);
+  const method: PayMethodId =
+    chosen && chosen.job === ready?.jobId ? chosen.method : defaultMethod(pay, total);
   const blocker = payBlocker({
     hasAddress: !!addressId,
     phase: review.phase,
@@ -167,282 +171,291 @@ export function CheckoutFlow({
 
   return (
     <>
-    <ol className={s.progress} aria-label="مراحل تسویه" data-checkout-steps>
-      {['آدرس', 'بررسی قیمت و موجودی', 'پرداخت'].map((label, i) => (
-        <li
-          key={label}
-          data-step={i + 1}
-          data-state={i + 1 < stepAt ? 'done' : i + 1 === stepAt ? 'current' : 'todo'}
-          aria-current={i + 1 === stepAt ? 'step' : undefined}
-        >
-          <span className={s.progressNum}>{i + 1 < stepAt ? <Icon name="check" size={16} /> : toFaDigits(i + 1)}</span>
-          <span>{label}</span>
-        </li>
-      ))}
-    </ol>
-    <div className={s.layout}>
-      <div className={s.steps}>
-        <section className={s.card} aria-labelledby="co-address">
-          <h2 id="co-address" className={s.h2}>
-            <span className={s.num}>۱</span> آدرس تحویل
-          </h2>
-          {addresses.length > 0 && (
-            <ul className={s.addresses} role="radiogroup" aria-labelledby="co-address">
-              {addresses.map((a) => (
-                <li key={a.id}>
-                  <label className={s.address} data-selected={a.id === addressId}>
-                    <input
-                      type="radio"
-                      name="address"
-                      value={a.id}
-                      checked={a.id === addressId}
-                      onChange={() => {
-                        setAddressId(a.id);
-                        toReview();
-                      }}
-                    />
-                    <span>
-                      <b>{a.recipient_name}</b> ·{' '}
-                      <span className="tnum">{toFaDigits(a.recipient_phone)}</span>
-                      <span className={s.addrLine}>{addressLine(a)}</span>
-                      {a.city_id === null && (
-                        <span className={s.warn}>این آدرس شناسه‌ی شهر لیاتیم ندارد؛ آدرس جدید ثبت کنید.</span>
-                      )}
-                    </span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          )}
-          {adding ? (
-            <AddressForm
-              defaultPhone={defaultPhone}
-              defaultName={defaultName}
-              onCancel={addresses.length ? () => setAdding(false) : undefined}
-              onSaved={(a) => {
-                setAddresses((l) => [a, ...l]);
-                setAddressId(a.id);
-                setAdding(false);
-                toReview();
-              }}
-            />
-          ) : (
-            <Button variant="outline" icon="add" onClick={() => setAdding(true)} data-add-address>
-              افزودن آدرس جدید
-            </Button>
-          )}
-        </section>
-
-        {(referral.canEnter || referral.code) && <ReferralBox state={referral} />}
-
-        <section
-          className={s.card}
-          aria-labelledby="co-review"
-          aria-busy={review.phase === 'pending'}
-          ref={reviewRef}
-          data-step-review
-        >
-          <h2 id="co-review" className={s.h2}>
-            <span className={s.num}>۲</span> بررسی قیمت و موجودی
-          </h2>
-
-          {!addressId && <p className={s.muted}>ابتدا آدرس تحویل را انتخاب کنید.</p>}
-
-          {review.phase === 'pending' && (
-            <p className={s.pending} role="status" data-review="pending">
-              <Spinner /> در حال بررسی قیمت و موجودی از تأمین‌کننده…
-            </p>
-          )}
-
-          {review.phase === 'failed' && (
-            <div data-review="failed">
-              <Alert tone="danger">{review.message}</Alert>
-              {addressId && (
-                <Button
-                  variant="outline"
-                  icon="refresh"
-                  onClick={() => void check(addressId)}
-                  data-review-retry
-                >
-                  تلاش مجدد
-                </Button>
-              )}
-            </div>
-          )}
-
-          {ready && (
-            <div data-review="ready">
-              {ready.reason && <Alert tone="danger">{ready.reason}</Alert>}
-              {ready.anyPriceChanged && (
-                <Alert tone="warning">
-                  قیمت بعضی کالاها از زمانی که به سبد افزودید تغییر کرده و به‌روز شد.
-                </Alert>
-              )}
-              {ready.cartChanged && (
-                <Alert tone="warning">سبد بعد از بررسی تغییر کرده است. دوباره بررسی کنید.</Alert>
-              )}
-              <ul className={s.lines}>
-                {ready.lines.map((l) => (
-                  <li
-                    key={l.productId}
-                    className={s.line}
-                    data-line-status={l.status}
-                    data-line={l.productId}
-                  >
-                    <span className={s.thumb} aria-hidden="true">
-                      {l.imageUrl && <Image src={l.imageUrl} alt="" fill sizes="64px" draggable={false} />}
-                    </span>
-                    <span className={s.lineInfo}>
-                      <Link href={l.href} className={s.lineName}>
-                        {l.name}
-                      </Link>
-                      {l.status === 'ok' && (
-                        <span className={s.ok}>
-                          {formatNumber(l.quantity)} عدد ·{' '}
-                          <span className="tnum">{formatToman(l.lineTotal)}</span> تومان
-                          {l.limited && <span className={s.limited}> · موجودی محدود</span>}
-                          {l.priceChanged && <span className={s.limited}> · قیمت به‌روز شد</span>}
-                        </span>
-                      )}
-                      {l.status === 'adjusted' && (
-                        <span className={s.warn}>
-                          فقط {formatNumber(l.available)} عدد موجود است (درخواست شما:{' '}
-                          {formatNumber(l.quantity)}).
-                        </span>
-                      )}
-                      {(l.status === 'unavailable' || l.status === 'missing') && (
-                        <span className={s.bad}>ناموجود شد.</span>
-                      )}
-                    </span>
+      <ol className={s.progress} aria-label="مراحل تسویه" data-checkout-steps>
+        {['آدرس', 'بررسی قیمت و موجودی', 'پرداخت'].map((label, i) => (
+          <li
+            key={label}
+            data-step={i + 1}
+            data-state={i + 1 < stepAt ? 'done' : i + 1 === stepAt ? 'current' : 'todo'}
+            aria-current={i + 1 === stepAt ? 'step' : undefined}
+          >
+            <span className={s.progressNum}>
+              {i + 1 < stepAt ? <Icon name="check" size={16} /> : toFaDigits(i + 1)}
+            </span>
+            <span>{label}</span>
+          </li>
+        ))}
+      </ol>
+      <div className={s.layout}>
+        <div className={s.steps}>
+          <section className={s.card} aria-labelledby="co-address">
+            <h2 id="co-address" className={s.h2}>
+              <span className={s.num}>۱</span> آدرس تحویل
+            </h2>
+            {addresses.length > 0 && (
+              <ul className={s.addresses} role="radiogroup" aria-labelledby="co-address">
+                {addresses.map((a) => (
+                  <li key={a.id}>
+                    <label className={s.address} data-selected={a.id === addressId}>
+                      <input
+                        type="radio"
+                        name="address"
+                        value={a.id}
+                        checked={a.id === addressId}
+                        onChange={() => {
+                          setAddressId(a.id);
+                          toReview();
+                        }}
+                      />
+                      <span>
+                        <b>{a.recipient_name}</b> ·{' '}
+                        <span className="tnum">{toFaDigits(a.recipient_phone)}</span>
+                        <span className={s.addrLine}>{addressLine(a)}</span>
+                        {a.city_id === null && (
+                          <span className={s.warn}>
+                            این آدرس شناسه‌ی شهر لیاتیم ندارد؛ آدرس جدید ثبت کنید.
+                          </span>
+                        )}
+                      </span>
+                    </label>
                   </li>
                 ))}
               </ul>
-              {(ready.hasUnavailable || ready.hasAdjusted || ready.cartChanged) && !expired && (
-                <Button icon="refresh" onClick={() => void fixAndRecheck()} data-review-fix>
-                  {ready.hasUnavailable || ready.hasAdjusted
-                    ? 'اعمال تغییرات و بررسی دوباره'
-                    : 'بررسی دوباره'}
-                </Button>
-              )}
-              {expired ? (
-                <div data-review="expired">
-                  <Alert tone="warning">
-                    مهلت نگه‌داری موجودی تمام شد. دوباره بررسی کنید تا قیمت و موجودی تازه شود.
-                  </Alert>
-                  {addressId && (
-                    <Button icon="refresh" onClick={() => void check(addressId)} data-review-retry>
-                      بررسی دوباره
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <p className={s.timer} role="timer" aria-live="off" data-review-timer>
-                  <Icon name="lock" size={16} /> موجودی تا <b className="tnum">{clock(left)}</b> دیگر برای شما
-                  نگه داشته می‌شود.
-                </p>
-              )}
-            </div>
-          )}
-        </section>
-      </div>
+            )}
+            {adding ? (
+              <AddressForm
+                defaultPhone={defaultPhone}
+                defaultName={defaultName}
+                onCancel={addresses.length ? () => setAdding(false) : undefined}
+                onSaved={(a) => {
+                  setAddresses((l) => [a, ...l]);
+                  setAddressId(a.id);
+                  setAdding(false);
+                  toReview();
+                }}
+              />
+            ) : (
+              <Button variant="outline" icon="add" onClick={() => setAdding(true)} data-add-address>
+                افزودن آدرس جدید
+              </Button>
+            )}
+          </section>
 
-      <aside className={s.summary} aria-label="خلاصه‌ی سفارش" data-checkout-summary ref={summaryRef}>
-        <h2 className={s.h2}>خلاصه‌ی سفارش</h2>
-        {ready?.totals && !expired ? (
-          <>
-            <dl className={s.rows}>
-              <div>
-                <dt>جمع کالاها</dt>
-                <dd className="tnum">{formatToman(ready.totals.itemsTotal)} تومان</dd>
+          {(referral.canEnter || referral.code) && <ReferralBox state={referral} />}
+
+          <section
+            className={s.card}
+            aria-labelledby="co-review"
+            aria-busy={review.phase === 'pending'}
+            ref={reviewRef}
+            data-step-review
+          >
+            <h2 id="co-review" className={s.h2}>
+              <span className={s.num}>۲</span> بررسی قیمت و موجودی
+            </h2>
+
+            {!addressId && <p className={s.muted}>ابتدا آدرس تحویل را انتخاب کنید.</p>}
+
+            {review.phase === 'pending' && (
+              <p className={s.pending} role="status" data-review="pending">
+                <Spinner /> در حال بررسی قیمت و موجودی از تأمین‌کننده…
+              </p>
+            )}
+
+            {review.phase === 'failed' && (
+              <div data-review="failed">
+                <Alert tone="danger">{review.message}</Alert>
+                {addressId && (
+                  <Button
+                    variant="outline"
+                    icon="refresh"
+                    onClick={() => void check(addressId)}
+                    data-review-retry
+                  >
+                    تلاش مجدد
+                  </Button>
+                )}
               </div>
-              {ready.totals.discountTotal > 0 && (
-                <div className={s.off}>
-                  <dt>تخفیف شما</dt>
-                  <dd className="tnum">{formatToman(ready.totals.discountTotal)} تومان</dd>
+            )}
+
+            {ready && (
+              <div data-review="ready">
+                {ready.reason && <Alert tone="danger">{ready.reason}</Alert>}
+                {ready.anyPriceChanged && (
+                  <Alert tone="warning">
+                    قیمت بعضی کالاها از زمانی که به سبد افزودید تغییر کرده و به‌روز شد.
+                  </Alert>
+                )}
+                {ready.cartChanged && (
+                  <Alert tone="warning">سبد بعد از بررسی تغییر کرده است. دوباره بررسی کنید.</Alert>
+                )}
+                <ul className={s.lines}>
+                  {ready.lines.map((l) => (
+                    <li
+                      key={l.productId}
+                      className={s.line}
+                      data-line-status={l.status}
+                      data-line={l.productId}
+                    >
+                      <span className={s.thumb} aria-hidden="true">
+                        {l.imageUrl && <Image src={l.imageUrl} alt="" fill sizes="64px" draggable={false} />}
+                      </span>
+                      <span className={s.lineInfo}>
+                        <Link href={l.href} className={s.lineName}>
+                          {l.name}
+                        </Link>
+                        {l.status === 'ok' && (
+                          <span className={s.ok}>
+                            {formatNumber(l.quantity)} عدد ·{' '}
+                            <span className="tnum">{formatToman(l.lineTotal)}</span> تومان
+                            {l.limited && <span className={s.limited}> · موجودی محدود</span>}
+                            {l.priceChanged && <span className={s.limited}> · قیمت به‌روز شد</span>}
+                          </span>
+                        )}
+                        {l.status === 'adjusted' && (
+                          <span className={s.warn}>
+                            فقط {formatNumber(l.available)} عدد موجود است (درخواست شما:{' '}
+                            {formatNumber(l.quantity)}).
+                          </span>
+                        )}
+                        {(l.status === 'unavailable' || l.status === 'missing') && (
+                          <span className={s.bad}>ناموجود شد.</span>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {(ready.hasUnavailable || ready.hasAdjusted || ready.cartChanged) && !expired && (
+                  <Button icon="refresh" onClick={() => void fixAndRecheck()} data-review-fix>
+                    {ready.hasUnavailable || ready.hasAdjusted
+                      ? 'اعمال تغییرات و بررسی دوباره'
+                      : 'بررسی دوباره'}
+                  </Button>
+                )}
+                {expired ? (
+                  <div data-review="expired">
+                    <Alert tone="warning">
+                      مهلت نگه‌داری موجودی تمام شد. دوباره بررسی کنید تا قیمت و موجودی تازه شود.
+                    </Alert>
+                    {addressId && (
+                      <Button icon="refresh" onClick={() => void check(addressId)} data-review-retry>
+                        بررسی دوباره
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <p className={s.timer} role="timer" aria-live="off" data-review-timer>
+                    <Icon name="lock" size={16} /> موجودی تا <b className="tnum">{clock(left)}</b> دیگر برای
+                    شما نگه داشته می‌شود.
+                  </p>
+                )}
+              </div>
+            )}
+          </section>
+        </div>
+
+        <aside className={s.summary} aria-label="خلاصه‌ی سفارش" data-checkout-summary ref={summaryRef}>
+          <h2 className={s.h2}>خلاصه‌ی سفارش</h2>
+          {ready?.totals && !expired ? (
+            <>
+              <dl className={s.rows}>
+                <div>
+                  <dt>جمع کالاها</dt>
+                  <dd className="tnum">{formatToman(ready.totals.itemsTotal)} تومان</dd>
                 </div>
-              )}
-              <div>
-                <dt>ارسال ({ready.shippingTitle ?? 'پست'})</dt>
-                <dd className="tnum" data-shipping-charged={ready.totals.shippingCharged}>
-                  {ready.totals.shippingFree
-                    ? 'رایگان'
-                    : `${formatToman(ready.totals.shippingCharged)} تومان`}
-                </dd>
-              </div>
-              <div className={s.total}>
-                <dt>مبلغ قابل پرداخت</dt>
-                <dd className="tnum" data-payable={ready.totals.totalPayable}>
-                  {formatToman(ready.totals.totalPayable)} تومان
-                </dd>
-              </div>
-            </dl>
-            <p className={s.delivery} data-delivery>
-              <Icon name="local_shipping" size={18} />
-              {ready.delivery
-                ? ` زمان تحویل: حدود ${toFaDigits(ready.delivery.minDays)}${ready.delivery.maxDays !== ready.delivery.minDays ? ` تا ${toFaDigits(ready.delivery.maxDays)}` : ''} روز پس از ثبت سفارش`
-                : ' زمان تحویل پس از ثبت سفارش اعلام می‌شود.'}
-            </p>
-          </>
-        ) : (
-          <>
-            <dl className={s.rows} data-summary-provisional>
-              <div>
-                <dt>جمع کالاها ({toFaDigits(cart.units)} عدد)</dt>
-                <dd className="tnum">{formatToman(cart.itemsTotal)} تومان</dd>
-              </div>
-              {cart.discountTotal > 0 && (
-                <div className={s.off}>
-                  <dt>تخفیف شما</dt>
-                  <dd className="tnum">{formatToman(cart.discountTotal)} تومان</dd>
+                {ready.totals.discountTotal > 0 && (
+                  <div className={s.off}>
+                    <dt>تخفیف شما</dt>
+                    <dd className="tnum">{formatToman(ready.totals.discountTotal)} تومان</dd>
+                  </div>
+                )}
+                <div>
+                  <dt>ارسال ({ready.shippingTitle ?? 'پست'})</dt>
+                  <dd className="tnum" data-shipping-charged={ready.totals.shippingCharged}>
+                    {ready.totals.shippingFree
+                      ? 'رایگان'
+                      : `${formatToman(ready.totals.shippingCharged)} تومان`}
+                  </dd>
                 </div>
-              )}
-              <div>
-                <dt>ارسال</dt>
-                <dd>{addressId ? 'پس از بررسی' : 'پس از انتخاب آدرس'}</dd>
-              </div>
-            </dl>
-            <p className={s.muted}>
-              {addressId
-                ? 'هزینه‌ی ارسال و مبلغ نهایی بعد از بررسی قیمت و موجودی نمایش داده می‌شود.'
-                : 'با انتخاب آدرس، هزینه‌ی ارسال و مبلغ نهایی محاسبه می‌شود.'}
+                <div className={s.total}>
+                  <dt>مبلغ قابل پرداخت</dt>
+                  <dd className="tnum" data-payable={ready.totals.totalPayable}>
+                    {formatToman(ready.totals.totalPayable)} تومان
+                  </dd>
+                </div>
+              </dl>
+              <p className={s.delivery} data-delivery>
+                <Icon name="local_shipping" size={18} />
+                {ready.delivery
+                  ? ` زمان تحویل: حدود ${toFaDigits(ready.delivery.minDays)}${ready.delivery.maxDays !== ready.delivery.minDays ? ` تا ${toFaDigits(ready.delivery.maxDays)}` : ''} روز پس از ثبت سفارش`
+                  : ' زمان تحویل پس از ثبت سفارش اعلام می‌شود.'}
+              </p>
+            </>
+          ) : (
+            <>
+              <dl className={s.rows} data-summary-provisional>
+                <div>
+                  <dt>جمع کالاها ({toFaDigits(cart.units)} عدد)</dt>
+                  <dd className="tnum">{formatToman(cart.itemsTotal)} تومان</dd>
+                </div>
+                {cart.discountTotal > 0 && (
+                  <div className={s.off}>
+                    <dt>تخفیف شما</dt>
+                    <dd className="tnum">{formatToman(cart.discountTotal)} تومان</dd>
+                  </div>
+                )}
+                <div>
+                  <dt>ارسال</dt>
+                  <dd>{addressId ? 'پس از بررسی' : 'پس از انتخاب آدرس'}</dd>
+                </div>
+              </dl>
+              <p className={s.muted}>
+                {addressId
+                  ? 'هزینه‌ی ارسال و مبلغ نهایی بعد از بررسی قیمت و موجودی نمایش داده می‌شود.'
+                  : 'با انتخاب آدرس، هزینه‌ی ارسال و مبلغ نهایی محاسبه می‌شود.'}
+              </p>
+            </>
+          )}
+          {ready?.canOrder && (
+            <PayMethods
+              key={`${ready.jobId}`}
+              options={pay}
+              total={total}
+              onChange={(m) => setChosen({ job: ready.jobId, method: m })}
+            />
+          )}
+          {error && <Alert tone="danger">{error}</Alert>}
+          <Button
+            size="lg"
+            block
+            disabled={blocker !== null}
+            loading={placing}
+            loadingText="در حال انتقال به پرداخت…"
+            onClick={place}
+            data-place-order
+          >
+            پرداخت
+          </Button>
+          {blocker && (
+            <p className={s.blocker} role="status" data-pay-blocked>
+              <Icon name="error" size={16} /> {blocker}
             </p>
-          </>
-        )}
-        {ready?.canOrder && (
-          <PayMethods key={`${ready.jobId}`} options={pay} total={total} onChange={(m) => setChosen({ job: ready.jobId, method: m })} />
-        )}
-        {error && <Alert tone="danger">{error}</Alert>}
-        <Button
-          size="lg"
-          block
-          disabled={blocker !== null}
-          loading={placing}
-          loadingText="در حال انتقال به پرداخت…"
-          onClick={place}
-          data-place-order
-        >
-          پرداخت
+          )}
+          <p className={s.note}>تا زمانی که پرداخت را تأیید نکنید، مبلغی از شما کم نمی‌شود.</p>
+          <Link href={cartPath()} className={s.back}>
+            بازگشت به سبد خرید
+          </Link>
+        </aside>
+      </div>
+      <div className={s.bar} data-checkout-bar>
+        <span className={s.barTotal}>
+          <small>{total !== null ? 'مبلغ قابل پرداخت' : 'جمع کالاها'}</small>
+          <b className="tnum">{formatToman(total ?? cart.itemsTotal)} تومان</b>
+        </span>
+        <Button size="lg" variant={blocker ? 'outline' : 'primary'} onClick={toSummary} data-bar-go>
+          {blocker ? 'خلاصه‌ی سفارش' : 'ادامه و پرداخت'}
         </Button>
-        {blocker && (
-          <p className={s.blocker} role="status" data-pay-blocked>
-            <Icon name="error" size={16} /> {blocker}
-          </p>
-        )}
-        <p className={s.note}>تا زمانی که پرداخت را تأیید نکنید، مبلغی از شما کم نمی‌شود.</p>
-        <Link href={cartPath()} className={s.back}>
-          بازگشت به سبد خرید
-        </Link>
-      </aside>
-    </div>
-    <div className={s.bar} data-checkout-bar>
-      <span className={s.barTotal}>
-        <small>{total !== null ? 'مبلغ قابل پرداخت' : 'جمع کالاها'}</small>
-        <b className="tnum">{formatToman(total ?? cart.itemsTotal)} تومان</b>
-      </span>
-      <Button size="lg" variant={blocker ? 'outline' : 'primary'} onClick={toSummary} data-bar-go>
-        {blocker ? 'خلاصه‌ی سفارش' : 'ادامه و پرداخت'}
-      </Button>
-    </div>
+      </div>
     </>
   );
 }

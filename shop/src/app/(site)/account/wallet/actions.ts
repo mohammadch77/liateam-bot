@@ -23,5 +23,7 @@ export async function requestWithdrawalAction(input: {
 }
 
 export async function cancelWithdrawalAction(id: string): Promise<ActionResult<{ amount: number }>> {
-  return runAction('wallet.withdraw_cancel', async () => withdrawalService.cancel(String(id), await requestMeta()));
+  return runAction('wallet.withdraw_cancel', async () =>
+    withdrawalService.cancel(String(id), await requestMeta()),
+  );
 }

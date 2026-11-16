@@ -28,13 +28,17 @@ export async function addToCartAction(productId: number, quantity = 1): Promise<
 export async function addPackToCartAction(collection: string, variant: string) {
   return runAction('cart.add_pack', async () => {
     const found = await packService.pack(String(collection).slice(0, 80), String(variant).slice(0, 80));
-    if (!found || !found.pack.available) throw new AppError('INVALID_DATA', { message: 'این پک فعلاً در دسترس نیست.' });
+    if (!found || !found.pack.available)
+      throw new AppError('INVALID_DATA', { message: 'این پک فعلاً در دسترس نیست.' });
     const ids = found.pack.steps.flatMap((s) => (s.status === 'ok' && s.product ? [s.product.id] : []));
     return cartService.addMany(ids);
   });
 }
 
-export async function setCartQuantityAction(productId: number, quantity: number): Promise<ActionResult<CartChange>> {
+export async function setCartQuantityAction(
+  productId: number,
+  quantity: number,
+): Promise<ActionResult<CartChange>> {
   return runAction('cart.set_quantity', async () => {
     const p = id.safeParse(productId);
     const q = qty.safeParse(quantity);

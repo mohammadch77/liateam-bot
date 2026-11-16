@@ -46,7 +46,7 @@ check(
 );
 await db.end();
 
-const PUBLIC = ['brand', 'href', 'imageUrl', 'name', 'oldPriceToman', 'priceToman', 'stock'].join();
+const PUBLIC = ['brand', 'href', 'id', 'imageUrl', 'name', 'oldPriceToman', 'priceToman', 'stock'].join();
 for (const [q, expect] of [
   ['ریمل', /^ریمل/],
   ['ريمل', /^ریمل/],
@@ -98,8 +98,14 @@ const weak = [];
 console.log('question → first product | categories | brands (total)');
 for (const [q, want, kind, must] of QUESTIONS) {
   const j = await (await fetch(`${base}/api/search/suggest?q=${encodeURIComponent(q)}`)).json();
-  const pool = { product: (j.products ?? []).slice(0, 3), category: j.categories ?? [], brand: j.brands ?? [] };
-  const names = (kind === 'any' ? [...pool.product, ...pool.category, ...pool.brand] : pool[kind]).map((x) => x.name);
+  const pool = {
+    product: (j.products ?? []).slice(0, 3),
+    category: j.categories ?? [],
+    brand: j.brands ?? [],
+  };
+  const names = (kind === 'any' ? [...pool.product, ...pool.category, ...pool.brand] : pool[kind]).map(
+    (x) => x.name,
+  );
   const ok = names.some((n) => want.test(n));
   console.log(
     `  ${ok ? '✓' : must ? '✗' : '~'} «${q}» → ${j.products?.[0]?.name ?? '—'} | ${(j.categories ?? []).map((c) => c.name).join('، ') || '—'} | ${(j.brands ?? []).map((c) => c.name).join('، ') || '—'} (${j.total})`,
@@ -107,11 +113,22 @@ for (const [q, want, kind, must] of QUESTIONS) {
   if (!ok) weak.push(q);
   if (must) check(ok, `question «${q}» finds what a person wants`);
 }
-const gone = await (await fetch(`${base}/api/search/suggest?q=${encodeURIComponent('ماشین لباسشویی')}`)).json();
-check(gone.total === 0 && gone.fallback && gone.fallback.categories.length > 0 && gone.fallback.products.length > 0, 'nothing found → the main categories and a few products are offered');
+const gone = await (
+  await fetch(`${base}/api/search/suggest?q=${encodeURIComponent('ماشین لباسشویی')}`)
+).json();
+check(
+  gone.total === 0 &&
+    gone.fallback &&
+    gone.fallback.categories.length > 0 &&
+    gone.fallback.products.length > 0,
+  'nothing found → the main categories and a few products are offered',
+);
 const stock = await (await fetch(`${base}/api/search/suggest?q=${encodeURIComponent('لوسیون')}`)).json();
 const firstOut = (stock.products ?? []).findIndex((p) => p.stock === 'out');
-check(firstOut === -1 || (stock.products ?? []).slice(firstOut).every((p) => p.stock === 'out'), 'sold-out products come after the ones that can be bought');
+check(
+  firstOut === -1 || (stock.products ?? []).slice(firstOut).every((p) => p.stock === 'out'),
+  'sold-out products come after the ones that can be bought',
+);
 if (weak.length) console.log(`weak or unmatched: ${weak.join(' | ')}`);
 
 const bad = await fetch(`${base}/api/search/suggest?q=${'x'.repeat(200)}`);

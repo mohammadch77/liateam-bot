@@ -69,7 +69,10 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
           cart?.notify(next ? 'به علاقه‌مندی‌ها افزوده شد.' : 'از علاقه‌مندی‌ها حذف شد.', true);
         } catch (e) {
           setIds(flip(idsRef.current, productId, !next));
-          cart?.notify(e instanceof Error && e.message ? e.message : 'تغییر انجام نشد. دوباره تلاش کنید.', false);
+          cart?.notify(
+            e instanceof Error && e.message ? e.message : 'تغییر انجام نشد. دوباره تلاش کنید.',
+            false,
+          );
         } finally {
           setBusy((b) => {
             const n = new Set(b);

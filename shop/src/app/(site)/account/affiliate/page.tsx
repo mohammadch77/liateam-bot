@@ -16,7 +16,11 @@ export const metadata: Metadata = { title: 'همکاری در فروش', robots:
 /** The affiliate's dashboard: the referral code and link, the commission summary, the network size and what can be withdrawn. */
 export default async function AffiliateDashboard() {
   const user = await requireUser('/account/affiliate');
-  const crumbs = [{ label: 'خانه', href: '/' }, { label: 'حساب کاربری', href: '/account' }, { label: 'همکاری در فروش' }];
+  const crumbs = [
+    { label: 'خانه', href: '/' },
+    { label: 'حساب کاربری', href: '/account' },
+    { label: 'همکاری در فروش' },
+  ];
   if (!isAffiliateUser(user)) {
     // the introduction and, under it, the application / its state: one address for a customer, a pending applicant and an affiliate
     const status = await affiliateService.statusFor(user);
@@ -62,7 +66,8 @@ export default async function AffiliateDashboard() {
               <CopyButton text={o.link} label="کپی لینک" />
             </div>
             <p className={s.muted}>
-              هر کسی که با این لینک برای اولین بار ثبت‌نام کند، به شما نسبت داده می‌شود و بعد از آن تغییر نمی‌کند.
+              هر کسی که با این لینک برای اولین بار ثبت‌نام کند، به شما نسبت داده می‌شود و بعد از آن تغییر
+              نمی‌کند.
             </p>
           </section>
           <section className={s.stats} aria-label="خلاصه‌ی پورسانت" data-affiliate-summary>
@@ -103,12 +108,29 @@ export default async function AffiliateDashboard() {
               </li>
             </ol>
             <div className={s.row} style={{ alignItems: 'center' }}>
-              <Image src="/account/affiliate/qr" alt="QR کد لینک معرفی شما" width={168} height={168} unoptimized data-qr />
+              <Image
+                src="/account/affiliate/qr"
+                alt="QR کد لینک معرفی شما"
+                width={168}
+                height={168}
+                unoptimized
+                data-qr
+              />
               <div className={s.btnRow}>
-                <Button href="/account/affiliate/qr?f=svg&download=1" variant="outline" prefetch={false} data-qr-svg>
+                <Button
+                  href="/account/affiliate/qr?f=svg&download=1"
+                  variant="outline"
+                  prefetch={false}
+                  data-qr-svg
+                >
                   دانلود QR (SVG)
                 </Button>
-                <Button href="/account/affiliate/qr?f=png&download=1" variant="outline" prefetch={false} data-qr-png>
+                <Button
+                  href="/account/affiliate/qr?f=png&download=1"
+                  variant="outline"
+                  prefetch={false}
+                  data-qr-png
+                >
                   دانلود QR (PNG)
                 </Button>
                 <Button href="/account/affiliate/banner" variant="outline" data-qr-banner>

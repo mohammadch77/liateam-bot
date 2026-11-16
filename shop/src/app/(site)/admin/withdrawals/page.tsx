@@ -115,7 +115,14 @@ export default async function AdminWithdrawalsPage({
                       aria-label="دلیل رد"
                       className={a.reason}
                     />
-                    <Button type="submit" name="decision" value="reject" size="sm" variant="outline" data-wd-reject>
+                    <Button
+                      type="submit"
+                      name="decision"
+                      value="reject"
+                      size="sm"
+                      variant="outline"
+                      data-wd-reject
+                    >
                       رد
                     </Button>
                   </form>

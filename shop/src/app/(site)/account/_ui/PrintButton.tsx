@@ -8,7 +8,14 @@ import { Button } from '@/ui';
  */
 export function PrintButton({ label = 'ذخیره به‌صورت PDF' }: { label?: string }) {
   return (
-    <Button type="button" variant="outline" icon="assignment_return" onClick={() => window.print()} data-print-pdf data-no-print>
+    <Button
+      type="button"
+      variant="outline"
+      icon="assignment_return"
+      onClick={() => window.print()}
+      data-print-pdf
+      data-no-print
+    >
       {label}
     </Button>
   );

@@ -21,7 +21,7 @@ for (const name of ['iPhone 8', 'iPhone 13']) {
   );
   check(`3b ${name}: no native search look (appearance none) — only our magnifier`, deco === 'none', deco);
   await input.fill('ریمل');
-  const first = p.locator('[data-search-overlay] [role=option]').nth(1);
+  const first = p.locator('[data-search-overlay] [data-search-card="product"] h3 a').first();
   await first.waitFor({ timeout: 20000 });
   await first.tap();
   await p

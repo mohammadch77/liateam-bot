@@ -53,7 +53,9 @@ export default async function NetworkPage({
         </EmptyState>
       ) : (
         <section className={`${s.card} ${s.wide}`} aria-label="افراد" data-network>
-          <p className={s.muted}>{toFaDigits(data.total)} نفر · برای دیدن سفارش‌ها و پورسانت هر نفر روی او بزنید.</p>
+          <p className={s.muted}>
+            {toFaDigits(data.total)} نفر · برای دیدن سفارش‌ها و پورسانت هر نفر روی او بزنید.
+          </p>
           <ul className={s.rows}>
             {data.rows.map((r) => (
               <li key={r.token} data-network-row>
@@ -61,7 +63,8 @@ export default async function NetworkPage({
                   <div className={s.rowMain}>
                     <b>{networkName(r.first_name)}</b>
                     <span className={s.muted}>
-                      <span dir="ltr">{maskedPhone(r.phone_last4)}</span> · عضویت: {dateFa.format(r.joined_at)}
+                      <span dir="ltr">{maskedPhone(r.phone_last4)}</span> · عضویت:{' '}
+                      {dateFa.format(r.joined_at)}
                     </span>
                   </div>
                   <span className={s.muted}>{toFaDigits(r.orders)} سفارش</span>

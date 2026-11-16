@@ -32,7 +32,13 @@ export function ConfirmDialog({
     if (!open && d.open) d.close();
   }, [open]);
   return (
-    <dialog ref={ref} className={s.dialog} onClose={onClose} aria-labelledby={`${id}-t`} data-confirm-dialog={id}>
+    <dialog
+      ref={ref}
+      className={s.dialog}
+      onClose={onClose}
+      aria-labelledby={`${id}-t`}
+      data-confirm-dialog={id}
+    >
       <h2 id={`${id}-t`}>{title}</h2>
       {children}
       <div className={s.btnRow}>

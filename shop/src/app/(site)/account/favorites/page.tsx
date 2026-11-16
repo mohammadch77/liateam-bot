@@ -17,7 +17,13 @@ export default async function FavoritesPage() {
   const data = await favoriteService.list(user.id).catch(() => null);
   return (
     <>
-      <Breadcrumb items={[{ label: 'خانه', href: '/' }, { label: 'حساب کاربری', href: '/account' }, { label: 'علاقه‌مندی‌ها' }]} />
+      <Breadcrumb
+        items={[
+          { label: 'خانه', href: '/' },
+          { label: 'حساب کاربری', href: '/account' },
+          { label: 'علاقه‌مندی‌ها' },
+        ]}
+      />
       <h1 className={s.title}>علاقه‌مندی‌ها</h1>
       {!data ? (
         <EmptyState icon="error" tone="danger" title="فهرست بارگذاری نشد">
@@ -38,7 +44,9 @@ export default async function FavoritesPage() {
           </p>
           {data.hidden > 0 && (
             <Alert tone="warning">
-              <span data-favorites-hidden>{toFaDigits(data.hidden)} کالای فهرست شما دیگر در فروشگاه عرضه نمی‌شود.</span>
+              <span data-favorites-hidden>
+                {toFaDigits(data.hidden)} کالای فهرست شما دیگر در فروشگاه عرضه نمی‌شود.
+              </span>
             </Alert>
           )}
           <ProductGrid>

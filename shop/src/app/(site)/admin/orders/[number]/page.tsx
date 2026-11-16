@@ -30,10 +30,12 @@ const PAYMENT_STATUS: Record<string, string> = {
   canceled: 'انصراف',
 };
 const REVIEW_TEXT: Record<string, string> = {
-  price_up: 'قیمت لیاتیم بالاتر از مبلغ نشان‌داده‌شده به مشتری است؛ ادامه ممکن نیست (مشتری برای پرداخت بیشتر موافقت نکرده): لغو کنید یا بررسی دوباره بخواهید.',
+  price_up:
+    'قیمت لیاتیم بالاتر از مبلغ نشان‌داده‌شده به مشتری است؛ ادامه ممکن نیست (مشتری برای پرداخت بیشتر موافقت نکرده): لغو کنید یا بررسی دوباره بخواهید.',
   price_down: 'قیمت لیاتیم ارزان‌تر شده؛ می‌توانید ادامه دهید و تفاوت به کیف پول مشتری برمی‌گردد.',
   price_same: 'جمع لیاتیم با مبلغ نشان‌داده‌شده یکی است؛ می‌توانید با همان ادامه دهید.',
-  unavailable: 'کالایی ناموجود یا کمتر از تعداد سفارش است؛ ادامه ممکن نیست: لغو کنید یا بررسی دوباره بخواهید.',
+  unavailable:
+    'کالایی ناموجود یا کمتر از تعداد سفارش است؛ ادامه ممکن نیست: لغو کنید یا بررسی دوباره بخواهید.',
   unknown: 'جزئیات تفاوت از ربات در دسترس نیست؛ لغو کنید یا بررسی دوباره بخواهید.',
 };
 
@@ -44,7 +46,8 @@ function eventFacts(data: unknown): string[] {
   const out: string[] = [];
   if (typeof d.reason === 'string' && d.reason) out.push(`دلیل: ${d.reason}`);
   if (typeof d.ref === 'string' && d.ref) out.push(`مرجع: ${d.ref}`);
-  if (typeof d.refunded === 'number' && d.refunded > 0) out.push(`بازگشت به کیف پول: ${formatToman(d.refunded)} تومان`);
+  if (typeof d.refunded === 'number' && d.refunded > 0)
+    out.push(`بازگشت به کیف پول: ${formatToman(d.refunded)} تومان`);
   return out;
 }
 
@@ -74,7 +77,12 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ num
           { label: order.number },
         ]}
       />
-      <section className={s.card} aria-labelledby="ord-title" style={{ maxWidth: 'none' }} data-order-detail={order.number}>
+      <section
+        className={s.card}
+        aria-labelledby="ord-title"
+        style={{ maxWidth: 'none' }}
+        data-order-detail={order.number}
+      >
         <h1 id="ord-title" className={s.title}>
           سفارش <span className="tnum">{order.number}</span>{' '}
           <Badge tone={order.status === 'canceled' || order.status === 'refunded' ? 'outOfStock' : 'neutral'}>
@@ -100,7 +108,9 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ num
               {reviewNote && <p className="tnum">{reviewNote}</p>}
               <p data-review-kind={v.review.kind}>{REVIEW_TEXT[v.review.kind]}</p>
               {v.review.missing && v.review.missing.length > 0 && (
-                <p className={a.muted}>کد کالاهای مشکل‌دار: {v.review.missing.map((m) => toFaDigits(m)).join('، ')}</p>
+                <p className={a.muted}>
+                  کد کالاهای مشکل‌دار: {v.review.missing.map((m) => toFaDigits(m)).join('، ')}
+                </p>
               )}
             </>
           ) : (
@@ -281,11 +291,20 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ num
                 <div className={s.rowMain}>
                   <b className="tnum">{formatToman(c.amount)} تومان</b>
                   <span className={s.muted}>
-                    سطح {toFaDigits(c.level)} · <span dir="ltr">{toFaDigits(v.isAdmin ? c.affiliate_phone : `${c.affiliate_phone.slice(0, 4)}•••${c.affiliate_phone.slice(-4)}`)}</span>
+                    سطح {toFaDigits(c.level)} ·{' '}
+                    <span dir="ltr">
+                      {toFaDigits(
+                        v.isAdmin
+                          ? c.affiliate_phone
+                          : `${c.affiliate_phone.slice(0, 4)}•••${c.affiliate_phone.slice(-4)}`,
+                      )}
+                    </span>
                     {c.manual_approval && ' · تأیید دستی'}
                   </span>
                 </div>
-                <Badge tone={c.status === 'cancelled' ? 'outOfStock' : 'neutral'}>{COMMISSION_STATUS[c.status] ?? c.status}</Badge>
+                <Badge tone={c.status === 'cancelled' ? 'outOfStock' : 'neutral'}>
+                  {COMMISSION_STATUS[c.status] ?? c.status}
+                </Badge>
               </li>
             ))}
           </ul>
@@ -304,7 +323,8 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ num
                   <div className={s.rowMain}>
                     <span style={{ whiteSpace: 'pre-wrap' }}>{n.body}</span>
                     <span className={s.muted}>
-                      {n.author_name ?? `ادمین #${toFaDigits(n.author_id ?? '—')}`} · {timeFa.format(n.created_at)}
+                      {n.author_name ?? `ادمین #${toFaDigits(n.author_id ?? '—')}`} ·{' '}
+                      {timeFa.format(n.created_at)}
                     </span>
                   </div>
                 </li>

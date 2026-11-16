@@ -32,7 +32,11 @@ export default async function AddressesPage() {
   return (
     <>
       <Breadcrumb
-        items={[{ label: 'خانه', href: '/' }, { label: 'حساب کاربری', href: '/account' }, { label: 'آدرس‌ها' }]}
+        items={[
+          { label: 'خانه', href: '/' },
+          { label: 'حساب کاربری', href: '/account' },
+          { label: 'آدرس‌ها' },
+        ]}
       />
       <h1 className={s.title}>آدرس‌های من</h1>
       {initial ? (

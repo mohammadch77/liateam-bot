@@ -40,14 +40,20 @@ export default async function AdminCommissionsPage({
 
   return (
     <div className={s.page}>
-      <Breadcrumb items={[{ label: 'خانه', href: '/' }, { label: 'مدیریت', href: '/admin' }, { label: 'پورسانت‌ها' }]} />
+      <Breadcrumb
+        items={[{ label: 'خانه', href: '/' }, { label: 'مدیریت', href: '/admin' }, { label: 'پورسانت‌ها' }]}
+      />
       <section className={s.card} aria-labelledby="com-title" style={{ maxWidth: 'none' }}>
         <h1 id="com-title" className={s.title}>
           پورسانت‌ها
         </h1>
-        {noRule && <Alert tone="warning">
-          <span data-no-rule-warning>هیچ قاعده‌ی پورسانت فعالی نیست؛ پورسانت ساخته نمی‌شود. از تنظیمات ← پورسانت یک قاعده بسازید.</span>
-        </Alert>}
+        {noRule && (
+          <Alert tone="warning">
+            <span data-no-rule-warning>
+              هیچ قاعده‌ی پورسانت فعالی نیست؛ پورسانت ساخته نمی‌شود. از تنظیمات ← پورسانت یک قاعده بسازید.
+            </span>
+          </Alert>
+        )}
         <nav aria-label="وضعیت" className={a.tabs}>
           {TABS.map((t) => (
             <Link
@@ -66,7 +72,14 @@ export default async function AdminCommissionsPage({
         </nav>
         <form method="get" className={a.actions} aria-label="فیلتر همکار">
           <input type="hidden" name="status" value={tab.key} />
-          <input name="phone" defaultValue={phone ?? ''} placeholder="شماره‌ی همکار (۰۹…)" aria-label="شماره‌ی همکار" className={a.reason} dir="ltr" />
+          <input
+            name="phone"
+            defaultValue={phone ?? ''}
+            placeholder="شماره‌ی همکار (۰۹…)"
+            aria-label="شماره‌ی همکار"
+            className={a.reason}
+            dir="ltr"
+          />
           <Button type="submit" size="sm" variant="outline">
             فیلتر
           </Button>
@@ -124,12 +137,32 @@ export default async function AdminCommissionsPage({
                     <input type="hidden" name="id" value={c.id} />
                     <input type="hidden" name="back" value={here(data.page)} />
                     {c.order_status === 'sent' && (
-                      <Button type="submit" name="decision" value="approve" size="sm" icon="check" data-commission-approve>
+                      <Button
+                        type="submit"
+                        name="decision"
+                        value="approve"
+                        size="sm"
+                        icon="check"
+                        data-commission-approve
+                      >
                         تأیید و واریز
                       </Button>
                     )}
-                    <input name="reason" maxLength={300} placeholder="دلیل لغو" aria-label="دلیل لغو" className={a.reason} />
-                    <Button type="submit" name="decision" value="cancel" size="sm" variant="outline" data-commission-cancel>
+                    <input
+                      name="reason"
+                      maxLength={300}
+                      placeholder="دلیل لغو"
+                      aria-label="دلیل لغو"
+                      className={a.reason}
+                    />
+                    <Button
+                      type="submit"
+                      name="decision"
+                      value="cancel"
+                      size="sm"
+                      variant="outline"
+                      data-commission-cancel
+                    >
                       لغو
                     </Button>
                   </form>
@@ -138,7 +171,11 @@ export default async function AdminCommissionsPage({
             ))}
           </ul>
         )}
-        <Pagination page={data.page} totalPages={data.page + (data.rows.length === 30 ? 1 : 0)} hrefFor={here} />
+        <Pagination
+          page={data.page}
+          totalPages={data.page + (data.rows.length === 30 ? 1 : 0)}
+          hrefFor={here}
+        />
       </section>
     </div>
   );

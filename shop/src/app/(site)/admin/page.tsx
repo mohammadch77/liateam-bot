@@ -59,15 +59,16 @@ const timeFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'short
 /** Role-restricted example: admins only (everyone else gets HTTP 403). Placeholder for the phase-3 admin panel. */
 export default async function AdminPage() {
   const user = await requireRole('admin', '/admin');
-  const [events, sync, previous, attention, pendingWithdrawals, manualCommissions, noRule] = await Promise.all([
-    auditService.recent(20),
-    healthService.syncStatus().catch(() => null),
-    auditService.previousLogin().catch(() => null),
-    orderService.needingAttention().catch(() => []),
-    withdrawalService.pendingCount().catch(() => 0),
-    commissionAdminService.awaitingManual().catch(() => 0),
-    commissionAdminService.noUsableRule().catch(() => false),
-  ]);
+  const [events, sync, previous, attention, pendingWithdrawals, manualCommissions, noRule] =
+    await Promise.all([
+      auditService.recent(20),
+      healthService.syncStatus().catch(() => null),
+      auditService.previousLogin().catch(() => null),
+      orderService.needingAttention().catch(() => []),
+      withdrawalService.pendingCount().catch(() => 0),
+      commissionAdminService.awaitingManual().catch(() => 0),
+      commissionAdminService.noUsableRule().catch(() => false),
+    ]);
   const when = (d: Date | null) => (d ? timeFa.format(d) : '—');
 
   return (
@@ -114,7 +115,9 @@ export default async function AdminPage() {
         </h2>
         {noRule && (
           <p data-attention-no-rule>
-            <Link href="/admin/settings?section=commission">هیچ قاعده‌ی پورسانت فعالی نیست؛ پورسانت ساخته نمی‌شود</Link>
+            <Link href="/admin/settings?section=commission">
+              هیچ قاعده‌ی پورسانت فعالی نیست؛ پورسانت ساخته نمی‌شود
+            </Link>
           </p>
         )}
         {manualCommissions > 0 && (
@@ -133,7 +136,9 @@ export default async function AdminPage() {
         )}
         {attention.length > 0 && (
           <p data-attention-orders-count>
-            <Link href="/admin/orders?status=action">{toFaDigits(attention.length)} سفارش نیازمند اقدام اپراتور است</Link>
+            <Link href="/admin/orders?status=action">
+              {toFaDigits(attention.length)} سفارش نیازمند اقدام اپراتور است
+            </Link>
           </p>
         )}
         {attention.length ? (
@@ -150,12 +155,12 @@ export default async function AdminPage() {
                   {o.cancel_requested && ['placing', 'awaiting_payment'].includes(o.status)
                     ? 'مشتری درخواست لغو داده است (سفارش در حال ثبت یا ثبت‌شده نزد لیاتیم است)؛ پس از بررسی، لغو و بازگشت وجه را اپراتور تأیید می‌کند'
                     : o.status === 'awaiting_payment'
-                    ? o.link_expiring
-                      ? 'مهلت لینک پرداخت لیاتیم رو به پایان است یا تمام شده؛ پرداخت نهایی یا ثبت دوباره لازم است'
-                      : 'ثبت‌شده نزد لیاتیم و منتظر پرداخت نهایی اپراتور'
-                    : o.status === 'needs_review'
-                    ? `متوقف برای بررسی${o.needs_review_reason ? `: ${o.needs_review_reason}` : ''}`
-                    : 'پرداخت‌شده و هنوز در صف ثبت (بیش از حد انتظار)'}
+                      ? o.link_expiring
+                        ? 'مهلت لینک پرداخت لیاتیم رو به پایان است یا تمام شده؛ پرداخت نهایی یا ثبت دوباره لازم است'
+                        : 'ثبت‌شده نزد لیاتیم و منتظر پرداخت نهایی اپراتور'
+                      : o.status === 'needs_review'
+                        ? `متوقف برای بررسی${o.needs_review_reason ? `: ${o.needs_review_reason}` : ''}`
+                        : 'پرداخت‌شده و هنوز در صف ثبت (بیش از حد انتظار)'}
                 </dd>
               </div>
             ))}

@@ -54,13 +54,25 @@ export function ProductBuy({
     <div className={s.buy}>
       <div className={s.buyRow}>
         <div className={s.stepper} role="group" aria-label="تعداد">
-          <button type="button" className={s.stepBtn} aria-label="کم کردن" disabled={qty <= 1} onClick={() => setQty(qty - 1)}>
+          <button
+            type="button"
+            className={s.stepBtn}
+            aria-label="کم کردن"
+            disabled={qty <= 1}
+            onClick={() => setQty(qty - 1)}
+          >
             <Icon name="remove" size={20} />
           </button>
           <span className={`${s.stepValue} tnum`} aria-live="polite" data-product-qty>
             {formatNumber(qty)}
           </span>
-          <button type="button" className={s.stepBtn} aria-label="زیاد کردن" disabled={qty >= max} onClick={() => setQty(qty + 1)}>
+          <button
+            type="button"
+            className={s.stepBtn}
+            aria-label="زیاد کردن"
+            disabled={qty >= max}
+            onClick={() => setQty(qty + 1)}
+          >
             <Icon name="add" size={20} />
           </button>
         </div>

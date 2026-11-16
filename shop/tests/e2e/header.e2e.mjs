@@ -121,7 +121,8 @@ try {
     footer.replace(/\s+/g, ' '),
   );
   const cat = drawer.locator('[data-menu-category]').first();
-  const catName = (await cat.innerText()).trim();
+  const catLink = drawer.locator('[data-menu-category-link]').first();
+  const catName = (await catLink.innerText()).split('\n')[0].trim();
   await cat.click();
   await m.waitForFunction(
     () => document.querySelector('[data-mobile-menu]')?.dataset.mobileMenu === 'category',

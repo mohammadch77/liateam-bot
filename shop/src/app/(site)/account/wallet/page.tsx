@@ -43,7 +43,11 @@ export default async function WalletPage({
   return (
     <>
       <Breadcrumb
-        items={[{ label: 'خانه', href: '/' }, { label: 'حساب کاربری', href: '/account' }, { label: 'کیف پول' }]}
+        items={[
+          { label: 'خانه', href: '/' },
+          { label: 'حساب کاربری', href: '/account' },
+          { label: 'کیف پول' },
+        ]}
       />
       <h1 className={s.title}>کیف پول</h1>
       {!data ? (
@@ -70,7 +74,9 @@ export default async function WalletPage({
               </>
             )}
           </section>
-          {topup && <TopupForm online={topup.online} min={topup.min} max={topup.max} presets={topup.presets} />}
+          {topup && (
+            <TopupForm online={topup.online} min={topup.min} max={topup.max} presets={topup.presets} />
+          )}
           {wd?.eligible ? (
             <>
               <WithdrawForm min={wd.settings.min} max={wd.settings.max} withdrawable={wd.withdrawable} />

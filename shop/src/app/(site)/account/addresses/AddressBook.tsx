@@ -56,7 +56,8 @@ export function AddressBook({
         setList((l) => {
           const rest = l.filter((x) => x.id !== gone.id);
           // the server makes the newest remaining address the default when the default goes
-          if (gone.is_default && rest[0] && !rest.some((x) => x.is_default)) rest[0] = { ...rest[0], is_default: true };
+          if (gone.is_default && rest[0] && !rest.some((x) => x.is_default))
+            rest[0] = { ...rest[0], is_default: true };
           return [...rest];
         });
       } else setError(r.error);
@@ -66,7 +67,9 @@ export function AddressBook({
   return (
     <>
       {error && <Alert tone="danger">{error}</Alert>}
-      {list.length === 0 && editing !== 'new' && <EmptyState icon="location_on" title="هنوز آدرسی ذخیره نکرده‌اید" />}
+      {list.length === 0 && editing !== 'new' && (
+        <EmptyState icon="location_on" title="هنوز آدرسی ذخیره نکرده‌اید" />
+      )}
       <ul className={s.rows} style={{ gap: 12 }} data-address-list>
         {list.map((a) =>
           editing === a.id ? (
@@ -129,7 +132,9 @@ export function AddressBook({
             defaultName={defaultName}
             defaultPhone={defaultPhone}
             onSaved={(saved) => {
-              setList((l) => withDefault([...l, saved], saved).sort((x, y) => Number(y.is_default) - Number(x.is_default)));
+              setList((l) =>
+                withDefault([...l, saved], saved).sort((x, y) => Number(y.is_default) - Number(x.is_default)),
+              );
               setEditing(null);
             }}
             onCancel={list.length ? () => setEditing(null) : undefined}
@@ -290,7 +295,13 @@ function AddressForm({
           defaultValue={address?.postal_code ?? ''}
           required
         />
-        <TextField label="پلاک" name="plate" inputMode="numeric" defaultValue={address?.plate ?? ''} required />
+        <TextField
+          label="پلاک"
+          name="plate"
+          inputMode="numeric"
+          defaultValue={address?.plate ?? ''}
+          required
+        />
         <TextField
           label="واحد"
           labelNote="اختیاری"

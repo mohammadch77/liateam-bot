@@ -116,15 +116,32 @@ export default async function CommissionsPage({
             </option>
           ))}
         </select>
-        <input type="date" name="from" defaultValue={f.from ?? ''} className={s.chip} aria-label="از تاریخ" dir="ltr" />
-        <input type="date" name="to" defaultValue={f.to ?? ''} className={s.chip} aria-label="تا تاریخ" dir="ltr" />
-        <Button type="submit">
-          اعمال فیلتر
-        </Button>
+        <input
+          type="date"
+          name="from"
+          defaultValue={f.from ?? ''}
+          className={s.chip}
+          aria-label="از تاریخ"
+          dir="ltr"
+        />
+        <input
+          type="date"
+          name="to"
+          defaultValue={f.to ?? ''}
+          className={s.chip}
+          aria-label="تا تاریخ"
+          dir="ltr"
+        />
+        <Button type="submit">اعمال فیلتر</Button>
         <Button href={`/account/affiliate/export?${qs(f)}`} variant="outline" prefetch={false} data-csv>
           خروجی CSV
         </Button>
-        <Button href={`/account/affiliate/export?${qs(f)}&format=xlsx`} variant="outline" prefetch={false} data-xlsx>
+        <Button
+          href={`/account/affiliate/export?${qs(f)}&format=xlsx`}
+          variant="outline"
+          prefetch={false}
+          data-xlsx
+        >
           خروجی Excel
         </Button>
         <PrintButton />
@@ -147,26 +164,38 @@ export default async function CommissionsPage({
                   <span className={s.muted}>
                     مبلغ سفارش پایه: {formatToman(c.base_amount)} تومان
                     {c.rule_kind === 'percent' && c.rule_value !== null && ` · ${toFaDigits(c.rule_value)}٪`}
-                    {c.rule_kind === 'fixed' && c.rule_value !== null && ` · مبلغ ثابت ${formatToman(c.rule_value)}`}
+                    {c.rule_kind === 'fixed' &&
+                      c.rule_value !== null &&
+                      ` · مبلغ ثابت ${formatToman(c.rule_value)}`}
                   </span>
                   <span className={s.muted}>
                     {dateFa.format(c.created_at)}
                     {c.status === 'pending' && c.release_at && ` · آزادسازی: ${dateFa.format(c.release_at)}`}
-                    {c.status === 'pending' && !c.release_at && ' · بعد از ارسال سفارش و پایان مهلت، به کیف پول شما واریز می‌شود.'}
+                    {c.status === 'pending' &&
+                      !c.release_at &&
+                      ' · بعد از ارسال سفارش و پایان مهلت، به کیف پول شما واریز می‌شود.'}
                     {c.paid_at && ` · واریز: ${dateFa.format(c.paid_at)}`}
                   </span>
                 </div>
-                <Badge tone={STATUS[c.status]?.tone ?? 'neutral'}>{STATUS[c.status]?.label ?? c.status}</Badge>
+                <Badge tone={STATUS[c.status]?.tone ?? 'neutral'}>
+                  {STATUS[c.status]?.label ?? c.status}
+                </Badge>
               </li>
             ))}
           </ul>
           <p className={s.muted} data-page-sum>
-            جمع این صفحه (بدون لغوشده‌ها): <b className="tnum">{formatToman(data.pageSum)}</b> تومان · جمع کل این فیلتر:{' '}
-            <b className="tnum">{formatToman(data.filterSum)}</b> تومان
+            جمع این صفحه (بدون لغوشده‌ها): <b className="tnum">{formatToman(data.pageSum)}</b> تومان · جمع کل
+            این فیلتر: <b className="tnum">{formatToman(data.filterSum)}</b> تومان
           </p>
         </section>
       )}
-      {data && <Pagination page={data.page} totalPages={data.pages} hrefFor={(p) => `/account/affiliate/commissions?${qs(f, p)}`} />}
+      {data && (
+        <Pagination
+          page={data.page}
+          totalPages={data.pages}
+          hrefFor={(p) => `/account/affiliate/commissions?${qs(f, p)}`}
+        />
+      )}
     </>
   );
 }

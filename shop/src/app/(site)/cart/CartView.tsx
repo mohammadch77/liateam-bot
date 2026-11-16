@@ -61,9 +61,13 @@ export function CartView({
                       {i.name}
                     </Link>
                     <span className={s.unit}>
-                      {i.unitListPrice > i.unitPrice && <del className="tnum">{formatToman(i.unitListPrice)}</del>}
+                      {i.unitListPrice > i.unitPrice && (
+                        <del className="tnum">{formatToman(i.unitListPrice)}</del>
+                      )}
                       <b className="tnum">{formatToman(i.unitPrice)}</b> تومان
-                      {i.discountPercent > 0 && <span className={s.badge}>{toFaDigits(i.discountPercent)}٪ تخفیف</span>}
+                      {i.discountPercent > 0 && (
+                        <span className={s.badge}>{toFaDigits(i.discountPercent)}٪ تخفیف</span>
+                      )}
                     </span>
                     {i.quantity >= i.maxQuantity && <span className={s.limit}>حداکثر موجودی انبار</span>}
                   </div>

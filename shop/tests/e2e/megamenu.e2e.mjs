@@ -122,7 +122,7 @@ await m.getByRole('button', { name: 'منو' }).click();
 const drawer = m.getByRole('dialog');
 check('drawer opens', await drawer.isVisible());
 const mroots = (
-  await drawer.locator('nav > a, nav > ul:first-of-type > li > :is(a, button)').allInnerTexts()
+  await drawer.locator('nav > a, nav > ul:first-of-type > li > a').allInnerTexts()
 ).map(
   (t) =>
     t
@@ -135,7 +135,7 @@ check(
   mroots[0] === 'همه‌ی محصولات' && JSON.stringify(mroots.slice(1)) === JSON.stringify(LIATEAM),
   mroots.join(' | '),
 );
-await drawer.getByText('آرایشی', { exact: true }).click();
+await drawer.getByRole('button', { name: 'زیردسته‌های آرایشی' }).click();
 const open1 = await drawer.locator('nav a').allInnerTexts();
 check(
   'a category opens its own level: «همه‌ی محصولات آرایشی», then its sub-categories',
@@ -143,7 +143,7 @@ check(
   open1.length + ' links',
 );
 await drawer.locator('[data-menu-back]').click();
-await drawer.getByText('سرم تخصصی', { exact: true }).click();
+await drawer.getByRole('button', { name: 'زیردسته‌های سرم تخصصی' }).click();
 check(
   '«بازگشت», then another category: its level only',
   (await drawer.locator('h2').innerText()) === 'سرم تخصصی' &&
@@ -158,7 +158,7 @@ await m.getByRole('button', { name: 'منو' }).click();
 await m.mouse.click(15, 400); // backdrop (left of the drawer in RTL)
 check('tap on backdrop closes', !(await drawer.isVisible()));
 await m.getByRole('button', { name: 'منو' }).click();
-await drawer.getByText('ضد آفتاب', { exact: true }).click();
+await drawer.getByRole('button', { name: 'زیردسته‌های ضد آفتاب' }).click();
 await drawer.getByRole('link', { name: /^رنگی/ }).click();
 await m.waitForURL(/\/shop\/category\/[a-z0-9-]*-?172/);
 check('drawer link navigates and drawer closes', !(await drawer.isVisible()), decodeURI(m.url()));

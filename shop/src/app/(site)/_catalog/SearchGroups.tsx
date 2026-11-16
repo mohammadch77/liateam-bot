@@ -45,7 +45,14 @@ export function SearchGroups({
             <Link href={g.href} className={s.card} data-search-card={kind}>
               <span className={s.photo}>
                 {g.imageUrl ? (
-                  <Image src={g.imageUrl} alt="" fill sizes="(min-width: 1024px) 120px, 40vw" draggable={false} className={s.img} />
+                  <Image
+                    src={g.imageUrl}
+                    alt=""
+                    fill
+                    sizes="(min-width: 1024px) 120px, 40vw"
+                    draggable={false}
+                    className={s.img}
+                  />
                 ) : (
                   <Icon name={kind === 'category' ? 'category' : 'verified'} size={32} />
                 )}

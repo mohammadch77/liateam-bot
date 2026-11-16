@@ -58,6 +58,7 @@ export const SUGGEST_LIMITS = { products: 6, categories: 3, brands: 3, minLength
 
 /** One product as the search shows it: a card (picture, name, brand, price with the old price, stock). */
 export type SearchProduct = {
+  id: number;
   href: string;
   name: string;
   brand: string | null;
@@ -355,6 +356,7 @@ async function searchTerms(q: string | undefined): Promise<SearchTerms | null> {
 }
 
 const searchProductOf = (v: ProductView): SearchProduct => ({
+  id: v.id,
   href: v.href,
   name: v.name,
   brand: v.brandName,
@@ -880,6 +882,23 @@ export const catalogService = {
     const { list } = await categoryNames();
     const covers = await catalogRepository.categoryCovers(list.map((c) => c.code));
     return list.map((c) => ({ ...c, imageUrl: covers.get(c.code) ?? null }));
+  },
+
+  /** Top products for each given category code (mapped to full ProductView cards with discounted prices). */
+  async categorySampleProducts(codes: readonly number[], perCategory = 4): Promise<Map<number, ProductView[]>> {
+    const [{ names }, samples, offers] = await Promise.all([
+      categoryNames(),
+      catalogRepository.categorySamples(codes, perCategory),
+      pricingService.offers(),
+    ]);
+    const out = new Map<number, ProductView[]>();
+    for (const [code, rows] of samples) {
+      out.set(
+        code,
+        rows.map((r) => toView(r, names, offers)),
+      );
+    }
+    return out;
   },
 
   async allCategories(): Promise<Category[]> {
