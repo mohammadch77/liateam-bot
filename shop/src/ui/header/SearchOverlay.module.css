@@ -20,8 +20,6 @@
   background: rgb(30 27 36 / 40%);
 }
 .bar {
-  position: relative;
-  z-index: 2;
   display: flex;
   align-items: center;
   gap: 6px;
