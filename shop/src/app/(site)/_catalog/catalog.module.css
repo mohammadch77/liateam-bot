@@ -147,8 +147,8 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding-block: 16px 40px;
+  gap: 12px;
+  padding-block: 12px 96px;
 }
 @media (min-width: 1024px) {
   .page {

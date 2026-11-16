@@ -2,20 +2,24 @@
 .price {
   display: inline-flex;
   flex-direction: column;
-  line-height: 1.35;
+  justify-content: flex-end;
+  gap: 2px;
+  line-height: 1.25;
 }
 .old {
   color: var(--color-muted);
-  font-weight: 400;
+  font-weight: 500;
   text-decoration: line-through;
   font-feature-settings: 'tnum';
+  line-height: 1.2;
 }
 .current {
   display: inline-flex;
   align-items: baseline;
-  gap: 4px;
+  gap: 3px;
   color: var(--color-ink);
   white-space: nowrap;
+  line-height: 1.2;
 }
 .amount {
   font-weight: 800;

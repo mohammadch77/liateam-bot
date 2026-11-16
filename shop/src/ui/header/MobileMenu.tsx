@@ -262,7 +262,7 @@ export function MobileMenu({
                         <Link href={b.href} className={s.row}>
                           <span className={s.thumb} aria-hidden="true">
                             {b.imageUrl ? (
-                              <Image src={b.imageUrl} alt="" width={40} height={40} />
+                              <Image src={b.imageUrl} unoptimized alt="" width={40} height={40} />
                             ) : (
                               <Icon name="verified" size={20} />
                             )}

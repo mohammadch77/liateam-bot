@@ -146,10 +146,10 @@
   color: var(--color-muted);
 }
 .name {
-  font-size: 13.5px;
-  font-weight: 500;
-  line-height: 1.85;
-  min-height: 50px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  min-height: 38px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -284,22 +284,31 @@
 }
 @container (max-width: 200px) {
   .body {
-    padding: 10px 10px 12px;
+    padding: 8px 10px 10px;
+    gap: 3px;
   }
-  /* the button sits in the footer's top corner (beside the struck-out price), the price runs along the bottom:
-     a 7-digit price + «تومان» never collides with it, and the card stays short (no extra row for the button) */
+  .name {
+    font-size: 12.5px;
+    line-height: 1.45;
+    min-height: 36px;
+  }
   .footer {
-    position: relative;
+    display: flex;
     align-items: flex-end;
-    min-height: 70px; /* button 6–46px from the top; the price row (≈22px) starts below it */
-    --price-md-amount: 14.5px;
+    justify-content: space-between;
+    gap: 4px;
+    min-height: 38px;
+    --price-md-amount: 14px;
     --price-md-unit: 10px;
     --price-md-old: 11px;
   }
   .action {
-    position: absolute;
-    top: 6px;
-    inset-inline-end: 0; /* left in RTL */
+    position: static;
+  }
+  .iconButton {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
   }
   /* out of stock: «ناموجود» above a full-width «خبرم کن» */
   .footer:has(.notify) {
@@ -311,6 +320,8 @@
   }
   .notify {
     justify-content: center;
+    height: 36px;
+    font-size: 11.5px;
   }
 }
 
