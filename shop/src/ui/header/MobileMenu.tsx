@@ -132,8 +132,9 @@ export function MobileMenu({
           setPanel({ kind: 'root' }); // the next open starts at the first level
         }}
         onClick={(e) => {
-          // the backdrop is the dialog element itself; a followed link closes the drawer too
-          if (e.target === e.currentTarget || (e.target as Element).closest('a')) close();
+          // the backdrop is the dialog element itself: click on backdrop closes drawer.
+          // links navigate without closing synchronously so iOS WebKit doesn't abort navigation.
+          if (e.target === e.currentTarget) close();
         }}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
@@ -259,6 +260,13 @@ export function MobileMenu({
                     {brands.map((b) => (
                       <li key={b.href}>
                         <Link href={b.href} className={s.row}>
+                          <span className={s.thumb} aria-hidden="true">
+                            {b.imageUrl ? (
+                              <Image src={b.imageUrl} alt="" width={40} height={40} />
+                            ) : (
+                              <Icon name="verified" size={20} />
+                            )}
+                          </span>
                           <span className={s.label}>{b.label}</span>
                           {count(b.count)}
                           <Icon name="chevron_left" size={20} className={s.muted} />

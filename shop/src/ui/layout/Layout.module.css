@@ -56,7 +56,12 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
+}
+@media (min-width: 480px) {
+  .grid {
+    gap: 12px;
+  }
 }
 @media (min-width: 768px) {
   .grid {

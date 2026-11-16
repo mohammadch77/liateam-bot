@@ -67,6 +67,10 @@ export default async function CategoryPage({ params, searchParams }: Props) {
     { label: category.name },
   ];
 
+  const isRoot = !parent;
+  const rootCat = isRoot ? category : parent;
+  const subCats = isRoot ? children : siblings;
+
   return (
     <Container className={s.page}>
       <Breadcrumb items={crumbs} />
@@ -75,27 +79,22 @@ export default async function CategoryPage({ params, searchParams }: Props) {
         <span className={s.sub}>{formatNumber(category.count)} محصول</span>
       </header>
 
-      {children.length > 0 && (
-        <nav aria-label={`زیردسته‌های ${category.name}`} className={s.subcats}>
-          {children.map((c) => (
-            <Link key={c.code} href={c.href} className={s.subcat}>
-              {c.name}
-              <span className={s.subcatCount}>{formatNumber(c.count)}</span>
-            </Link>
-          ))}
-        </nav>
-      )}
-      {siblings.length > 1 && parent && (
-        <nav aria-label={`دسته‌های ${parent.name}`} className={s.subcats} data-sibling-categories>
-          <Link href={parent.href} className={s.subcat}>
-            همه‌ی {parent.name}
+      {subCats.length > 0 && (
+        <nav aria-label={`دسته‌های ${rootCat.name}`} className={s.subcats} data-category-chips>
+          <Link
+            href={rootCat.href}
+            className={s.subcat}
+            aria-current={isRoot ? 'true' : undefined}
+          >
+            همه‌ی {rootCat.name}
+            <span className={s.subcatCount}>{formatNumber(rootCat.count)}</span>
           </Link>
-          {siblings.map((c) => (
+          {subCats.map((c) => (
             <Link
               key={c.code}
               href={c.href}
               className={s.subcat}
-              aria-current={c.code === category.code ? 'true' : undefined}
+              aria-current={!isRoot && c.code === category.code ? 'true' : undefined}
             >
               {c.name}
               <span className={s.subcatCount}>{formatNumber(c.count)}</span>
