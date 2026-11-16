@@ -218,7 +218,9 @@ export function SearchBox({
         ...data.categories.map((c) => groupCard(c, 'cat')),
         ...data.brands.map((b) => groupCard(b, 'brand')),
         ...data.products.map((p) => productCard(p, 'product')),
-        ...(data.fallback?.categories ?? []).map((c) => groupCard({ ...c, parent: null }, 'cat')).map((o) => ({ ...o, group: 'fb-cat' })),
+        ...(data.fallback?.categories ?? [])
+          .map((c) => groupCard({ ...c, parent: null }, 'cat'))
+          .map((o) => ({ ...o, group: 'fb-cat' })),
         ...(data.fallback?.products ?? []).map((p) => productCard(p, 'fb-product')),
         ...(data.total > 0 || data.categories.length > 0 || data.brands.length > 0
           ? [
@@ -283,13 +285,16 @@ export function SearchBox({
       role="search"
       className={cx(s.search, compact && s.compact, overlay && s.overlay)}
       onSubmit={(e) => {
-        if (!value.trim()) {
-          e.preventDefault();
+        e.preventDefault();
+        const q = value.trim();
+        if (!q) {
           input.current?.focus();
           return;
         }
         setOpen(false);
+        input.current?.blur();
         onNavigate?.();
+        router.push(searchHref(action, q));
       }}
     >
       <Icon name="search" size={compact ? 21 : 22} className={s.icon} />

@@ -50,17 +50,29 @@
   text-align: center;
   color: var(--color-muted);
 }
-/* 390px phones: tighter numbers so 7 slots + 2 arrows still fit. */
+/* 390px and smaller phones: compact touch-friendly numbers so 7 slots + 2 arrows fit on 360px without wrap or overflow. */
 @media (max-width: 420px) {
-  .nav,
+  .nav {
+    margin-top: 16px;
+    padding-bottom: 8px;
+    gap: 3px;
+  }
   .pages {
-    gap: 2px;
+    gap: 3px;
   }
   .page {
-    min-width: 36px;
+    min-width: 32px;
+    height: 38px;
     padding: 0 4px;
+    font-size: 13.5px;
+    border-radius: 8px;
   }
   .arrow {
-    min-width: var(--control-sm);
+    min-width: 38px;
+    height: 38px;
+  }
+  .gap {
+    min-width: 14px;
+    font-size: 13px;
   }
 }

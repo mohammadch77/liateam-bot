@@ -4,15 +4,18 @@ import Link from 'next/link';
 import { getConfig } from '@/lib/config';
 import { toAppError } from '@/lib/errors';
 import { formatNumber } from '@/lib/format/number';
-import { catalogService, type ProductView } from '@/server/services/catalog.service';
-import { Breadcrumb, Container, Icon, ProductCard, ProductGrid } from '@/ui';
+import { catalogService } from '@/server/services/catalog.service';
+import { Breadcrumb, Container, Icon } from '@/ui';
 import { CatalogUnavailable } from '@/app/(site)/_catalog/CatalogListing';
 import s from '@/app/(site)/_catalog/catalog.module.css';
 import c from './categories.module.css';
 import { categoriesPath } from '@/lib/urls';
 
 export async function generateMetadata(): Promise<Metadata> {
-  return { title: `دسته‌بندی کالاها | ${getConfig().BRAND_NAME}`, alternates: { canonical: categoriesPath() } };
+  return {
+    title: `دسته‌بندی کالاها | ${getConfig().BRAND_NAME}`,
+    alternates: { canonical: categoriesPath() },
+  };
 }
 
 type Cat = Awaited<ReturnType<typeof catalogService.categoriesWithCovers>>[number];
@@ -36,16 +39,12 @@ function CategoryCard({ cat }: { cat: Cat }) {
 
 /**
  * «دسته‌بندی کالاها»: every parent category as its own block — its name, product count and «مشاهده‌ی همه‌ی
- * محصولات» — with a picture card for each sub-category and a grid of product cards from that category.
+ * محصولات» — with a picture card for each sub-category.
  */
 export default async function CategoriesPage() {
   let all: Cat[];
-  let samples = new Map<number, ProductView[]>();
   try {
     all = await catalogService.categoriesWithCovers();
-    const codes = new Set(all.map((x) => x.code));
-    const rootCodes = all.filter((x) => x.parentCode === null || !codes.has(x.parentCode)).map((x) => x.code);
-    samples = await catalogService.categorySampleProducts(rootCodes, 4);
   } catch (e) {
     return (
       <Container>
@@ -60,9 +59,8 @@ export default async function CategoriesPage() {
     <Container className={s.page}>
       <Breadcrumb items={[{ label: 'خانه', href: '/' }, { label: 'دسته‌بندی کالاها' }]} />
       <h1 className={s.title}>دسته‌بندی کالاها</h1>
-      {roots.map((r, ri) => {
+      {roots.map((r) => {
         const children = all.filter((x) => x.parentCode === r.code);
-        const products = samples.get(r.code) ?? [];
         return (
           <section key={r.code} className={c.group} aria-labelledby={`cat-${r.code}`} data-category-group>
             <div className={c.groupHead}>
@@ -82,15 +80,6 @@ export default async function CategoriesPage() {
                 </li>
               ))}
             </ul>
-            {products.length > 0 && (
-              <div className={c.productsWrap} data-category-products={r.code}>
-                <ProductGrid>
-                  {products.map((p, pi) => (
-                    <ProductCard key={p.id} product={p} priority={ri === 0 && pi < 2} />
-                  ))}
-                </ProductGrid>
-              </div>
-            )}
           </section>
         );
       })}
