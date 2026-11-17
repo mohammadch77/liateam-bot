@@ -1,11 +1,8 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Icon, type IconName } from '@/ui';
-import s from '../account.module.css';
+import { PanelNav, type PanelNavItem } from './PanelNav';
 
-const ITEMS: Array<{ href: string; label: string; icon: IconName; exact?: boolean }> = [
+const ITEMS: readonly PanelNavItem[] = [
   { href: '/account', label: 'داشبورد', icon: 'home', exact: true },
   { href: '/account/orders', label: 'سفارش‌ها', icon: 'shopping_bag' },
   { href: '/account/addresses', label: 'آدرس‌ها', icon: 'location_on' },
@@ -15,20 +12,15 @@ const ITEMS: Array<{ href: string; label: string; icon: IconName; exact?: boolea
   { href: '/account/profile', label: 'پروفایل', icon: 'person' },
 ];
 
-/** Side menu on desktop, a scrolling row of tabs on mobile (CSS decides); the current page is marked with aria-current. */
+/** Side menu on desktop, a mobile hamburger bar + drawer on phones. */
 export function AccountNav() {
-  const path = usePathname();
   return (
-    <nav className={s.nav} aria-label="منوی حساب کاربری" data-account-nav>
-      {ITEMS.map((i) => {
-        const on = i.exact ? path === i.href : path === i.href || path.startsWith(`${i.href}/`);
-        return (
-          <Link key={i.href} href={i.href} className={s.navLink} aria-current={on ? 'page' : undefined}>
-            <Icon name={i.icon} size={20} />
-            {i.label}
-          </Link>
-        );
-      })}
-    </nav>
+    <PanelNav
+      title="حساب کاربری"
+      items={ITEMS}
+      dataAttr="data-account-nav"
+      backToSiteHref="/"
+      backToSiteLabel="بازگشت به فروشگاه"
+    />
   );
 }

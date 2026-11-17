@@ -14,6 +14,12 @@
   border: 1px solid var(--color-line);
   background: var(--color-white);
 }
+@media (max-width: 640px) {
+  .card {
+    padding: 16px 14px;
+    border-radius: var(--radius-lg, 16px);
+  }
+}
 @media (min-width: 768px) {
   .card {
     padding: 32px;
@@ -40,10 +46,17 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 8px 12px;
   flex-wrap: wrap;
   padding: 12px 0;
   border-bottom: 1px solid var(--color-line-row);
+}
+@media (max-width: 640px) {
+  .list > div {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
 }
 .list dt {
   font-size: 13px;
@@ -70,11 +83,11 @@
   font-weight: 700;
 }
 
-/* ---- panel shell: side menu on desktop, a row of tabs on mobile ---- */
+/* ---- panel shell: side menu on desktop, hamburger bar + drawer on mobile ---- */
 .shell {
   display: grid;
   gap: 16px;
-  padding-block: 16px 40px;
+  padding-block: 14px 96px;
   align-items: start;
 }
 @media (min-width: 900px) {
@@ -90,26 +103,23 @@
   gap: 16px;
   min-width: 0;
 }
-.nav {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding: 4px;
-  border-radius: var(--radius-panel);
-  border: 1px solid var(--color-line);
-  background: var(--color-white);
-  scrollbar-width: none;
-}
-.nav::-webkit-scrollbar {
+
+/* ── Desktop Sidebar (>= 900px) ── */
+.desktopNav {
   display: none;
 }
 @media (min-width: 900px) {
-  .nav {
+  .desktopNav {
+    display: flex;
     position: sticky;
     top: 96px;
     flex-direction: column;
     overflow: visible;
     padding: 10px;
+    gap: 4px;
+    border-radius: var(--radius-panel);
+    border: 1px solid var(--color-line);
+    background: var(--color-white);
   }
 }
 .navLink {
@@ -124,12 +134,266 @@
   font-weight: 700;
   color: var(--color-ink-2);
   white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 .navLink:hover {
   background: var(--color-blush);
+  color: var(--color-primary);
 }
 .navLink[aria-current='page'] {
   background: var(--color-blush-2);
+  color: var(--color-primary);
+}
+
+/* ── Mobile Panel Header Bar (< 900px) ── */
+.mobileBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--color-line);
+  background: var(--color-white);
+  box-shadow: var(--shadow-sm);
+  min-height: 58px;
+}
+@media (min-width: 900px) {
+  .mobileBar {
+    display: none;
+  }
+}
+.mobileBarInfo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.mobileBarIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md, 12px);
+  background: var(--color-blush-2);
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+.mobileBarText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.mobileBarSub {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-muted);
+  line-height: 1.2;
+}
+.mobileBarTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14.5px;
+  font-weight: 800;
+  color: var(--color-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mobileBarBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-line-button);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.mobileBarBtn:hover,
+.mobileBarBtn:active {
+  background: var(--color-blush);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.mobileBadgeDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  flex-shrink: 0;
+}
+
+/* ── Mobile Drawer (Modal Dialog) ── */
+.drawer {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(340px, 86vw);
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--color-white);
+  color: var(--color-ink);
+  box-shadow: -20px 0 50px -20px rgba(30, 27, 36, 0.35);
+  z-index: 1000;
+}
+.drawer[open] {
+  animation: panel-drawer-slide var(--motion-base) var(--motion-ease);
+}
+.drawer::backdrop {
+  background: rgba(30, 27, 36, 0.45);
+  backdrop-filter: blur(2px);
+}
+@keyframes panel-drawer-slide {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+:global(html.panel-drawer-open) {
+  overflow: hidden;
+}
+
+.drawerSheet {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.drawerHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 58px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+.drawerTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--color-ink);
+}
+.drawerTitleIcon {
+  color: var(--color-primary);
+}
+.drawerClose {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-md, 12px);
+  background: none;
+  color: var(--color-ink-2);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.drawerClose:hover,
+.drawerClose:active {
+  background: var(--color-blush);
+  color: var(--color-primary);
+}
+.drawerBody {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.drawerList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.drawerLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--color-ink-2);
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.drawerLinkStart {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.drawerLinkEnd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.drawerChevron {
+  color: var(--color-muted);
+  opacity: 0.6;
+}
+.drawerLink:hover {
+  background: var(--color-blush);
+  color: var(--color-primary);
+}
+.drawerLink[aria-current='page'] {
+  background: var(--color-blush-2);
+  color: var(--color-primary);
+}
+.drawerLink[aria-current='page'] .drawerChevron {
+  color: var(--color-primary);
+  opacity: 1;
+}
+.drawerFoot {
+  padding: 12px 16px;
+  border-top: 1px solid var(--color-line);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+.drawerSiteLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-line-button);
+  background: var(--color-white);
+  color: var(--color-ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.drawerSiteLink:hover {
+  background: var(--color-blush);
+  border-color: var(--color-primary);
   color: var(--color-primary);
 }
 
