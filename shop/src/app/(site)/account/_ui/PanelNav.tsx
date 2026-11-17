@@ -46,9 +46,11 @@ export function PanelNav({
     return () => document.documentElement.classList.remove('panel-drawer-open');
   }, [open]);
 
-  const activeItem =
-    items.find((i) => (i.exact ? path === i.href : path === i.href || path.startsWith(`${i.href}/`))) ||
-    items[0];
+  const fallbackItem: PanelNavItem = { href: '/', label: title, icon: 'home' };
+  const activeItem: PanelNavItem =
+    items.find((i) => (i.exact ? path === i.href : path === i.href || path.startsWith(`${i.href}/`))) ??
+    items[0] ??
+    fallbackItem;
 
   const totalBadges = items.reduce((acc, i) => acc + (i.count && i.count > 0 ? i.count : 0), 0);
 
@@ -187,7 +189,7 @@ export function PanelNav({
 
           <div className={s.drawerFoot}>
             <Link href={backToSiteHref} className={s.drawerSiteLink} onClick={closeDrawer}>
-              <Icon name="storefront" size={20} />
+              <Icon name="home" size={20} />
               <span>{backToSiteLabel}</span>
             </Link>
           </div>
