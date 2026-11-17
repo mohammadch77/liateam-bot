@@ -60,7 +60,7 @@ export default async function PacksPage() {
           </div>
           <div className={s.heroVisual}>
             <Image
-              src="/images/packs-banner.jpg"
+              src="/images/packs-banner.png"
               alt="پک‌های کاربردی و روتین‌های مراقبتی آوینا"
               width={460}
               height={345}

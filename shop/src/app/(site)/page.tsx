@@ -191,7 +191,7 @@ export default async function HomePage() {
             </div>
             <div className={s.bannerVisual}>
               <Image
-                src="/images/packs-banner.jpg"
+                src="/images/packs-banner.png"
                 alt="پک‌های کاربردی و روتین‌های پوستی"
                 width={480}
                 height={360}
@@ -235,7 +235,7 @@ export default async function HomePage() {
             </div>
             <div className={s.bannerVisual}>
               <Image
-                src="/images/affiliate-banner.jpg"
+                src="/images/affiliate-banner.png"
                 alt="همکاری در فروش آوینا"
                 width={480}
                 height={360}

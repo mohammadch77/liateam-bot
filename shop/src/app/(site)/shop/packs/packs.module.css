@@ -128,8 +128,7 @@
   height: auto;
   max-height: 290px;
   object-fit: contain;
-  border-radius: var(--radius-lg);
-  filter: drop-shadow(0 12px 28px rgba(138, 28, 74, 0.08));
+  filter: drop-shadow(0 14px 30px rgba(138, 28, 74, 0.12));
 }
 @media (max-width: 767px) {
   .heroVisual {
