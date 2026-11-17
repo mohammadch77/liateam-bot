@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
+import React from 'react';
 import { getConfig } from '@/lib/config';
 import { formatToman } from '@/lib/format/money';
 import { toFaDigits } from '@/lib/format/number';
@@ -30,29 +31,44 @@ export default async function PacksPage() {
       />
 
       <header className={s.hero} aria-labelledby="packs-hero-title">
-        <span className={s.kicker}>
-          <span className={s.kickerDot} aria-hidden="true" />
-          پیشنهاد ویژه آوینا
-        </span>
-        <h1 id="packs-hero-title" className={s.title}>
-          پک‌های کاربردی و <span className={s.titleAccent}>روتین‌های مراقبتی</span>
-        </h1>
-        <p className={s.lead}>
-          ترکیب هوشمندانه بهترین محصولات مراقبت پوست و مو، چیده شده توسط کارشناسان زیبایی. با تهیه هر پک از تخفیف ویژه مجموعه بهره‌مند شوید و یک روتین کامل و سازگار داشته باشید.
-        </p>
-        <div className={s.pills}>
-          <span className={s.pill}>
-            <Icon name="bolt" size={16} />
-            تخفیف ویژه نسبت به خرید تکی
-          </span>
-          <span className={s.pill}>
-            <Icon name="verified" size={16} />
-            سازگاری کامل ترکیبات
-          </span>
-          <span className={s.pill}>
-            <Icon name="local_shipping" size={16} />
-            ارسال سریع به سراسر ایران
-          </span>
+        <div className={s.heroGrid}>
+          <div className={s.heroText}>
+            <span className={s.kicker}>
+              <span className={s.kickerDot} aria-hidden="true" />
+              پیشنهاد ویژه آوینا
+            </span>
+            <h1 id="packs-hero-title" className={s.title}>
+              پک‌های کاربردی و <span className={s.titleAccent}>روتین‌های مراقبتی</span>
+            </h1>
+            <p className={s.lead}>
+              ترکیب هوشمندانه بهترین محصولات مکمل پوست و مو، چیده شده توسط کارشناسان زیبایی. با تهیه هر پک از تخفیف ویژه مجموعه بهره‌مند شوید و یک روتین کامل و سازگار با نوع پوست خود داشته باشید.
+            </p>
+            <div className={s.pills}>
+              <span className={s.pill}>
+                <Icon name="bolt" size={16} />
+                تخفیف ویژه نسبت به خرید تکی
+              </span>
+              <span className={s.pill}>
+                <Icon name="verified" size={16} />
+                سازگاری کامل ترکیبات
+              </span>
+              <span className={s.pill}>
+                <Icon name="local_shipping" size={16} />
+                ارسال سریع به سراسر ایران
+              </span>
+            </div>
+          </div>
+          <div className={s.heroVisual}>
+            <Image
+              src="/images/packs-banner.jpg"
+              alt="پک‌های کاربردی و روتین‌های مراقبتی آوینا"
+              width={460}
+              height={345}
+              priority
+              sizes="(min-width: 1024px) 440px, (min-width: 768px) 340px, 90vw"
+              className={s.heroImg}
+            />
+          </div>
         </div>
       </header>
 
@@ -70,59 +86,75 @@ export default async function PacksPage() {
               {c.subtitle && <p className={s.collectionSubtitle}>{c.subtitle}</p>}
             </div>
 
-            <div className={s.packsGrid}>
+            <div className={s.packsList}>
               {c.packs.map((p) => {
                 const diff = p.final !== null ? p.total - p.final : 0;
                 return (
-                  <article key={p.key} className={s.packCard}>
+                  <article key={p.key} className={s.packRowCard}>
                     <div className={s.cardHead}>
                       <div className={s.cardTitles}>
                         <span className={s.variantBadge}>{p.variantTitle}</span>
                         <h3 className={s.packTitle}>{p.title}</h3>
                       </div>
                       {p.saving > 0 && (
-                        <span className={s.savingBadge}>{toFaDigits(p.saving)}٪ تخفیف</span>
+                        <span className={s.savingBadge}>{toFaDigits(p.saving)}٪ تخفیف پک</span>
                       )}
                     </div>
 
-                    <ul className={s.stepsList} aria-label="اقلام موجود در پک">
+                    <div className={s.bundleBody} aria-label="محصولات موجود در این پک">
                       {p.steps.map((st, i) => (
-                        <li key={i} className={s.stepItem}>
-                          <span className={s.stepNum}>{toFaDigits(i + 1)}</span>
-                          <span className={s.stepThumb}>
-                            {st.product?.imageUrl ? (
-                              <Image
-                                src={st.product.imageUrl}
-                                alt=""
-                                fill
-                                sizes="38px"
-                                className={s.thumbImg}
-                              />
-                            ) : (
-                              <Icon name="spa" size={20} style={{ margin: 'auto' }} />
-                            )}
-                          </span>
-                          <div className={s.stepInfo}>
-                            <span className={s.stepLabel}>{st.label}</span>
+                        <React.Fragment key={i}>
+                          {i > 0 && (
+                            <span className={s.plusSeparator} aria-hidden="true">
+                              +
+                            </span>
+                          )}
+                          <div className={s.productTile}>
+                            <div className={s.tileThumb}>
+                              {st.product?.imageUrl ? (
+                                <Image
+                                  src={st.product.imageUrl}
+                                  alt=""
+                                  fill
+                                  sizes="90px"
+                                  className={s.thumbImg}
+                                />
+                              ) : (
+                                <Icon name="spa" size={28} />
+                              )}
+                            </div>
+                            <span className={s.tileStepBadge}>
+                              {toFaDigits(i + 1)}. {st.label}
+                            </span>
                             {st.product ? (
-                              <span className={s.stepProductName}>{st.product.name}</span>
+                              <>
+                                <h4 className={s.tileName} title={st.product.name}>
+                                  {st.product.name}
+                                </h4>
+                                <span className={s.tilePrice}>
+                                  {formatToman(st.product.priceToman)} تومان
+                                </span>
+                              </>
                             ) : (
-                              <span className={s.stepSoon}>به‌زودی</span>
+                              <span className={s.tileSoon}>به‌زودی</span>
                             )}
                           </div>
-                        </li>
+                        </React.Fragment>
                       ))}
-                    </ul>
+                    </div>
 
                     <div className={s.cardFooter}>
-                      <div className={s.priceRow}>
+                      <div className={s.priceGroup}>
                         <div className={s.priceBox}>
                           {p.final !== null && p.total > p.final && (
-                            <span className={s.oldPrice}>{formatToman(p.total)}</span>
+                            <span className={s.oldPrice}>
+                              جمع تکی: {formatToman(p.total)} تومان
+                            </span>
                           )}
                           <span className={s.finalPrice}>
                             {p.final !== null ? (
                               <>
+                                <span>قیمت پک:</span>
                                 <b>{formatToman(p.final)}</b>
                                 <span className={s.unit}>تومان</span>
                               </>

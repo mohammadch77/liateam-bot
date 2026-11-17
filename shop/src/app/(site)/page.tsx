@@ -161,19 +161,19 @@ export default async function HomePage() {
         <Bestsellers tabs={bestsellerTabs} initial={bestsellersFirst} />
 
         <section className={s.packsBanner} aria-labelledby="packs-band-title" data-home-section="packs">
-          <div className={s.packsBannerContent}>
-            <div className={s.packsBannerText}>
+          <div className={s.bannerGrid}>
+            <div className={s.bannerText}>
               <span className={s.kicker}>
                 <span className={s.kickerDot} aria-hidden="true" />
                 پک‌های کاربردی و روتین‌ها
               </span>
-              <h2 id="packs-band-title" className={s.packsBannerTitle}>
+              <h2 id="packs-band-title" className={s.bannerTitle}>
                 مراقبت حرفه‌ای، <span className={s.heroAccent}>خرید اقتصادی</span> با پک‌های کاربردی
               </h2>
-              <p className={s.packsBannerLead}>
+              <p className={s.bannerLead}>
                 محصولات مکمل پوست و مو را در قالب پک‌های هماهنگ با تخفیف ویژه پکیج تهیه کنید؛ روتین‌های روزانه، ضدجوش، ضدلک و تقویت مو با ضمانت اصالت.
               </p>
-              <div className={s.packsBannerPills}>
+              <div className={s.bannerPills}>
                 <span>
                   <Icon name="bolt" size={16} /> تخفیف ویژه پکیج
                 </span>
@@ -181,7 +181,7 @@ export default async function HomePage() {
                   <Icon name="verified" size={16} /> ترکیبات هماهنگ و موثر
                 </span>
                 <span>
-                  <Icon name="local_shipping" size={16} /> ارسال سریع به سراسر ایران
+                  <Icon name="local_shipping" size={16} /> ارسال سریع سراسر ایران
                 </span>
               </div>
               <Link href="/shop/packs" className={s.ctaPrimary}>
@@ -189,27 +189,60 @@ export default async function HomePage() {
                 <Icon name="arrow_back" size={20} />
               </Link>
             </div>
+            <div className={s.bannerVisual}>
+              <Image
+                src="/images/packs-banner.jpg"
+                alt="پک‌های کاربردی و روتین‌های پوستی"
+                width={480}
+                height={360}
+                sizes="(min-width: 1024px) 440px, (min-width: 768px) 340px, 90vw"
+                className={s.bannerImg}
+              />
+            </div>
           </div>
         </section>
 
         <Magazine />
 
         <section className={s.affiliate} aria-labelledby="affiliate-band-title" data-home-section="affiliate">
-          <div className={s.affiliateText}>
-            <span className={s.kicker}>
-              <span className={s.kickerDot} aria-hidden="true" />
-              همکاری در فروش
-            </span>
-            <h2 id="affiliate-band-title" className={s.affiliateTitle}>
-              پیج یا فروشگاه داری؟ <span className={s.heroAccent}>فروشنده‌ی همکار</span> ما شو
-            </h2>
-            <p className={s.affiliateLead}>
-              محصولات اصل را به مخاطبانت معرفی کن؛ موجودی، بسته‌بندی و ارسال با ما.
-            </p>
-            <Link href="/affiliate?from=home" className={s.ctaPrimary}>
-              ثبت درخواست همکاری
-              <Icon name="arrow_back" size={20} />
-            </Link>
+          <div className={s.bannerGrid}>
+            <div className={s.bannerText}>
+              <span className={s.kicker}>
+                <span className={s.kickerDot} aria-hidden="true" />
+                همکاری در فروش
+              </span>
+              <h2 id="affiliate-band-title" className={s.bannerTitle}>
+                پیج یا فروشگاه داری؟ <span className={s.heroAccent}>فروشنده‌ی همکار</span> ما شو
+              </h2>
+              <p className={s.bannerLead}>
+                محصولات اصل را به مخاطبانت معرفی کن؛ موجودی، بسته‌بندی و ارسال با ما.
+              </p>
+              <div className={s.bannerPills}>
+                <span>
+                  <Icon name="trending_up" size={16} /> پورسانت آنی و شفاف
+                </span>
+                <span>
+                  <Icon name="verified" size={16} /> بدون نیاز به سرمایه اولیه
+                </span>
+                <span>
+                  <Icon name="support_agent" size={16} /> پشتیبانی اختصاصی همکاران
+                </span>
+              </div>
+              <Link href="/affiliate?from=home" className={s.ctaPrimary}>
+                ثبت درخواست همکاری
+                <Icon name="arrow_back" size={20} />
+              </Link>
+            </div>
+            <div className={s.bannerVisual}>
+              <Image
+                src="/images/affiliate-banner.jpg"
+                alt="همکاری در فروش آوینا"
+                width={480}
+                height={360}
+                sizes="(min-width: 1024px) 440px, (min-width: 768px) 340px, 90vw"
+                className={s.bannerImg}
+              />
+            </div>
           </div>
         </section>
       </Container>

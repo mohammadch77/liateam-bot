@@ -397,146 +397,123 @@
 }
 
 /* ── «همکاری در فروش» band: after the product rows, before «مجله آوینا» (Homepage.dc.html routine panel) ── */
-.affiliate {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 18px;
-  margin-top: 28px;
-  padding: 22px 18px;
-  border-radius: var(--radius-panel);
-  background: radial-gradient(60% 85% at 72% 40%, #f1d5dc 0%, #f6e6ea 45%, #faf3f3 100%);
-}
-@media (min-width: 1024px) {
-  .affiliate {
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-    align-items: center;
-    gap: 40px;
-    margin-top: 44px;
-    padding: 40px 56px;
-    border-radius: var(--radius-xl);
-  }
-}
-.affiliateText {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
-  min-width: 0;
-}
-.affiliateTitle {
-  font-size: 21px;
-  font-weight: 800;
-  line-height: 1.55;
-  color: var(--color-ink);
-  text-wrap: balance;
-}
-@media (min-width: 768px) {
-  .affiliateTitle {
-    font-size: 28px;
-  }
-}
-.affiliateLead {
-  font-size: 13.5px;
-  line-height: 1.9;
-  color: var(--color-ink-2);
-}
-@media (min-width: 1024px) {
-  .affiliateLead {
-    font-size: 15.5px;
-  }
-}
-.affiliatePoints {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.affiliatePoints li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid #efdde2;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--color-ink);
-}
-
-/* ── «پک‌های کاربردی» promotional banner: replaces the old routine rail on homepage ── */
+/* ── Unified Promotional Banners: «پک‌های کاربردی» & «همکاری در فروش» ── */
+.affiliate,
 .packsBanner {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 18px;
+  position: relative;
+  display: block;
   margin-top: 28px;
   padding: 24px 20px;
   border-radius: var(--radius-panel);
-  background: radial-gradient(75% 100% at 85% 30%, #fef3e9 0%, #fae8dc 45%, #fcf5f0 100%);
-  border: 1px solid #fae1d2;
+  background: radial-gradient(60% 85% at 72% 40%, #f1d5dc 0%, #f6e6ea 45%, #faf3f3 100%);
+  border: 1px solid rgba(138, 28, 74, 0.12);
+  overflow: hidden;
 }
 @media (min-width: 1024px) {
+  .affiliate,
   .packsBanner {
     margin-top: 44px;
-    padding: 40px 56px;
+    padding: 36px 48px;
     border-radius: var(--radius-xl);
   }
 }
-.packsBannerContent {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+
+.bannerGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 20px;
 }
-.packsBannerText {
+@media (min-width: 768px) {
+  .bannerGrid {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    gap: 32px;
+  }
+}
+@media (min-width: 1024px) {
+  .bannerGrid {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: 48px;
+  }
+}
+
+.bannerText {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
   min-width: 0;
+  order: 1;
 }
-.packsBannerTitle {
+
+.bannerTitle {
   font-size: 21px;
   font-weight: 800;
-  line-height: 1.55;
+  line-height: 1.5;
   color: var(--color-ink);
   text-wrap: balance;
   margin: 0;
 }
 @media (min-width: 768px) {
-  .packsBannerTitle {
+  .bannerTitle {
     font-size: 28px;
   }
 }
-.packsBannerLead {
+
+.bannerLead {
   font-size: 13.5px;
-  line-height: 1.9;
+  line-height: 1.85;
   color: var(--color-ink-2);
-  max-width: 720px;
   margin: 0;
 }
 @media (min-width: 1024px) {
-  .packsBannerLead {
-    font-size: 15.5px;
+  .bannerLead {
+    font-size: 15px;
   }
 }
-.packsBannerPills {
+
+.bannerPills {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 4px;
   margin-bottom: 6px;
 }
-.packsBannerPills span {
+.bannerPills span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
   border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(201, 147, 122, 0.3);
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(138, 28, 74, 0.12);
   font-size: 12px;
   font-weight: 700;
   color: var(--color-ink);
+}
+
+.bannerVisual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  order: 2;
+  position: relative;
+  min-width: 0;
+}
+.bannerImg {
+  width: 100%;
+  max-width: 440px;
+  height: auto;
+  max-height: 290px;
+  object-fit: contain;
+  border-radius: var(--radius-lg);
+  filter: drop-shadow(0 12px 28px rgba(138, 28, 74, 0.08));
+}
+@media (max-width: 767px) {
+  .bannerVisual {
+    margin-top: 4px;
+  }
+  .bannerImg {
+    max-height: 200px;
+  }
 }
