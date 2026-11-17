@@ -9,11 +9,12 @@ import { formatNumber } from '@/lib/format/number';
 import { Icon, type IconName } from '../icon/Icon';
 import type { NavItem } from './Header';
 import s from './MobileMenu.module.css';
-import { aboutPath, contactPath, offersPath } from '@/lib/urls';
+import { aboutPath, contactPath, offersPath, packsPath } from '@/lib/urls';
 
 /** the info pages of the first level: an icon each, by address (any other page gets a plain arrow) */
 const PAGE_ICON: Record<string, IconName> = {
   [offersPath()]: 'bolt',
+  [packsPath()]: 'inventory_2',
   '/affiliate': 'trending_up',
   [aboutPath()]: 'verified',
   [contactPath()]: 'call',

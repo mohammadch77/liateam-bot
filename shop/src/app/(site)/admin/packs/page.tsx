@@ -11,7 +11,7 @@ import a from '../admin-forms.module.css';
 import { moveAction, togglePackAction } from './actions';
 import { CollectionForm, PackForm, type CollectionDraft, type PackDraft } from './PackForms';
 
-export const metadata: Metadata = { title: 'پک‌ها', robots: { index: false } };
+export const metadata: Metadata = { title: 'پک‌های کاربردی', robots: { index: false } };
 
 const local = (d: Date | null) =>
   d ? new Date(d.getTime() + 3.5 * 3600_000).toISOString().slice(0, 16) : '';
@@ -105,11 +105,11 @@ export default async function AdminPacksPage({
   return (
     <div className={s.page}>
       <Breadcrumb
-        items={[{ label: 'خانه', href: '/' }, { label: 'مدیریت', href: '/admin' }, { label: 'پک‌ها' }]}
+        items={[{ label: 'خانه', href: '/' }, { label: 'مدیریت', href: '/admin' }, { label: 'پک‌های کاربردی' }]}
       />
       <section className={s.card} aria-labelledby="packs-title" style={{ maxWidth: 'none' }}>
         <h1 id="packs-title" className={s.title}>
-          پک‌ها و روتین‌ها
+          مدیریت پک‌های کاربردی و روتین‌ها
         </h1>
         <nav className={a.links} aria-label="بخش‌های مدیریت پک">
           <Link href="/admin/discounts">تخفیف‌ها</Link>

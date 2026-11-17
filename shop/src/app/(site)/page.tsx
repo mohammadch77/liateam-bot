@@ -8,7 +8,6 @@ import { formatToman } from '@/lib/format/money';
 import { logger } from '@/lib/logger';
 import { catalogService } from '@/server/services/catalog.service';
 import { bestsellerService } from '@/server/services/bestseller.service';
-import { packService, type CollectionView } from '@/server/services/pack.service';
 import { Container, Icon } from '@/ui';
 import { CatalogUnavailable } from './_catalog/CatalogListing';
 import { HeroSlider } from './HeroSlider';
@@ -16,7 +15,6 @@ import { Bestsellers, type BestsellerCard } from './Bestsellers';
 import { BrandsRow, type BrandTile } from './BrandsRow';
 import { Magazine } from './Magazine';
 import { OffersRail } from './OffersRail';
-import { SkinRoutine, type RoutinePack } from './SkinRoutine';
 import s from './home.module.css';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -39,11 +37,6 @@ export default async function HomePage() {
     );
   }
   const hero = data.featuredHero;
-  // «پک‌های کاربردی»: one section per running collection, in the panel's order; never fails the home page
-  const routines: CollectionView[] = await packService.homeCollections().catch((e) => {
-    logger.warn('home.routine_unavailable', { err: e });
-    return [];
-  });
   // «برندها» and the first «پرفروش‌ترین‌ها» tab; neither fails the home page
   const brands: BrandTile[] = (await catalogService.brands().catch(() => [])).map((b) => ({
     code: b.code,
@@ -71,37 +64,6 @@ export default async function HomePage() {
     priceToman: p.priceToman,
     oldPriceToman: p.oldPriceToman ?? null,
     stock: p.stock,
-  }));
-  const routineSections = routines.map((c) => ({
-    slug: c.slug,
-    title: c.title,
-    subtitle: c.subtitle,
-    variantLabel: c.variantLabel,
-    packs: c.packs.map((p): RoutinePack => ({
-      collection: c.slug,
-      key: p.key,
-      variantTitle: p.variantTitle,
-      title: p.title,
-      href: p.href,
-      total: p.total,
-      final: p.final,
-      saving: p.saving,
-      available: p.available,
-      steps: p.steps.map((st) => ({
-        label: st.label,
-        status: st.status,
-        price: st.price,
-        product: st.product
-          ? {
-              id: st.product.id,
-              name: st.product.name,
-              href: st.product.href,
-              brand: st.product.brandName,
-              imageUrl: st.product.imageUrl ?? null,
-            }
-          : null,
-      })),
-    })),
   }));
 
   return (
@@ -198,15 +160,37 @@ export default async function HomePage() {
 
         <Bestsellers tabs={bestsellerTabs} initial={bestsellersFirst} />
 
-        {routineSections.map((c) => (
-          <SkinRoutine
-            key={c.slug}
-            title={c.title}
-            subtitle={c.subtitle}
-            variantLabel={c.variantLabel}
-            packs={c.packs}
-          />
-        ))}
+        <section className={s.packsBanner} aria-labelledby="packs-band-title" data-home-section="packs">
+          <div className={s.packsBannerContent}>
+            <div className={s.packsBannerText}>
+              <span className={s.kicker}>
+                <span className={s.kickerDot} aria-hidden="true" />
+                پک‌های کاربردی و روتین‌ها
+              </span>
+              <h2 id="packs-band-title" className={s.packsBannerTitle}>
+                مراقبت حرفه‌ای، <span className={s.heroAccent}>خرید اقتصادی</span> با پک‌های کاربردی
+              </h2>
+              <p className={s.packsBannerLead}>
+                محصولات مکمل پوست و مو را در قالب پک‌های هماهنگ با تخفیف ویژه پکیج تهیه کنید؛ روتین‌های روزانه، ضدجوش، ضدلک و تقویت مو با ضمانت اصالت.
+              </p>
+              <div className={s.packsBannerPills}>
+                <span>
+                  <Icon name="bolt" size={16} /> تخفیف ویژه پکیج
+                </span>
+                <span>
+                  <Icon name="verified" size={16} /> ترکیبات هماهنگ و موثر
+                </span>
+                <span>
+                  <Icon name="local_shipping" size={16} /> ارسال سریع به سراسر ایران
+                </span>
+              </div>
+              <Link href="/shop/packs" className={s.ctaPrimary}>
+                مشاهده همه پک‌های کاربردی
+                <Icon name="arrow_back" size={20} />
+              </Link>
+            </div>
+          </div>
+        </section>
 
         <Magazine />
 

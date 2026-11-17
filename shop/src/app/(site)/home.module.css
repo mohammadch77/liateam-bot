@@ -465,3 +465,78 @@
   font-weight: 700;
   color: var(--color-ink);
 }
+
+/* ── «پک‌های کاربردی» promotional banner: replaces the old routine rail on homepage ── */
+.packsBanner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  margin-top: 28px;
+  padding: 24px 20px;
+  border-radius: var(--radius-panel);
+  background: radial-gradient(75% 100% at 85% 30%, #fef3e9 0%, #fae8dc 45%, #fcf5f0 100%);
+  border: 1px solid #fae1d2;
+}
+@media (min-width: 1024px) {
+  .packsBanner {
+    margin-top: 44px;
+    padding: 40px 56px;
+    border-radius: var(--radius-xl);
+  }
+}
+.packsBannerContent {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.packsBannerText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+.packsBannerTitle {
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1.55;
+  color: var(--color-ink);
+  text-wrap: balance;
+  margin: 0;
+}
+@media (min-width: 768px) {
+  .packsBannerTitle {
+    font-size: 28px;
+  }
+}
+.packsBannerLead {
+  font-size: 13.5px;
+  line-height: 1.9;
+  color: var(--color-ink-2);
+  max-width: 720px;
+  margin: 0;
+}
+@media (min-width: 1024px) {
+  .packsBannerLead {
+    font-size: 15.5px;
+  }
+}
+.packsBannerPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+  margin-bottom: 6px;
+}
+.packsBannerPills span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(201, 147, 122, 0.3);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-ink);
+}

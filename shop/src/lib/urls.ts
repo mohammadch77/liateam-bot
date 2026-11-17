@@ -44,6 +44,7 @@ export const shopPath = () => SHOP;
 export const categoriesPath = () => '/shop/categories';
 export const brandsPath = () => '/shop/brands';
 export const offersPath = () => '/shop/offers';
+export const packsPath = () => '/shop/packs';
 export const searchPath = () => '/shop/search';
 export const brandPath = (slug: string) => `${BRAND_BASE}/${slug}`;
 export const packPath = (collection: string, key: string) => `/shop/packs/${collection}/${key}`;

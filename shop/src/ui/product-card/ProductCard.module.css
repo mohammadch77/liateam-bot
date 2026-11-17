@@ -49,6 +49,11 @@
   );
   overflow: hidden;
 }
+.stage::before {
+  content: '';
+  display: block;
+  padding-top: 100%;
+}
 .pedestal {
   position: absolute;
   left: 50%;

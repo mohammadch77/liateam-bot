@@ -5,8 +5,14 @@
 .root {
   position: relative;
   min-width: 0;
-  --carousel-gap: 12px;
-  --carousel-item: calc((100% - 2 * var(--carousel-gap)) / 2.3); /* ≈ 2.3 cards: the third peeks out */
+  --carousel-gap: 10px;
+  --carousel-item: clamp(150px, calc((100% - var(--carousel-gap) - 24px) / 2), 170px);
+}
+@media (min-width: 520px) {
+  .root {
+    --carousel-gap: 12px;
+    --carousel-item: calc((100% - 2 * var(--carousel-gap)) / 2.3); /* ≈ 2.3 cards: the third peeks out */
+  }
 }
 @media (min-width: 768px) {
   .root {
