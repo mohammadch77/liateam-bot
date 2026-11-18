@@ -21,6 +21,7 @@ import { shippingRepository } from '@/server/repositories/shipping.repository';
 import { withTransaction } from '@/server/repositories/transaction';
 import { cartService } from './cart.service';
 import { orderSettingsService } from './order-settings.service';
+import { packService } from './pack.service';
 
 /**
  * Checkout, up to «pending_payment». Order of events: the customer picks an address → startReview puts a live
@@ -130,6 +131,75 @@ const toLineView = (l: PricedLine, v: ReviewVerdict['lines'][number]): CheckoutL
   limited: v.limited,
 });
 
+async function expandCartItemsForReview(
+  items: readonly PricedLine[],
+): Promise<Array<{ productId: number; quantity: number }>> {
+  const result: Array<{ productId: number; quantity: number }> = [];
+  for (const item of items) {
+    if (item.productId < 0) {
+      const packId = Math.abs(item.productId);
+      const pack = (await packService.packViewsByIds([packId])).get(packId);
+      if (pack) {
+        for (const step of pack.pack.steps) {
+          if (step.product) {
+            result.push({ productId: step.product.id, quantity: item.quantity });
+          }
+        }
+      }
+    } else {
+      result.push({ productId: item.productId, quantity: item.quantity });
+    }
+  }
+  return result;
+}
+
+async function prepareReviewForCart(
+  items: readonly PricedLine[],
+  review: ReviewResult,
+): Promise<ReviewResult> {
+  const hasPacks = items.some((i) => i.productId < 0);
+  if (!hasPacks) return review;
+
+  const packItems: ReviewResult['items'] = [];
+  const reviewById = new Map(review.items.map((i) => [i.product_id, i]));
+  const usedProductIds = new Set<number>();
+
+  for (const item of items) {
+    if (item.productId < 0) {
+      const packId = Math.abs(item.productId);
+      const pack = (await packService.packViewsByIds([packId])).get(packId);
+      if (pack) {
+        let allOk = true;
+        for (const step of pack.pack.steps) {
+          if (!step.product) continue;
+          usedProductIds.add(step.product.id);
+          const revItem = reviewById.get(step.product.id);
+          if (!revItem || revItem.status !== 'ok' || revItem.quantity < item.quantity) {
+            allOk = false;
+          }
+        }
+        packItems.push({
+          product_id: item.productId,
+          name: 'name' in item && typeof item.name === 'string' ? item.name : null,
+          requested: item.quantity,
+          quantity: item.quantity,
+          status: allOk ? 'ok' : 'unavailable',
+          unit_price: item.unitListPrice,
+          line_total: item.unitListPrice * item.quantity,
+          price_changed: null,
+          limited: false,
+        });
+      }
+    }
+  }
+
+  const normalItems = review.items.filter((i) => !usedProductIds.has(i.product_id));
+  return {
+    ...review,
+    items: [...normalItems, ...packItems],
+  };
+}
+
 export const checkoutService = {
   /** Starts the live check of the cart for an address; returns the id to poll. */
   async startReview(addressId: string): Promise<{ jobId: number }> {
@@ -143,9 +213,10 @@ export const checkoutService = {
       throw new AppError('INVALID_DATA', { message: 'آدرس معتبر انتخاب کنید.' });
     }
     try {
+      const itemsToReview = await expandCartItemsForReview(view.items);
       const jobId = await botOrderRepository.enqueueReview(
         address.city_id,
-        view.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+        itemsToReview,
         cart.review_id,
       );
       await cartRepository.setReview(cart.id, jobId);
@@ -166,10 +237,11 @@ export const checkoutService = {
       logger.warn('checkout.review_failed', { job: jobId });
       return { state: 'failed', message: 'اتصال به سامانه‌ی تأمین‌کننده برقرار نشد. دوباره تلاش کنید.' };
     }
-    const review = r.result as ReviewResult;
+    const rawReview = r.result as ReviewResult;
     // the bot stored a new Liateam price: the shop's prices are computed again BEFORE the cart is read below
-    if (review.items.some((i) => i.price_changed)) dataChanged();
+    if (rawReview.items.some((i) => i.price_changed)) dataChanged();
     const view = await cartService.view();
+    const review = await prepareReviewForCart(view.items, rawReview);
     const verdict = assessReview(view.items, review);
     const anyPriceChanged = verdict.lines.some((l) => l.priceChanged);
 
@@ -219,11 +291,17 @@ export const checkoutService = {
     const r = await checkOf(cart, jobId);
     if (!r.done || !r.ok || !r.result || 'error' in (r.result as object)) throw new AppError('INVALID_DATA');
     const view = await cartService.view();
-    const verdict = assessReview(view.items, r.result as ReviewResult);
+    const review = await prepareReviewForCart(view.items, r.result as ReviewResult);
+    const verdict = assessReview(view.items, review);
     await withTransaction(async (db) => {
-      for (const id of verdict.unavailable) await cartRepository.setQuantity(cart.id, id, 0, db);
-      for (const a of verdict.adjusted)
-        await cartRepository.setQuantity(cart.id, a.productId, a.quantity, db);
+      for (const id of verdict.unavailable) {
+        if (id < 0) await cartRepository.setPackQuantity(cart.id, Math.abs(id), 0, db);
+        else await cartRepository.setQuantity(cart.id, id, 0, db);
+      }
+      for (const a of verdict.adjusted) {
+        if (a.productId < 0) await cartRepository.setPackQuantity(cart.id, Math.abs(a.productId), a.quantity, db);
+        else await cartRepository.setQuantity(cart.id, a.productId, a.quantity, db);
+      }
       await cartRepository.setReview(cart.id, null, db);
     });
   },
@@ -238,17 +316,18 @@ export const checkoutService = {
     const cart = await ownCart(user.id);
     const r = await checkOf(cart, jobId);
     if (!r.done || !r.ok || !r.result || 'error' in (r.result as object)) throw supplierUnavailable();
-    const review = r.result as ReviewResult;
+    const rawReview = r.result as ReviewResult;
     const address: AddressRow | null = await addressRepository.find(user.id, addressId);
     if (!address || address.city_id === null || address.province_id === null || !address.plate) {
       throw new AppError('INVALID_DATA', { message: 'آدرس معتبر انتخاب کنید.' });
     }
-    if (review.city_id !== address.city_id) {
+    if (rawReview.city_id !== address.city_id) {
       throw new AppError('INVALID_DATA', {
         message: 'شهر آدرس با شهر بررسی‌شده یکی نیست. دوباره بررسی کنید.',
       });
     }
     const view = await cartService.view();
+    const review = await prepareReviewForCart(view.items, rawReview);
     const settings = await orderSettingsService.get();
     const made = buildOrderDraft(view.items, review, settings.freeShipping);
     if (!made.ok) throw new AppError('INVALID_DATA', { message: REASONS[made.reason] });

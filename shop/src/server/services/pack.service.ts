@@ -382,6 +382,31 @@ export const packService = {
     return c && pack ? { collection: c, pack } : null;
   },
 
+  async packById(id: number): Promise<{ collection: CollectionRow; pack: PackView } | null> {
+    const res = await this.packViewsByIds([id]);
+    return res.get(id) ?? null;
+  },
+
+  async packViewsByIds(
+    ids: readonly number[],
+  ): Promise<Map<number, { collection: CollectionRow; pack: PackView }>> {
+    const map = new Map<number, { collection: CollectionRow; pack: PackView }>();
+    if (!ids.length) return map;
+    const allCollections = await packRepository.collections();
+    const colById = new Map(allCollections.map((c) => [c.id, c]));
+    const packRows = await Promise.all(ids.map((id) => packRepository.pack(id)));
+    const validRows = packRows.filter((p): p is PackRow => p !== null);
+    if (!validRows.length) return map;
+    const items = await packRepository.items(validRows.map((p) => p.id));
+    for (const p of validRows) {
+      const col = colById.get(p.collection_id);
+      if (!col) continue;
+      const [pv] = await view(col, [p], items.filter((i) => i.pack_id === p.id));
+      if (pv) map.set(p.id, { collection: col, pack: pv });
+    }
+    return map;
+  },
+
   // ── admin ──
   async adminData() {
     await authorize('admin');

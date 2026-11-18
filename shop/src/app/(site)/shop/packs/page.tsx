@@ -110,34 +110,41 @@ export default async function PacksPage() {
                             </span>
                           )}
                           <div className={s.productTile}>
-                            <div className={s.tileThumb}>
+                            <div className={s.tileStage}>
+                              <span className={s.pedestal} aria-hidden="true" />
                               {st.product?.imageUrl ? (
-                                <Image
-                                  src={st.product.imageUrl}
-                                  alt=""
-                                  fill
-                                  sizes="90px"
-                                  className={s.thumbImg}
-                                />
+                                <div className={s.imageBox}>
+                                  <Image
+                                    src={st.product.imageUrl}
+                                    alt={st.product.name}
+                                    fill
+                                    sizes="(min-width: 1024px) 160px, 130px"
+                                    className={s.thumbImg}
+                                  />
+                                </div>
                               ) : (
-                                <Icon name="spa" size={28} />
+                                <div className={s.noImage}>
+                                  <Icon name="spa" size={28} />
+                                </div>
                               )}
                             </div>
-                            <span className={s.tileStepBadge}>
-                              {toFaDigits(i + 1)}. {st.label}
-                            </span>
-                            {st.product ? (
-                              <>
-                                <h4 className={s.tileName} title={st.product.name}>
-                                  {st.product.name}
-                                </h4>
-                                <span className={s.tilePrice}>
-                                  {formatToman(st.product.priceToman)} تومان
-                                </span>
-                              </>
-                            ) : (
-                              <span className={s.tileSoon}>به‌زودی</span>
-                            )}
+                            <div className={s.tileBody}>
+                              <span className={s.tileStepBadge}>
+                                {toFaDigits(i + 1)}. {st.label}
+                              </span>
+                              {st.product ? (
+                                <>
+                                  <h4 className={s.tileName} title={st.product.name}>
+                                    {st.product.name}
+                                  </h4>
+                                  <span className={s.tilePrice}>
+                                    {formatToman(st.product.priceToman)} تومان
+                                  </span>
+                                </>
+                              ) : (
+                                <span className={s.tileSoon}>به‌زودی</span>
+                              )}
+                            </div>
                           </div>
                         </React.Fragment>
                       ))}

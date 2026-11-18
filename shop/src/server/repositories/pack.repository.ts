@@ -103,6 +103,14 @@ export const packRepository = {
     );
   },
 
+  async collection(id: number): Promise<CollectionRow | null> {
+    return queryOne<CollectionRow>(
+      'pack.collection_by_id',
+      `SELECT ${COLLECTION_COLS} FROM pack_collections WHERE id = $1`,
+      [id],
+    );
+  },
+
   async packs(collectionId?: number): Promise<PackRow[]> {
     return query<PackRow>(
       'pack.packs',

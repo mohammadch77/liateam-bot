@@ -17,6 +17,7 @@ import { rateLimit } from '@/server/http/rate-limit';
 import { cartRepository, type CartRow } from '@/server/repositories/cart.repository';
 import { withTransaction } from '@/server/repositories/transaction';
 import { catalogService } from './catalog.service';
+import { packService } from './pack.service';
 import { getCurrentUser, type CurrentUser } from './session.service';
 
 /**
@@ -78,29 +79,68 @@ async function cartForWrite(o: Owner): Promise<CartRow> {
 }
 
 async function lines(cart: CartRow): Promise<CartLine[]> {
-  const items = await cartRepository.items(cart.id);
-  if (!items.length) return [];
-  const views = await catalogService.productViews(items.map((i) => i.product_id));
+  const [items, packs] = await Promise.all([
+    cartRepository.items(cart.id),
+    cartRepository.packs(cart.id),
+  ]);
+  if (!items.length && !packs.length) return [];
   const out: CartLine[] = [];
-  for (const i of items) {
-    const v = views.get(i.product_id);
-    if (!v || v.stock === 'out' || v.stockCount <= 0) continue; // no longer sold, or none left
-    const unitListPrice = v.oldPriceToman ?? v.priceToman;
-    const quantity = Math.min(i.quantity, maxQuantity(v.stockCount));
-    out.push({
-      productId: v.id,
-      name: v.name,
-      href: v.href,
-      imageUrl: v.imageUrl ?? null,
-      quantity,
-      unitPrice: v.priceToman,
-      unitListPrice,
-      stockCount: v.stockCount,
-      maxQuantity: maxQuantity(v.stockCount),
-      discountPercent: discountPercentOf(v.priceToman, unitListPrice),
-      lineTotal: v.priceToman * quantity,
-    });
+
+  if (items.length) {
+    const views = await catalogService.productViews(items.map((i) => i.product_id));
+    for (const i of items) {
+      const v = views.get(i.product_id);
+      if (!v || v.stock === 'out' || v.stockCount <= 0) continue; // no longer sold, or none left
+      const unitListPrice = v.oldPriceToman ?? v.priceToman;
+      const quantity = Math.min(i.quantity, maxQuantity(v.stockCount));
+      out.push({
+        productId: v.id,
+        name: v.name,
+        href: v.href,
+        imageUrl: v.imageUrl ?? null,
+        quantity,
+        unitPrice: v.priceToman,
+        unitListPrice,
+        stockCount: v.stockCount,
+        maxQuantity: maxQuantity(v.stockCount),
+        discountPercent: discountPercentOf(v.priceToman, unitListPrice),
+        lineTotal: v.priceToman * quantity,
+      });
+    }
   }
+
+  if (packs.length) {
+    const packViews = await packService.packViewsByIds(packs.map((p) => p.pack_id));
+    for (const p of packs) {
+      const entry = packViews.get(p.pack_id);
+      if (!entry) continue;
+      const pack = entry.pack;
+      if (!pack.available || pack.final === null) continue;
+      const minStock = pack.steps.reduce((min, s) => {
+        if (!s.product || s.product.stock === 'out') return 0;
+        return Math.min(min, s.product.stockCount);
+      }, 50);
+      if (minStock <= 0) continue;
+      const maxPacks = Math.min(10, minStock);
+      const quantity = Math.min(p.quantity, maxPacks);
+      const unitPrice = pack.final;
+      const unitListPrice = pack.total;
+      out.push({
+        productId: -pack.id,
+        name: `پک ${pack.title}`,
+        href: pack.href,
+        imageUrl: '/images/packs-banner.png',
+        quantity,
+        unitPrice,
+        unitListPrice,
+        stockCount: minStock,
+        maxQuantity: maxPacks,
+        discountPercent: pack.saving,
+        lineTotal: unitPrice * quantity,
+      });
+    }
+  }
+
   return out;
 }
 
@@ -183,8 +223,76 @@ export const cartService = {
     };
   },
 
-  /** Sets a line's quantity (0 takes it out); never above the stock. */
+  /** Adds quantity units of a pack bundle; held at available stock and 10 */
+  async addPack(packId: number, quantity = 1): Promise<CartChange> {
+    const o = await owner();
+    rateLimit(limitKey(o), 120, 60_000);
+    if (!Number.isInteger(packId) || packId <= 0) throw new AppError('INVALID_DATA');
+    const q = Math.trunc(quantity);
+    if (!Number.isInteger(q) || q < 1 || q > 50) throw new AppError('INVALID_DATA');
+    const entry = (await packService.packViewsByIds([packId])).get(packId);
+    if (!entry || !entry.pack.available || entry.pack.final === null) {
+      throw new AppError('INVALID_REFERENCE', { message: 'این پک فعلاً در دسترس نیست.' });
+    }
+    const minStock = entry.pack.steps.reduce((min, s) => {
+      if (!s.product || s.product.stock === 'out') return 0;
+      return Math.min(min, s.product.stockCount);
+    }, 50);
+    if (minStock <= 0) {
+      throw new AppError('INVALID_DATA', { message: 'یکی از اقلام این پک ناموجود است.' });
+    }
+    const maxPacks = Math.min(10, minStock);
+    const cart = await cartForWrite(o);
+    const currentPacks = await cartRepository.packs(cart.id);
+    const have = currentPacks.find((p) => p.pack_id === packId)?.quantity ?? 0;
+    const next = Math.min(have + q, maxPacks);
+    if (next === have) {
+      throw new AppError('INVALID_DATA', { message: 'به سقف موجودی این پک رسیده‌اید.' });
+    }
+    await cartRepository.setPackQuantity(cart.id, packId, next);
+    return {
+      units: await cartRepository.units(cart.id),
+      quantity: next,
+      capped: have + q > next,
+      snapshot: await freshSnapshot(cart),
+    };
+  },
+
+  /** Sets a pack bundle's quantity (0 takes it out); never above available stock */
+  async setPackQuantity(packId: number, quantity: number): Promise<CartChange> {
+    const o = await owner();
+    rateLimit(limitKey(o), 120, 60_000);
+    if (!Number.isInteger(packId) || packId <= 0 || !Number.isInteger(quantity) || quantity < 0) {
+      throw new AppError('INVALID_DATA');
+    }
+    const cart = await existingCart(o);
+    if (!cart) throw new AppError('NOT_FOUND');
+    let next = 0;
+    if (quantity > 0) {
+      const entry = (await packService.packViewsByIds([packId])).get(packId);
+      if (entry && entry.pack.available && entry.pack.final !== null) {
+        const minStock = entry.pack.steps.reduce((min, s) => {
+          if (!s.product || s.product.stock === 'out') return 0;
+          return Math.min(min, s.product.stockCount);
+        }, 50);
+        const maxPacks = Math.min(10, minStock);
+        next = Math.min(quantity, maxPacks);
+      }
+    }
+    await cartRepository.setPackQuantity(cart.id, packId, next);
+    return {
+      units: await cartRepository.units(cart.id),
+      quantity: next,
+      capped: quantity > next && next > 0,
+      snapshot: await freshSnapshot(cart),
+    };
+  },
+
+  /** Sets a line's quantity (0 takes it out); never above the stock. Negative productId routes to packs. */
   async setQuantity(productId: number, quantity: number): Promise<CartChange> {
+    if (productId < 0) {
+      return this.setPackQuantity(Math.abs(productId), quantity);
+    }
     const o = await owner();
     rateLimit(limitKey(o), 120, 60_000);
     if (!Number.isInteger(productId) || productId <= 0 || !Number.isInteger(quantity) || quantity < 0) {
@@ -242,12 +350,18 @@ export const cartService = {
     const guest = await cartRepository.findOpenForGuest(hashCartToken(token));
     await clearCartToken();
     if (!guest) return 0;
-    const guestItems = await cartRepository.items(guest.id);
-    if (!guestItems.length) {
+    const [guestItems, guestPacks] = await Promise.all([
+      cartRepository.items(guest.id),
+      cartRepository.packs(guest.id),
+    ]);
+    if (!guestItems.length && !guestPacks.length) {
       return 0;
     }
     const userCart = await cartRepository.openForUser(userId);
-    const userItems = await cartRepository.items(userCart.id);
+    const [userItems, userPacks] = await Promise.all([
+      cartRepository.items(userCart.id),
+      cartRepository.packs(userCart.id),
+    ]);
     const views = await catalogService.productViews([...userItems, ...guestItems].map((i) => i.product_id));
     const merged = mergeCartItems(
       userItems.map((i) => ({ productId: i.product_id, quantity: i.quantity })),
@@ -256,9 +370,14 @@ export const cartService = {
     );
     await withTransaction(async (db) => {
       for (const m of merged) await cartRepository.setQuantity(userCart.id, m.productId, m.quantity, db);
+      for (const gp of guestPacks) {
+        const up = userPacks.find((p) => p.pack_id === gp.pack_id);
+        const next = Math.min(10, (up?.quantity ?? 0) + gp.quantity);
+        await cartRepository.setPackQuantity(userCart.id, gp.pack_id, next, db);
+      }
       await cartRepository.closeMerged(guest.id, userCart.id, db);
     });
-    logger.info('cart.merged', { lines: merged.length });
-    return merged.length;
+    logger.info('cart.merged', { lines: merged.length, packs: guestPacks.length });
+    return merged.length + guestPacks.length;
   },
 };

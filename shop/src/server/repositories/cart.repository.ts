@@ -13,6 +13,7 @@ export type CartRow = {
   review_id: number | null;
 };
 export type CartItemRow = { product_id: number; quantity: number };
+export type CartPackRow = { pack_id: number; quantity: number };
 
 const COLS = 'id::text, user_id::text, status, review_id';
 export const MAX_QUANTITY = 50;
@@ -69,6 +70,16 @@ export const cartRepository = {
     );
   },
 
+  /** Packs still in the cart (quantity > 0), oldest first. */
+  async packs(cartId: string, db?: Queryable): Promise<CartPackRow[]> {
+    return query<CartPackRow>(
+      'cart.packs',
+      'SELECT pack_id::int, quantity FROM cart_packs WHERE cart_id = $1 AND quantity > 0 ORDER BY added_at, pack_id',
+      [cartId],
+      db,
+    );
+  },
+
   /** Sets the quantity (0 takes the item out; above the limit is held at the limit). */
   async setQuantity(cartId: string, productId: number, quantity: number, db?: Queryable): Promise<void> {
     const q = Math.max(0, Math.min(MAX_QUANTITY, Math.trunc(quantity)));
@@ -77,6 +88,19 @@ export const cartRepository = {
       `INSERT INTO cart_items (cart_id, product_id, quantity) VALUES ($1, $2, $3)
        ON CONFLICT (cart_id, product_id) DO UPDATE SET quantity = EXCLUDED.quantity`,
       [cartId, productId, q],
+      db,
+    );
+    await query('cart.touch', 'UPDATE carts SET updated_at = now() WHERE id = $1', [cartId], db);
+  },
+
+  /** Sets a pack's quantity (0 takes the pack out; above the limit is held at the limit). */
+  async setPackQuantity(cartId: string, packId: number, quantity: number, db?: Queryable): Promise<void> {
+    const q = Math.max(0, Math.min(MAX_QUANTITY, Math.trunc(quantity)));
+    await query(
+      'cart.set_pack_quantity',
+      `INSERT INTO cart_packs (cart_id, pack_id, quantity) VALUES ($1, $2, $3)
+       ON CONFLICT (cart_id, pack_id) DO UPDATE SET quantity = EXCLUDED.quantity`,
+      [cartId, packId, q],
       db,
     );
     await query('cart.touch', 'UPDATE carts SET updated_at = now() WHERE id = $1', [cartId], db);
@@ -96,9 +120,10 @@ export const cartRepository = {
   async units(cartId: string, db?: Queryable): Promise<number> {
     const row = await queryOne<{ n: number }>(
       'cart.units',
-      `SELECT coalesce(sum(i.quantity), 0)::int AS n
-         FROM cart_items i JOIN public.product_catalog p ON p.id = i.product_id
-        WHERE i.cart_id = $1 AND i.quantity > 0 AND p.is_sellable AND p.price > 0 AND p.missing_since IS NULL AND p.stock > 0`,
+      `SELECT (
+        coalesce((SELECT sum(i.quantity) FROM cart_items i JOIN public.product_catalog p ON p.id = i.product_id WHERE i.cart_id = $1 AND i.quantity > 0 AND p.is_sellable AND p.price > 0 AND p.missing_since IS NULL AND p.stock > 0), 0) +
+        coalesce((SELECT sum(quantity) FROM cart_packs WHERE cart_id = $1 AND quantity > 0), 0)
+      )::int AS n`,
       [cartId],
       db,
     );
@@ -109,8 +134,12 @@ export const cartRepository = {
   async rev(cartId: string, db?: Queryable): Promise<number> {
     const row = await queryOne<{ rev: number }>(
       'cart.rev',
-      `SELECT floor(extract(epoch FROM greatest(c.updated_at, coalesce(max(i.updated_at), c.updated_at))) * 1000)::float8 AS rev
-         FROM carts c LEFT JOIN cart_items i ON i.cart_id = c.id WHERE c.id = $1 GROUP BY c.id`,
+      `SELECT floor(extract(epoch FROM greatest(
+         c.updated_at,
+         coalesce((SELECT max(updated_at) FROM cart_items WHERE cart_id = c.id), c.updated_at),
+         coalesce((SELECT max(updated_at) FROM cart_packs WHERE cart_id = c.id), c.updated_at)
+       )) * 1000)::float8 AS rev
+       FROM carts c WHERE c.id = $1`,
       [cartId],
       db,
     );
