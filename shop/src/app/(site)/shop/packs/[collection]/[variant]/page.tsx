@@ -111,6 +111,37 @@ export default async function PackPage({ params }: Props) {
           />
         </aside>
       </div>
+
+      {/* Mobile: sticky buy bar fixed above bottom nav */}
+      <div className={s.stickyBuy} aria-hidden="true">
+        <div className={s.stickyPriceBox}>
+          {p.available && p.final !== null ? (
+            <>
+              {p.final < p.total && (
+                <div className={s.stickyTopRow}>
+                  <del className={`${s.stickyOld} tnum`}>{formatToman(p.total)} تومان</del>
+                  {p.saving > 0 && (
+                    <span className={s.stickyBadge}>{toFaDigits(p.saving)}٪ صرفه‌جویی</span>
+                  )}
+                </div>
+              )}
+              <div className={s.stickyMainPrice}>
+                <b className={`${s.stickyAmount} tnum`}>{formatToman(p.final)}</b>
+                <span className={s.stickyUnit}>تومان</span>
+              </div>
+            </>
+          ) : (
+            <span className={s.stickyOutText}>ناموجود</span>
+          )}
+        </div>
+        <AddPackButton
+          collection={collection}
+          variant={variant}
+          className={s.stickyButton}
+          disabled={!p.available}
+          dataAttr="data-pack-add-sticky"
+        />
+      </div>
     </Container>
   );
 }
