@@ -14,7 +14,13 @@ export type UserRow = {
   last_login_at: Date | null;
 };
 
+export type UserAuthRow = UserRow & {
+  password_hash: string | null;
+  password_updated_at: Date | null;
+};
+
 const USER_COLS = 'id::text, phone, full_name, status, created_at, last_login_at';
+const USER_AUTH_COLS = `${USER_COLS}, password_hash, password_updated_at`;
 
 export const userRepository = {
   async findLiveByPhone(phone: string, db?: Queryable): Promise<UserRow | null> {
@@ -22,6 +28,37 @@ export const userRepository = {
       'user.find_by_phone',
       `SELECT ${USER_COLS} FROM users WHERE phone = $1 AND deleted_at IS NULL`,
       [phone],
+      db,
+    );
+  },
+
+  async findLiveByPhoneWithAuth(phone: string, db?: Queryable): Promise<UserAuthRow | null> {
+    return queryOne<UserAuthRow>(
+      'user.find_by_phone_auth',
+      `SELECT ${USER_AUTH_COLS} FROM users WHERE phone = $1 AND deleted_at IS NULL`,
+      [phone],
+      db,
+    );
+  },
+
+  /** Inserts a new live user with a password hash; returns null if a live account with this phone already exists. */
+  async createWithPassword(db: Queryable, phone: string, passwordHash: string): Promise<UserRow | null> {
+    return queryOne<UserRow>(
+      'user.create_with_password',
+      `INSERT INTO users (phone, password_hash, password_updated_at)
+       VALUES ($1, $2, now())
+       ON CONFLICT (phone) WHERE deleted_at IS NULL DO NOTHING
+       RETURNING ${USER_COLS}`,
+      [phone, passwordHash],
+      db,
+    );
+  },
+
+  async updatePassword(db: Queryable, userId: string, passwordHash: string): Promise<void> {
+    await query(
+      'user.update_password',
+      `UPDATE users SET password_hash = $2, password_updated_at = now() WHERE id = $1`,
+      [userId, passwordHash],
       db,
     );
   },

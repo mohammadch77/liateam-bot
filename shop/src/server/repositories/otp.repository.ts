@@ -1,7 +1,7 @@
 import 'server-only';
 import { query, queryOne, type Queryable } from '@/lib/db';
 
-export type OtpPurpose = 'login' | 'register';
+export type OtpPurpose = 'login' | 'register' | 'reset_password';
 
 export const otpRepository = {
   /**
@@ -64,10 +64,20 @@ export const otpRepository = {
   },
 
   /**
-   * Spends one attempt on the phone's newest code, atomically. Returns the code only if it is still usable
-   * (not consumed, not expired, attempts left) — the caller then compares hashes. Older codes never count.
+   * Spends one attempt on the phone's newest code (optionally scoped by purpose), atomically. Returns the code only if
+   * it is still usable (not consumed, not expired, attempts left) — the caller then compares hashes. Older codes never count.
    */
-  async spendAttempt(phone: string, maxAttempts: number) {
+  async spendAttempt(phone: string, maxAttempts: number, purpose?: OtpPurpose) {
+    if (purpose) {
+      return queryOne<{ id: string; code_hash: string; purpose: OtpPurpose }>(
+        'otp.spend_attempt',
+        `UPDATE otp_codes SET attempts = attempts + 1
+          WHERE id = (SELECT id FROM otp_codes WHERE phone = $1 AND purpose = $3 ORDER BY created_at DESC, id DESC LIMIT 1)
+            AND consumed_at IS NULL AND expires_at > now() AND attempts < $2
+          RETURNING id::text, code_hash, purpose`,
+        [phone, maxAttempts, purpose],
+      );
+    }
     return queryOne<{ id: string; code_hash: string; purpose: OtpPurpose }>(
       'otp.spend_attempt',
       `UPDATE otp_codes SET attempts = attempts + 1
@@ -79,13 +89,33 @@ export const otpRepository = {
   },
 
   /** Single use: true only for the first caller (a replayed code loses the race). */
-  async consume(db: Queryable, id: string): Promise<boolean> {
-    const row = await queryOne(
+  async consume(db: Queryable, id: string): Promise<Date | null> {
+    const row = await queryOne<{ consumed_at: Date }>(
       'otp.consume',
-      `UPDATE otp_codes SET consumed_at = now() WHERE id = $1 AND consumed_at IS NULL RETURNING id`,
+      `UPDATE otp_codes SET consumed_at = now() WHERE id = $1 AND consumed_at IS NULL RETURNING consumed_at`,
       [id],
       db,
     );
-    return row !== null;
+    return row?.consumed_at ?? null;
+  },
+
+  /** Checks that an OTP row was consumed recently for the given phone and purpose. */
+  async findConsumed(
+    db: Queryable,
+    id: string,
+    phone: string,
+    purpose: OtpPurpose,
+    maxAgeSeconds: number,
+  ): Promise<{ id: string; consumed_at: Date } | null> {
+    return queryOne<{ id: string; consumed_at: Date }>(
+      'otp.find_consumed',
+      `SELECT id::text, consumed_at
+         FROM otp_codes
+        WHERE id = $1 AND phone = $2 AND purpose = $3
+          AND consumed_at IS NOT NULL
+          AND consumed_at > now() - make_interval(secs => $4)`,
+      [id, phone, purpose, maxAgeSeconds],
+      db,
+    );
   },
 };

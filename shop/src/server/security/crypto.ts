@@ -1,6 +1,18 @@
 import 'server-only';
-import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomInt, scrypt, timingSafeEqual } from 'node:crypto';
 import { getConfig } from '@/lib/config';
+
+const SCRYPT_KEYLEN = 64;
+const SCRYPT_OPTIONS = { N: 16384, r: 8, p: 1 } as const;
+
+function deriveScrypt(password: string, salt: Buffer): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    scrypt(password, salt, SCRYPT_KEYLEN, SCRYPT_OPTIONS, (err, derivedKey) => {
+      if (err) reject(err);
+      else resolve(derivedKey);
+    });
+  });
+}
 
 /** Uniform random numeric code, e.g. '048213' (randomInt is CSPRNG-backed and unbiased). */
 export function generateOtp(length: number): string {
@@ -52,4 +64,72 @@ export function readPersonToken(affiliateId: string, token: string): string | nu
   const a = Buffer.from(want);
   const b = Buffer.from(m[2]!);
   return a.length === b.length && timingSafeEqual(a, b) ? id : null;
+}
+
+/** Hashes a user password with scrypt + 16-byte random salt. Format: `scrypt$<saltHex>$<keyHex>`. */
+export async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16);
+  const key = await deriveScrypt(password, salt);
+  return `scrypt$${salt.toString('hex')}$${key.toString('hex')}`;
+}
+
+/** Constant-time password verification against a stored `scrypt$salt$key` hash. */
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const parts = stored.split('$');
+  if (parts.length !== 3 || parts[0] !== 'scrypt') return false;
+  const [, saltHex, keyHex] = parts;
+  if (!saltHex || !keyHex || saltHex.length !== 32 || keyHex.length !== SCRYPT_KEYLEN * 2) return false;
+  const salt = Buffer.from(saltHex, 'hex');
+  const expected = Buffer.from(keyHex, 'hex');
+  const actual = await deriveScrypt(password, salt);
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
+export type AuthProofPurpose = 'register' | 'reset_password';
+export type AuthProofPayload = {
+  phone: string;
+  purpose: AuthProofPurpose;
+  otpId: string;
+  consumedAt: number;
+  exp: number;
+};
+
+/** Short-lived HMAC-signed proof that an OTP was verified for a phone + purpose, before setting a password. */
+export function signAuthProof(payload: AuthProofPayload): string {
+  const body = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  const mac = createHmac('sha256', getConfig().AUTH_SECRET)
+    .update(`auth-proof:${body}`)
+    .digest('base64url');
+  return `${body}.${mac}`;
+}
+
+export function verifyAuthProof(token: string, expectedPurpose: AuthProofPurpose): AuthProofPayload | null {
+  if (!token || typeof token !== 'string') return null;
+  const dot = token.indexOf('.');
+  if (dot <= 0 || dot !== token.lastIndexOf('.')) return null;
+  const body = token.slice(0, dot);
+  const mac = token.slice(dot + 1);
+  if (!body || !mac) return null;
+  const want = createHmac('sha256', getConfig().AUTH_SECRET)
+    .update(`auth-proof:${body}`)
+    .digest('base64url');
+  const a = Buffer.from(want);
+  const b = Buffer.from(mac);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as Partial<AuthProofPayload>;
+    if (
+      typeof parsed.phone !== 'string' ||
+      parsed.purpose !== expectedPurpose ||
+      typeof parsed.otpId !== 'string' ||
+      typeof parsed.consumedAt !== 'number' ||
+      typeof parsed.exp !== 'number' ||
+      Date.now() > parsed.exp
+    ) {
+      return null;
+    }
+    return parsed as AuthProofPayload;
+  } catch {
+    return null;
+  }
 }
