@@ -50,6 +50,7 @@ const ACTION_LABEL: Record<string, string> = {
   'pack.enable': 'فعال‌سازی پک',
   'pack.disable': 'غیرفعال‌سازی پک',
   'pack.seed': 'ساخت پک‌های اولیه',
+  'pack.discount_reset': 'بازنشانی تخفیف پک',
   'bestseller.add': 'افزودن به پرفروش‌ترین‌ها',
   'bestseller.move': 'جابه‌جایی در پرفروش‌ترین‌ها',
   'bestseller.enable': 'روشن کردن انتخاب پرفروش',
@@ -406,7 +407,9 @@ export default async function AdminPage() {
                 </span>
               </span>
               <span className={s.auditMeta}>
-                <span className={s.auditUser}>کاربر #{e.actor_user_id ? toFaDigits(e.actor_user_id) : 'سیستم'}</span>
+                <span className={s.auditUser}>
+                  {e.actor_user_id ? `کاربر #${toFaDigits(e.actor_user_id)}` : 'سیستم'}
+                </span>
                 <span>{timeFa.format(e.created_at)}</span>
               </span>
             </li>
