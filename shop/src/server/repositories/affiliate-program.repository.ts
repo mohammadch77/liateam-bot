@@ -181,8 +181,8 @@ export const affiliateProgramRepository = {
       'affiliate_program.referred_sales_30d',
       `SELECT COALESCE(SUM(o.items_total), 0)::text AS total
          FROM orders o
-         JOIN referrals r ON r.buyer_user_id = o.user_id
-        WHERE r.affiliate_user_id = $1
+         JOIN affiliate_referrals r ON r.buyer_user_id = o.user_id
+        WHERE r.referrer_user_id = $1
           AND o.paid_at IS NOT NULL
           AND o.paid_at >= now() - interval '30 days'
           AND o.status NOT IN ${PAID_STATUS_EXCL}`,
@@ -223,8 +223,8 @@ export const affiliateProgramRepository = {
               ), 0)::text AS personal_30d,
               COALESCE((
                 SELECT SUM(o.items_total) FROM orders o
-                  JOIN referrals r ON r.buyer_user_id = o.user_id
-                 WHERE r.affiliate_user_id = u.id AND o.paid_at IS NOT NULL
+                  JOIN affiliate_referrals r ON r.buyer_user_id = o.user_id
+                 WHERE r.referrer_user_id = u.id AND o.paid_at IS NOT NULL
                    AND o.paid_at >= now() - interval '30 days'
                    AND o.status NOT IN ${PAID_STATUS_EXCL}
               ), 0)::text AS referred_sales_30d
