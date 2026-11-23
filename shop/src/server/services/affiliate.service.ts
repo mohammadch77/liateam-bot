@@ -15,6 +15,7 @@ import { withTransaction } from '@/server/repositories/transaction';
 import { userRepository } from '@/server/repositories/user.repository';
 import type { RequestMeta } from '@/server/http/request';
 import { cleanReviewText } from './review.service';
+import { affiliateProgramService } from './affiliate-program.service';
 import { hasRole, type CurrentUser } from './session.service';
 
 /** «همکاری در فروش» policy. All limits in one place. */
@@ -179,6 +180,12 @@ export const affiliateService = {
     return withTransaction(async (db) => {
       if (await commissionRepository.referrerOf(user.id, db))
         throw new AppError('CONFLICT', { message: APPLICATION_REFUSED_REFERRED });
+      const elig = await affiliateProgramService.eligibilityFor(user.id, db).catch(() => null);
+      if (elig && !elig.met) {
+        throw new AppError('FORBIDDEN', {
+          message: `برای ثبت درخواست همکاری در فروش، ابتدا باید به سقف خرید شخصی ماهانه برسید (${elig.remainingToman.toLocaleString('fa-IR')} تومان باقی‌مانده).`,
+        });
+      }
       const latest = await affiliateRepository.latestFor(user.id, db);
       if (latest?.status === 'pending') {
         throw new AppError('CONFLICT', { message: 'درخواست قبلی شما در حال بررسی است.' });

@@ -1,0 +1,275 @@
+/* Affiliate Progress Bars (Eligibility Gate, Monthly Maintenance & Progressive Sales Tiers) */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 18px;
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--color-line);
+  background: var(--color-white);
+  box-shadow: var(--shadow-sm);
+  min-width: 0;
+}
+@media (min-width: 768px) {
+  .card {
+    padding: 24px 26px;
+  }
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.titleWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.iconBadge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--color-blush);
+  color: var(--color-primary);
+}
+.title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--color-ink);
+  line-height: 1.45;
+}
+.sub {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--color-muted);
+}
+
+.pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  font-feature-settings: 'tnum';
+}
+.pillSuccess {
+  background: #eaf7ef;
+  color: #156d3d;
+}
+.pillWarn {
+  background: #fef5e7;
+  color: #9a5b13;
+}
+.pillBrand {
+  background: var(--color-blush);
+  color: var(--color-primary);
+}
+.pillNeutral {
+  background: var(--color-surface);
+  color: var(--color-ink-2);
+  border: 1px solid var(--color-line);
+}
+
+/* ── Linear Progress Bar ── */
+.barMeta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  font-feature-settings: 'tnum';
+}
+.barAmount {
+  font-weight: 800;
+  color: var(--color-ink);
+  font-size: 15px;
+}
+.barTarget {
+  color: var(--color-muted);
+  font-weight: 600;
+}
+.barPercent {
+  font-weight: 800;
+  color: var(--color-primary);
+}
+
+.track {
+  position: relative;
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  overflow: hidden;
+}
+.fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-accent) 100%);
+  transition: width 360ms var(--motion-ease);
+}
+.fillDone {
+  background: linear-gradient(90deg, #15803d 0%, #22c55e 100%);
+}
+
+.footRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+.hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--color-ink-2);
+  font-feature-settings: 'tnum';
+}
+.hint b {
+  color: var(--color-primary);
+}
+
+/* ── Progressive Sales Tier Stepper ── */
+.tierSummary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+@media (min-width: 640px) {
+  .tierSummary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.tierStat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
+}
+.tierStat span {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+.tierStat b {
+  font-size: 15.5px;
+  font-weight: 800;
+  color: var(--color-ink);
+  font-feature-settings: 'tnum';
+}
+.tierStatHighlight b {
+  color: var(--color-primary);
+  font-size: 18px;
+}
+
+.stepsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 768px) {
+  .stepsGrid {
+    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  }
+}
+
+.stepCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
+  transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+.stepDone {
+  background: #fdf7f9;
+  border-color: #e9c5d1;
+}
+.stepCurrent {
+  background: linear-gradient(155deg, #fff5f8 0%, var(--color-white) 100%);
+  border: 1.5px solid var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.stepTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.stepBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-white);
+  border: 1px solid var(--color-line-strong);
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 800;
+  font-feature-settings: 'tnum';
+}
+.stepDone .stepBadge,
+.stepCurrent .stepBadge {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+.stepPct {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-white);
+  border: 1px solid var(--color-line);
+  color: var(--color-primary);
+  font-size: 12.5px;
+  font-weight: 800;
+  font-feature-settings: 'tnum';
+}
+.stepCurrent .stepPct {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+.stepTitle {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--color-ink);
+}
+.stepMin {
+  font-size: 11.5px;
+  color: var(--color-muted);
+  font-feature-settings: 'tnum';
+}

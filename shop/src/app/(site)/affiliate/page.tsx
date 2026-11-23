@@ -3,6 +3,7 @@ import { getConfig } from '@/lib/config';
 import { Breadcrumb, Container } from '@/ui';
 import { getCurrentUser } from '@/server/services/session.service';
 import { affiliateService } from '@/server/services/affiliate.service';
+import { affiliateProgramService } from '@/server/services/affiliate-program.service';
 import { AffiliateApply, AffiliateIntro } from './AffiliateSections';
 import s from './affiliate.module.css';
 
@@ -25,6 +26,10 @@ export default async function AffiliatePage({ searchParams }: Props) {
   const source = typeof from === 'string' && SOURCES.has(from) ? from : 'direct';
   const user = await getCurrentUser();
   const status = user ? await affiliateService.statusFor(user) : null;
+  const eligibility =
+    user && status && (status.kind === 'none' || (status.kind === 'rejected' && status.canRetry))
+      ? await affiliateProgramService.eligibilityFor(user.id).catch(() => null)
+      : null;
   const here = source === 'direct' ? '/affiliate' : `/affiliate?from=${source}`;
 
   return (
@@ -32,7 +37,7 @@ export default async function AffiliatePage({ searchParams }: Props) {
       <Breadcrumb items={[{ label: 'خانه', href: '/' }, { label: 'همکاری در فروش' }]} />
 
       <AffiliateIntro />
-      <AffiliateApply user={user} status={status} source={source} here={here} />
+      <AffiliateApply user={user} status={status} source={source} here={here} eligibility={eligibility} />
     </Container>
   );
 }

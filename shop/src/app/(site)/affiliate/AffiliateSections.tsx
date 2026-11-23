@@ -1,4 +1,5 @@
 import { APPLICATION_REFUSED_REFERRED } from '@/lib/affiliate/referral';
+import type { PurchaseProgress } from '@/lib/affiliate/tiers';
 import { toFaDigits } from '@/lib/format/number';
 import {
   AFFILIATE_POLICY,
@@ -9,6 +10,7 @@ import {
 } from '@/server/services/affiliate.service';
 import type { CurrentUser } from '@/server/services/session.service';
 import { Alert, Button, Icon, type IconName } from '@/ui';
+import { EligibilityGateCard } from '../account/affiliate/_ui/AffiliateProgressCards';
 import { AffiliateForm } from './AffiliateForm';
 import s from './affiliate.module.css';
 
@@ -85,58 +87,76 @@ export function AffiliateApply({
   status,
   source,
   here,
+  eligibility,
 }: {
   user: CurrentUser | null;
   status: Awaited<ReturnType<typeof affiliateService.statusFor>> | null;
   source: string;
   here: string;
+  eligibility?: PurchaseProgress | null;
 }) {
+  const lockedByPurchase = !!eligibility && !eligibility.met;
   return (
-    <section className={s.card} aria-label="درخواست همکاری">
-      {!user || !status ? (
-        <div className={s.guest}>
-          <h2 className={s.formTitle}>برای ثبت درخواست وارد شوید</h2>
-          <p className={s.muted}>
-            ورود فقط با شماره موبایل و کد تأیید است؛ درخواست به همان شماره ثبت می‌شود.
-          </p>
-          <Button href={`/login?next=${encodeURIComponent(here)}`} icon="person">
-            ورود و ثبت درخواست
-          </Button>
-        </div>
-      ) : status.kind === 'affiliate' || status.kind === 'approved' ? (
-        <div className={s.done}>
-          <Alert tone="success">شما فروشنده‌ی همکار هستید.</Alert>
-          <Button href="/account/affiliate" icon="verified">
-            رفتن به پنل همکاری
-          </Button>
-        </div>
-      ) : status.kind === 'referred' ? (
-        <Alert tone="warning">
-          <span data-affiliate-referred>{APPLICATION_REFUSED_REFERRED}</span>
-        </Alert>
-      ) : status.kind === 'pending' ? (
-        <div role="status" className={s.done}>
-          <Alert tone="success">
-            درخواستت ثبت شد و در حال بررسی است (ثبت‌شده در {dateFa.format(status.application.created_at)}).
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {user &&
+        status &&
+        (status.kind === 'none' || (status.kind === 'rejected' && status.canRetry)) &&
+        eligibility && <EligibilityGateCard eligibility={eligibility} />}
+
+      <section className={s.card} aria-label="درخواست همکاری">
+        {!user || !status ? (
+          <div className={s.guest}>
+            <h2 className={s.formTitle}>برای ثبت درخواست وارد شوید</h2>
+            <p className={s.muted}>
+              ورود با شماره موبایل و رمز عبور یا کد تأیید است؛ درخواست به همان شماره ثبت می‌شود.
+            </p>
+            <Button href={`/login?next=${encodeURIComponent(here)}`} icon="person">
+              ورود و ثبت درخواست
+            </Button>
+          </div>
+        ) : status.kind === 'affiliate' || status.kind === 'approved' ? (
+          <div className={s.done}>
+            <Alert tone="success">شما فروشنده‌ی همکار هستید.</Alert>
+            <Button href="/account/affiliate" icon="verified">
+              رفتن به پنل همکاری
+            </Button>
+          </div>
+        ) : status.kind === 'referred' ? (
+          <Alert tone="warning">
+            <span data-affiliate-referred>{APPLICATION_REFUSED_REFERRED}</span>
           </Alert>
-        </div>
-      ) : status.kind === 'rejected' && !status.canRetry ? (
-        <Alert tone="warning">
-          درخواست قبلی شما تأیید نشد
-          {status.application.reject_reason ? `: ${status.application.reject_reason}` : '.'} از{' '}
-          {dateFa.format(status.retryAt)} می‌توانید دوباره درخواست بدهید.
-        </Alert>
-      ) : (
-        <AffiliateForm
-          fullName={user.fullName ?? ''}
-          phone={toFaDigits(user.phone)}
-          source={source}
-          provinces={PROVINCES}
-          channels={Object.entries(CHANNEL_TYPES).map(([value, label]) => ({ value, label }))}
-          followers={Object.entries(FOLLOWERS).map(([value, label]) => ({ value, label }))}
-          descriptionMax={AFFILIATE_POLICY.descriptionMax}
-        />
-      )}
-    </section>
+        ) : status.kind === 'pending' ? (
+          <div role="status" className={s.done}>
+            <Alert tone="success">
+              درخواستت ثبت شد و در حال بررسی است (ثبت‌شده در {dateFa.format(status.application.created_at)}).
+            </Alert>
+          </div>
+        ) : status.kind === 'rejected' && !status.canRetry ? (
+          <Alert tone="warning">
+            درخواست قبلی شما تأیید نشد
+            {status.application.reject_reason ? `: ${status.application.reject_reason}` : '.'} از{' '}
+            {dateFa.format(status.retryAt)} می‌توانید دوباره درخواست بدهید.
+          </Alert>
+        ) : lockedByPurchase ? (
+          <div className={s.guest} data-affiliate-locked>
+            <h2 className={s.formTitle}>فرم درخواست پس از تکمیل سقف خرید فعال می‌شود</h2>
+            <p className={s.muted}>
+              همان‌طور که در نمودار بالا می‌بینید، پس از رسیدن مجموع خرید شخصی ماهانه شما به سقف تعیین‌شده، فرم
+              درخواست همکاری در فروش به‌صورت خودکار در این بخش باز خواهد شد.
+            </p>
+          </div>
+        ) : (
+          <AffiliateForm
+            fullName={user.fullName ?? ''}
+            phone={toFaDigits(user.phone)}
+            source={source}
+            provinces={PROVINCES}
+            channels={Object.entries(CHANNEL_TYPES).map(([value, label]) => ({ value, label }))}
+            followers={Object.entries(FOLLOWERS).map(([value, label]) => ({ value, label }))}
+            descriptionMax={AFFILIATE_POLICY.descriptionMax}
+          />
+        )}
+      </section>
+    </div>
   );
 }

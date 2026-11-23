@@ -88,3 +88,188 @@
   font: inherit;
   font-size: 13.5px;
 }
+
+/* ── Global & Per-User Affiliate Settings Panel ── */
+.settingsStack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.panelBox {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
+}
+@media (min-width: 768px) {
+  .panelBox {
+    padding: 22px 24px;
+  }
+}
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.panelTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+.scopePill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.scopeGlobal {
+  background: #eaf7ef;
+  color: #156d3d;
+}
+.scopeCustom {
+  background: var(--color-blush);
+  color: var(--color-primary);
+}
+.scopeRole {
+  background: var(--color-white);
+  border: 1px solid var(--color-line);
+  color: var(--color-ink-2);
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+@media (min-width: 640px) {
+  .fieldGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.tiersEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tiersHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tiersLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+.tierRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 0.8fr) auto;
+  gap: 8px;
+  align-items: end;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-line);
+  background: var(--color-white);
+}
+@media (max-width: 640px) {
+  .tierRow {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.miniInputWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.miniInputWrap label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+.miniInput {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 10px;
+  background: var(--color-white);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 13px;
+  font-feature-settings: 'tnum';
+}
+.miniInputLtr {
+  direction: ltr;
+  text-align: right;
+}
+.removeBtn {
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid #f5d0d6;
+  border-radius: 10px;
+  background: #fff6f7;
+  color: #b42318;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.removeBtn:hover {
+  background: #fdecef;
+}
+
+.userCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-line);
+  background: var(--color-white);
+}
+.userTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.userMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.userStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 12.5px;
+  color: var(--color-ink-2);
+  font-feature-settings: 'tnum';
+}
+.checkRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+  cursor: pointer;
+}

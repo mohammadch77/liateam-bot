@@ -4,6 +4,7 @@ import { MAX_LEVEL } from '@/lib/commission/validate';
 import { logger } from '@/lib/logger';
 import { commissionRepository } from '@/server/repositories/commission.repository';
 import { commissionRuleRepository } from '@/server/repositories/commission-rule.repository';
+import { affiliateProgramService } from './affiliate-program.service';
 import type { OrderItemRow, OrderRow } from '@/server/repositories/order.repository';
 import type { Queryable } from '@/server/repositories/transaction';
 
@@ -52,15 +53,31 @@ export const orderCommissionService = {
     for (const it of result.items) {
       if (it.amount <= 0) continue;
       const first = rules.find((r) => String(r.id) === String(it.ruleIds[0]));
+      const prog = await affiliateProgramService.progressForAffiliate(it.affiliateUserId, db).catch(() => null);
+      if (prog && prog.maintenance.requiredToman > 0 && !prog.maintenance.met) {
+        logger.info('commission.skipped_maintenance', {
+          order: order.number,
+          affiliateUserId: it.affiliateUserId,
+          personal: prog.maintenance.currentToman,
+          required: prog.maintenance.requiredToman,
+        });
+        continue;
+      }
+      const tierPct = prog && prog.sales.currentCommissionPercent > 0 ? prog.sales.currentCommissionPercent : null;
+      const finalAmount =
+        tierPct !== null && first?.kind === 'percent'
+          ? Math.floor((it.base * tierPct) / 100)
+          : it.amount;
+      if (finalAmount <= 0) continue;
       const ok = await commissionRepository.create(
         {
           ruleKind: first?.kind ?? null,
-          ruleValue: first?.value ?? null,
+          ruleValue: tierPct !== null && first?.kind === 'percent' ? tierPct : (first?.value ?? null),
           orderId: order.id,
           affiliateUserId: it.affiliateUserId,
           ruleId: String(it.ruleIds[0]),
           baseAmount: it.base,
-          amount: it.amount,
+          amount: finalAmount,
           level: it.level,
           holdDays: it.holdDays,
           manualApproval: it.ruleIds.some((id) => manual.has(Number(id))),

@@ -1,19 +1,22 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
+import { getConfig } from '@/lib/config';
 import { formatToman } from '@/lib/format/money';
 import { toFaDigits } from '@/lib/format/number';
 import { walletPath } from '@/lib/urls';
 import { requireUser } from '@/server/auth/guards';
 import { affiliatePanelService, isAffiliateUser } from '@/server/services/affiliate-panel.service';
+import { affiliateProgramService } from '@/server/services/affiliate-program.service';
 import { affiliateService } from '@/server/services/affiliate.service';
-import { AffiliateApply, AffiliateIntro } from '../../affiliate/AffiliateSections';
 import { Breadcrumb, Button, EmptyState } from '@/ui';
+import { AffiliateApply, AffiliateIntro } from '../../affiliate/AffiliateSections';
 import s from '../account.module.css';
+import { AffiliateMaintenanceCard, AffiliateTiersCard } from './_ui/AffiliateProgressCards';
+import { BusinessCard } from './_ui/BusinessCard';
 import { CopyButton } from './_ui/CopyButton';
 
 export const metadata: Metadata = { title: 'همکاری در فروش', robots: { index: false } };
 
-/** The affiliate's dashboard: the referral code and link, the commission summary, the network size and what can be withdrawn. */
+/** The affiliate's dashboard: eligibility/maintenance/tier progress bars, business card + PDF, referral code & commission summary. */
 export default async function AffiliateDashboard() {
   const user = await requireUser('/account/affiliate');
   const crumbs = [
@@ -22,19 +25,29 @@ export default async function AffiliateDashboard() {
     { label: 'همکاری در فروش' },
   ];
   if (!isAffiliateUser(user)) {
-    // the introduction and, under it, the application / its state: one address for a customer, a pending applicant and an affiliate
-    const status = await affiliateService.statusFor(user);
+    const [status, eligibility] = await Promise.all([
+      affiliateService.statusFor(user),
+      affiliateProgramService.eligibilityFor(user.id).catch(() => null),
+    ]);
     return (
       <>
         <Breadcrumb items={crumbs} />
         <div data-affiliate-join={status.kind}>
           <AffiliateIntro />
         </div>
-        <AffiliateApply user={user} status={status} source="account" here="/account/affiliate" />
+        <AffiliateApply
+          user={user}
+          status={status}
+          source="account"
+          here="/account/affiliate"
+          eligibility={eligibility}
+        />
       </>
     );
   }
   const o = await affiliatePanelService.overview(user).catch(() => null);
+  const brand = getConfig().BRAND_NAME;
+
   return (
     <>
       <Breadcrumb items={crumbs} />
@@ -45,6 +58,15 @@ export default async function AffiliateDashboard() {
         </EmptyState>
       ) : (
         <>
+          {/* ── 1. Monthly Personal Maintenance Quota & Progressive Sales Tier Steps ── */}
+          {o.progress && (
+            <>
+              <AffiliateMaintenanceCard maintenance={o.progress.maintenance} />
+              <AffiliateTiersCard sales={o.progress.sales} />
+            </>
+          )}
+
+          {/* ── 2. Referral Code & Personal Link ── */}
           <section className={`${s.card} ${s.wide}`} aria-label="کد و لینک معرفی" data-affiliate-code>
             <h2 className={s.h2}>کد و لینک معرفی شما</h2>
             <div className={s.row}>
@@ -70,6 +92,8 @@ export default async function AffiliateDashboard() {
               نمی‌کند.
             </p>
           </section>
+
+          {/* ── 3. Commission Summary KPIs ── */}
           <section className={s.stats} aria-label="خلاصه‌ی پورسانت" data-affiliate-summary>
             <div className={s.stat}>
               <span>پورسانت در انتظار</span>
@@ -92,53 +116,26 @@ export default async function AffiliateDashboard() {
               <b data-stat-withdrawable>{formatToman(o.withdrawable)} تومان</b>
             </div>
           </section>
+
+          {/* ── 4. Luxury Affiliate Business Card (QR + 1-Click PDF Download) ── */}
           <section className={`${s.card} ${s.wide}`} aria-labelledby="aff-uses" data-affiliate-uses>
             <h2 id="aff-uses" className={s.h2}>
-              کد معرف کجا به کار می‌آید؟
+              کارت ویزیت دیجیتال و QR کد اختصاصی شما
             </h2>
-            <ol className={s.rows} style={{ paddingInlineStart: 20, gap: 8 }}>
-              <li>
-                <b>لینک:</b> مشتری با کلیک روی لینک ثبت‌نام می‌کند و به شما نسبت داده می‌شود.
-              </li>
-              <li>
-                <b>کد:</b> مشتری جدید می‌تواند کد را هنگام ثبت‌نام یا در تسویه‌ی اولین خرید وارد کند.
-              </li>
-              <li>
-                <b>QR:</b> برای بنر و پوستر در داروخانه و مغازه‌ها.
-              </li>
-            </ol>
-            <div className={s.row} style={{ alignItems: 'center' }}>
-              <Image
-                src="/account/affiliate/qr"
-                alt="QR کد لینک معرفی شما"
-                width={168}
-                height={168}
-                unoptimized
-                data-qr
-              />
-              <div className={s.btnRow}>
-                <Button
-                  href="/account/affiliate/qr?f=svg&download=1"
-                  variant="outline"
-                  prefetch={false}
-                  data-qr-svg
-                >
-                  دانلود QR (SVG)
-                </Button>
-                <Button
-                  href="/account/affiliate/qr?f=png&download=1"
-                  variant="outline"
-                  prefetch={false}
-                  data-qr-png
-                >
-                  دانلود QR (PNG)
-                </Button>
-                <Button href="/account/affiliate/banner" variant="outline" data-qr-banner>
-                  بنر چاپی (A5)
-                </Button>
-              </div>
-            </div>
+            <p className={s.muted}>
+              این کارت ویزیت اختصاصی را به صورت فایل PDF دریافت کنید، چاپ کنید یا در شبکه‌های اجتماعی برای معرفی
+              فروشگاه خود منتشر نمایید.
+            </p>
+            <BusinessCard
+              brandName={brand}
+              sellerName={user.fullName ?? ''}
+              phone={user.phone}
+              code={o.code}
+              link={o.link}
+              tierTitle={o.progress?.sales.currentTier?.title ?? null}
+            />
           </section>
+
           <div className={s.btnRow}>
             <Button href="/account/affiliate/commissions">پورسانت‌ها و گزارش</Button>
             <Button href="/account/affiliate/network" variant="outline">

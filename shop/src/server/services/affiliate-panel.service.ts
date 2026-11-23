@@ -24,6 +24,7 @@ import {
   type NetworkRow,
 } from '@/server/repositories/commission.repository';
 import { withdrawalService } from './withdrawal.service';
+import { affiliateProgramService } from './affiliate-program.service';
 import { walletRepository } from '@/server/repositories/wallet.repository';
 import { settingsRead } from './settings-read.service';
 import type { CurrentUser } from './session.service';
@@ -64,12 +65,13 @@ export const affiliatePanelService = {
   async overview(user: CurrentUser) {
     need(user);
     const code = await affiliateRepository.ensureCode(user.id);
-    const [totals, network, balance, wd, base] = await Promise.all([
+    const [totals, network, balance, wd, base, progress] = await Promise.all([
       commissionRepository.totalsForAffiliate(user.id),
       commissionRepository.networkCount(user.id),
       walletRepository.balance(user.id),
       withdrawalService.overview(user),
       settingsRead.get('site.base_url'),
+      affiliateProgramService.progressForAffiliate(user.id).catch(() => null),
     ]);
     return {
       code,
@@ -78,6 +80,7 @@ export const affiliatePanelService = {
       network,
       balance,
       withdrawable: wd.eligible ? wd.withdrawable : 0,
+      progress,
     };
   },
 

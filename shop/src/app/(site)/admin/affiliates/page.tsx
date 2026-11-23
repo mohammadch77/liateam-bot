@@ -3,19 +3,23 @@ import Link from 'next/link';
 import { toFaDigits } from '@/lib/format/number';
 import type { AffiliateStatus } from '@/server/repositories/affiliate.repository';
 import { requireRole } from '@/server/auth/guards';
+import { affiliateProgramService } from '@/server/services/affiliate-program.service';
 import { CHANNEL_TYPES, FOLLOWERS, affiliateService } from '@/server/services/affiliate.service';
 import { Alert, Breadcrumb, Button, EmptyState } from '@/ui';
 import s from '../../account/account.module.css';
-import a from './admin-affiliates.module.css';
+import { AffiliateSettingsPanel } from './AffiliateSettingsPanel';
 import { decideAffiliateAction } from './actions';
+import a from './admin-affiliates.module.css';
 
-export const metadata: Metadata = { title: 'درخواست‌های همکاری در فروش', robots: { index: false } };
+export const metadata: Metadata = { title: 'همکاری در فروش | مدیریت', robots: { index: false } };
 
 const timeFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'short', timeStyle: 'short' });
-const TABS: Array<{ status: AffiliateStatus; label: string }> = [
+type TabKey = AffiliateStatus | 'settings';
+const TABS: Array<{ status: TabKey; label: string }> = [
   { status: 'pending', label: 'در انتظار' },
   { status: 'approved', label: 'تأییدشده' },
   { status: 'rejected', label: 'ردشده' },
+  { status: 'settings', label: 'سقف خرید و سطوح فروش' },
 ];
 const SOURCE_LABEL: Record<string, string> = {
   home: 'صفحه اصلی',
@@ -24,7 +28,7 @@ const SOURCE_LABEL: Record<string, string> = {
   direct: 'مستقیم',
 };
 
-/** Applications to sell for the shop: approve (→ role «affiliate») or reject. All text is shown as plain text. */
+/** Applications to sell for the shop + Global & Per-User monthly purchase thresholds & progressive sales tiers. */
 export default async function AdminAffiliatesPage({
   searchParams,
 }: {
@@ -32,10 +36,50 @@ export default async function AdminAffiliatesPage({
 }) {
   await requireRole('admin', '/admin/affiliates');
   const sp = await searchParams;
-  const status = TABS.find((t) => t.status === sp.status)?.status ?? 'pending';
-  const [rows, counts, referredAffiliates] = await Promise.all([
-    affiliateService.list(status),
-    affiliateService.counts(),
+  const tab = TABS.find((t) => t.status === sp.status)?.status ?? 'pending';
+
+  const counts = await affiliateService.counts();
+
+  if (tab === 'settings') {
+    const [globalConfig, managedUsers] = await Promise.all([
+      affiliateProgramService.getGlobalConfig(),
+      affiliateProgramService.listManagedUsers(),
+    ]);
+    return (
+      <div className={s.page}>
+        <Breadcrumb
+          items={[
+            { label: 'خانه', href: '/' },
+            { label: 'مدیریت', href: '/admin' },
+            { label: 'همکاری در فروش' },
+          ]}
+        />
+        <section className={s.card} aria-labelledby="aff-title" style={{ maxWidth: 'none' }}>
+          <h1 id="aff-title" className={s.title}>
+            مدیریت همکاری در فروش
+          </h1>
+          <nav aria-label="بخش‌های همکاری در فروش" className={a.tabs}>
+            {TABS.map((t) => (
+              <Link
+                key={t.status}
+                href={`/admin/affiliates?status=${t.status}`}
+                className={a.tab}
+                aria-current={t.status === tab ? 'page' : undefined}
+              >
+                {t.status === 'settings'
+                  ? t.label
+                  : `${t.label} (${toFaDigits(counts[t.status])})`}
+              </Link>
+            ))}
+          </nav>
+          <AffiliateSettingsPanel globalConfig={globalConfig} managedUsers={managedUsers} />
+        </section>
+      </div>
+    );
+  }
+
+  const [rows, referredAffiliates] = await Promise.all([
+    affiliateService.list(tab),
     affiliateService.referredAffiliates(),
   ]);
 
@@ -50,17 +94,19 @@ export default async function AdminAffiliatesPage({
       />
       <section className={s.card} aria-labelledby="aff-title" style={{ maxWidth: 'none' }}>
         <h1 id="aff-title" className={s.title}>
-          درخواست‌های همکاری در فروش
+          مدیریت همکاری در فروش
         </h1>
-        <nav aria-label="وضعیت درخواست‌ها" className={a.tabs}>
+        <nav aria-label="بخش‌های همکاری در فروش" className={a.tabs}>
           {TABS.map((t) => (
             <Link
               key={t.status}
               href={`/admin/affiliates?status=${t.status}`}
               className={a.tab}
-              aria-current={t.status === status ? 'page' : undefined}
+              aria-current={t.status === tab ? 'page' : undefined}
             >
-              {t.label} ({toFaDigits(counts[t.status])})
+              {t.status === 'settings'
+                ? t.label
+                : `${t.label} (${toFaDigits(counts[t.status])})`}
             </Link>
           ))}
         </nav>
