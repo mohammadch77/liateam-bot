@@ -37,7 +37,7 @@ export type ManagedAffiliateUserRow = {
   referred_sales_30d: number;
 };
 
-const PAID_STATUS_EXCL = `('cancelled', 'refunded', 'pending_payment')`;
+const PAID_STATUS_EXCL = `('canceled', 'refunded', 'pending_payment')`;
 
 export const affiliateProgramRepository = {
   async getGlobal(db?: Queryable): Promise<AffiliateGlobalConfigRow> {
