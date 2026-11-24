@@ -9,6 +9,7 @@ import {
 } from '@/server/site/chrome';
 import { FavoritesProvider } from './_favorites/FavoritesProvider';
 import { CartProvider } from './_cart/CartProvider';
+import { LiveChatWidget } from './_live-chat/LiveChatWidget';
 import { cartService } from '@/server/services/cart.service';
 import { freeShippingFrom } from '@/lib/shipping';
 import { orderSettingsService } from '@/server/services/order-settings.service';
@@ -45,6 +46,7 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
         <Footer {...footerProps()} />
         <BottomNavSpacer />
         <BottomNav items={bottomNavItems(user, cart.units)} />
+        <LiveChatWidget />
         </FavoritesProvider>
       </CartProvider>
     </>

@@ -1,7 +1,7 @@
 import type { IconName } from '@/ui/icon/paths';
 
 /** The admin panel's side menu: one list for the menu and for the numbers beside it. Pure (no data access). */
-export type AdminCountKey = 'attention' | 'withdrawals' | 'commissions' | 'reviews' | 'affiliates';
+export type AdminCountKey = 'attention' | 'liveChat' | 'withdrawals' | 'commissions' | 'reviews' | 'affiliates';
 export type AdminNavItem = {
   href: string;
   label: string;
@@ -15,6 +15,7 @@ export type AdminNavItem = {
 
 export const ADMIN_NAV: readonly AdminNavItem[] = [
   { href: '/admin', label: 'نیازمند توجه', icon: 'notifications', count: 'attention', exact: true },
+  { href: '/admin/live-chat', label: 'پشتیبانی آنلاین', icon: 'support_agent', count: 'liveChat', support: true },
   { href: '/admin/orders', label: 'سفارش‌ها', icon: 'shopping_bag', count: 'attention', support: true },
   { href: '/admin/withdrawals', label: 'برداشت‌ها', icon: 'account_balance_wallet', count: 'withdrawals' },
   { href: '/admin/commissions', label: 'پورسانت‌ها', icon: 'trending_up', count: 'commissions' },
@@ -28,7 +29,14 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
 ];
 
 export type AdminCounts = Record<AdminCountKey, number>;
-export const NO_COUNTS: AdminCounts = { attention: 0, withdrawals: 0, commissions: 0, reviews: 0, affiliates: 0 };
+export const NO_COUNTS: AdminCounts = {
+  attention: 0,
+  liveChat: 0,
+  withdrawals: 0,
+  commissions: 0,
+  reviews: 0,
+  affiliates: 0,
+};
 
 /** The items a role sees: the admin all of them, support only what it may read. */
 export const adminNavFor = (isAdmin: boolean): AdminNavItem[] => ADMIN_NAV.filter((i) => isAdmin || i.support);

@@ -89,6 +89,13 @@ export default async function AdminPage() {
 
   const modules: QuickModule[] = [
     {
+      href: '/admin/live-chat',
+      title: 'پشتیبانی آنلاین',
+      desc: 'گفتگوی زنده با مشتریان و پاسخ‌گویی سریع',
+      icon: 'support_agent',
+      count: counts.liveChat,
+    },
+    {
       href: '/admin/orders',
       title: 'سفارش‌ها',
       desc: 'بررسی، پیگیری و ثبت نهایی سفارش‌ها',

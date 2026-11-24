@@ -4,6 +4,7 @@ import { NO_COUNTS, type AdminCounts } from '@/lib/admin-nav';
 import { authorize } from '@/server/auth/guards';
 import { affiliateRepository } from '@/server/repositories/affiliate.repository';
 import { commissionRepository } from '@/server/repositories/commission.repository';
+import { liveChatRepository } from '@/server/repositories/live-chat.repository';
 import { orderAdminRepository } from '@/server/repositories/order-admin.repository';
 import { reviewRepository } from '@/server/repositories/review.repository';
 import { withdrawalRepository } from '@/server/repositories/withdrawal.repository';
@@ -18,17 +19,20 @@ const safe = async (name: string, f: () => Promise<number>): Promise<number> => 
 };
 
 export const adminNavService = {
-  /** The numbers beside the menu items (what waits for the staff). Support sees only the orders' number. */
+  /** The numbers beside the menu items (what waits for the staff). Support sees orders & live chat. */
   async counts(isAdmin: boolean): Promise<AdminCounts> {
     await authorize('support');
-    const attention = await safe('attention', () => orderAdminRepository.actionCount());
-    if (!isAdmin) return { ...NO_COUNTS, attention };
+    const [attention, liveChat] = await Promise.all([
+      safe('attention', () => orderAdminRepository.actionCount()),
+      safe('liveChat', () => liveChatRepository.activeBadgeCount()),
+    ]);
+    if (!isAdmin) return { ...NO_COUNTS, attention, liveChat };
     const [withdrawals, commissions, reviews, affiliates] = await Promise.all([
       safe('withdrawals', () => withdrawalRepository.pendingCount()),
       safe('commissions', () => commissionRepository.awaitingManualCount()),
       safe('reviews', () => reviewRepository.pendingCount()),
       safe('affiliates', async () => (await affiliateRepository.counts()).pending),
     ]);
-    return { attention, withdrawals, commissions, reviews, affiliates };
+    return { attention, liveChat, withdrawals, commissions, reviews, affiliates };
   },
 };
