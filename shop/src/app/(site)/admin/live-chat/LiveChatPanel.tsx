@@ -1043,7 +1043,7 @@ export function LiveChatPanel({ initial }: { initial: AdminLiveChatBootstrap }) 
                       <textarea
                         rows={1}
                         className={s.composerInput}
-                        placeholder="پاسخ خود را بنویسید... (برای پاسخ آماده / بزنید)"
+                        placeholder="پاسخ بنویسید یا / بزنید..."
                         value={draft}
                         onChange={(e) => {
                           setDraft(e.target.value);

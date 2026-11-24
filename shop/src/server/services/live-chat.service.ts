@@ -35,7 +35,8 @@ import { getCurrentUser, hasRole, type CurrentUser } from '@/server/services/ses
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function operatorDisplayName(user: CurrentUser): string {
-  return sanitizeChatText(user.fullName?.trim() || user.phone, 80);
+  const name = user.fullName?.trim();
+  return name ? sanitizeChatText(name, 80) : 'پشتیبان آوینا';
 }
 
 function safeUrl(raw: unknown): string | null {

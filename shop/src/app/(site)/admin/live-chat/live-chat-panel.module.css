@@ -159,15 +159,15 @@
 /* 3-Column Inbox Workspace */
 .inboxGrid {
   display: grid;
-  grid-template-columns: 310px minmax(0, 1fr) 276px;
-  gap: 14px;
+  grid-template-columns: 256px minmax(0, 1fr) 240px;
+  gap: 12px;
   min-height: 620px;
   height: min(74vh, 760px);
 }
 
-@media (max-width: 1279px) {
+@media (max-width: 1359px) {
   .inboxGrid {
-    grid-template-columns: 280px minmax(0, 1fr);
+    grid-template-columns: 268px minmax(0, 1fr);
   }
 }
 
@@ -203,7 +203,7 @@
   display: flex;
 }
 
-@media (max-width: 1279px) {
+@media (max-width: 1359px) {
   .visitorPane {
     display: none;
   }
@@ -478,7 +478,7 @@
   display: none;
 }
 
-@media (max-width: 1279px) {
+@media (max-width: 1359px) {
   .infoToggleBtn {
     display: inline-flex;
     align-items: center;
@@ -722,14 +722,15 @@
 
 .composerInput {
   flex: 1;
-  min-height: 38px;
+  min-width: 0;
+  min-height: 40px;
   max-height: 110px;
-  padding: 8px 12px;
+  padding: 9px 12px;
   border-radius: 12px;
   border: 1px solid var(--color-line-strong);
   background: var(--color-surface);
-  font-size: 13.5px;
-  line-height: 1.55;
+  font-size: 13px;
+  line-height: 1.5;
   resize: none;
   outline: none;
 }
