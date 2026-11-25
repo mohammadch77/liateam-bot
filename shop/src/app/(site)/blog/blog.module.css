@@ -21,9 +21,33 @@
 }
 
 @media (max-width: 767px) {
+  .page {
+    padding: 14px 0 44px;
+    gap: 18px;
+  }
   .hero {
-    padding: 24px 18px;
+    padding: 18px 14px 16px;
     border-radius: var(--radius-lg);
+    gap: 14px;
+  }
+  .heroTop {
+    gap: 12px;
+  }
+  .heroLead {
+    font-size: 13.5px;
+    line-height: 1.75;
+  }
+  .searchForm {
+    width: 100%;
+  }
+  .searchInput {
+    height: 40px;
+    font-size: 13px;
+  }
+  .searchBtn {
+    height: 40px;
+    padding: 0 14px;
+    font-size: 13px;
   }
 }
 
@@ -115,7 +139,7 @@
   background: var(--color-primary-hover);
 }
 
-/* Category filter pills */
+/* Category filter pills — wrapped on desktop, sleek single-row touch rail on mobile */
 .catRail {
   display: flex;
   flex-wrap: wrap;
@@ -134,7 +158,9 @@
   color: var(--color-ink-2);
   font-size: 13px;
   font-weight: 700;
-  transition: background var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
+  white-space: nowrap;
+  flex: 0 0 auto;
+  transition: background var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast), box-shadow var(--motion-fast);
 }
 
 .catPill:hover {
@@ -146,6 +172,7 @@
   background: var(--color-primary);
   border-color: var(--color-primary);
   color: var(--color-white);
+  box-shadow: 0 6px 16px -6px rgba(138, 28, 74, 0.55);
 }
 
 .catPillActive:hover {
@@ -153,9 +180,42 @@
 }
 
 .catCount {
-  font-size: 11.5px;
-  opacity: 0.78;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: rgba(30, 27, 36, 0.06);
   font-feature-settings: 'tnum';
+}
+
+.catPillActive .catCount {
+  background: rgba(255, 255, 255, 0.22);
+  color: var(--color-white);
+}
+
+@media (max-width: 767px) {
+  .catRail {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    padding: 4px 2px 6px;
+    margin: 0 -2px;
+    gap: 0;
+  }
+  .catRail::-webkit-scrollbar {
+    display: none;
+  }
+  .catPill {
+    height: 34px;
+    padding: 0 13px;
+    font-size: 12.5px;
+    scroll-snap-align: start;
+    margin-inline-end: 8px;
+  }
+  .catPill:last-child {
+    margin-inline-end: 0;
+  }
 }
 
 .activeFilterBar {
@@ -253,7 +313,7 @@
   font-weight: 800;
 }
 
-/* Standardized Responsive Article Grid */
+/* Standardized Responsive Article Grid — 100% iOS Safari / iPhone 8 compatible */
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -270,21 +330,35 @@
 
 @media (max-width: 639px) {
   .grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
+    display: block;
+  }
+  .grid > .card {
+    margin-bottom: 16px;
+  }
+  .grid > .card:last-child {
+    margin-bottom: 0;
   }
 }
 
 .card {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  width: 100%;
+  min-height: 100%;
   border-radius: var(--radius-lg);
   background: var(--color-white);
   border: 1px solid var(--color-line);
   overflow: hidden;
   color: inherit;
   transition: transform var(--motion-base) var(--motion-ease), box-shadow var(--motion-base), border-color var(--motion-base);
+}
+
+@media (max-width: 639px) {
+  .card {
+    display: block;
+    min-height: 0;
+    height: auto;
+  }
 }
 
 .card:hover {
@@ -294,16 +368,22 @@
   color: inherit;
 }
 
-/* Standardized 16:10 frame for EVERY uploaded cover image on EVERY device */
+/* Universal 16:10 padding-top ratio box — works identically on iPhone 8 / iOS 12–18 & all browsers */
 .cardImgFrame {
   position: relative;
+  display: block;
   width: 100%;
-  aspect-ratio: 16 / 10;
+  height: 0;
+  padding-top: 62.5%;
+  flex: 0 0 auto;
   background: linear-gradient(135deg, var(--color-stage-mid), var(--color-stage-edge));
   overflow: hidden;
 }
 
 .cardImg {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -316,10 +396,14 @@
 }
 
 .cardImgPlaceholder {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--color-primary);
   opacity: 0.45;
 }
@@ -328,9 +412,11 @@
   position: absolute;
   top: 12px;
   right: 12px;
+  z-index: 2;
   padding: 4px 11px;
   border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.94);
+  -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   color: var(--color-primary);
   font-size: 11.5px;
@@ -339,25 +425,32 @@
 }
 
 .cardBody {
-  flex: 1;
+  flex: 1 0 auto;
   padding: 16px 18px 18px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+}
+
+@media (max-width: 639px) {
+  .cardBody {
+    display: block;
+    padding: 14px 15px 15px;
+  }
 }
 
 .cardMeta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
   font-size: 12px;
   color: var(--color-muted);
   font-feature-settings: 'tnum';
+  margin-bottom: 8px;
 }
 
 .metaDot {
   opacity: 0.45;
+  margin: 0 6px;
 }
 
 .cardTitle {
@@ -365,6 +458,7 @@
   font-weight: 800;
   line-height: 1.6;
   color: var(--color-ink);
+  margin-bottom: 8px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -373,8 +467,9 @@
 
 .cardExcerpt {
   font-size: 13.5px;
-  line-height: 1.85;
+  line-height: 1.8;
   color: var(--color-ink-2);
+  margin-bottom: 12px;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -388,7 +483,6 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
   font-size: 12.5px;
   color: var(--color-muted);
 }
@@ -554,11 +648,14 @@
   font-feature-settings: 'tnum';
 }
 
-/* Standardized Cover Frame regardless of uploaded image dimensions */
+/* Standardized Cover Frame regardless of uploaded image dimensions — iOS Safari safe */
 .coverFrame {
   position: relative;
+  display: block;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  height: 0;
+  padding-top: 56.25%;
+  flex: 0 0 auto;
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--color-blush);
@@ -567,11 +664,14 @@
 
 @media (max-width: 639px) {
   .coverFrame {
-    aspect-ratio: 16 / 10;
+    padding-top: 62.5%;
   }
 }
 
 .coverImg {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -664,23 +764,19 @@
   margin: 26px 0;
 }
 
-/* Standardized inline image dimensions across EVERY device regardless of original dimensions */
+/* Standardized inline image dimensions across EVERY device & Safari version */
 .articleBody :global(.av-blog-figure) {
   margin: 24px auto;
   width: 100%;
   max-width: 720px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: block;
 }
 
 .articleBody :global(.av-blog-figure) img,
 .articleBody img {
   width: 100%;
   max-width: 720px;
-  aspect-ratio: 16 / 10;
-  height: auto;
-  max-height: 450px;
+  height: 380px;
   object-fit: cover;
   object-position: center;
   border-radius: var(--radius-lg);
@@ -689,12 +785,28 @@
   display: block;
 }
 
+@supports (aspect-ratio: 16 / 10) {
+  .articleBody :global(.av-blog-figure) img,
+  .articleBody img {
+    height: auto;
+    aspect-ratio: 16 / 10;
+    max-height: 450px;
+  }
+}
+
 @media (max-width: 639px) {
   .articleBody :global(.av-blog-figure) img,
   .articleBody img {
-    aspect-ratio: 16 / 10;
+    height: 215px;
     max-height: 250px;
     border-radius: var(--radius-md);
+  }
+  @supports (aspect-ratio: 16 / 10) {
+    .articleBody :global(.av-blog-figure) img,
+    .articleBody img {
+      height: auto;
+      aspect-ratio: 16 / 10;
+    }
   }
 }
 

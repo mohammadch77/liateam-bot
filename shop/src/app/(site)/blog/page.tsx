@@ -116,7 +116,7 @@ export default async function BlogIndexPage({
               >
                 <span>{cat.name}</span>
                 {typeof cat.postCount === 'number' && cat.postCount > 0 && (
-                  <span className={s.catCount}>({toFaDigits(cat.postCount)})</span>
+                  <span className={s.catCount}>{toFaDigits(cat.postCount)}</span>
                 )}
               </Link>
             ))}

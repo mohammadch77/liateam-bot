@@ -17,8 +17,11 @@ export function OffersRail({
   items: ProductView[];
   campaign: { title: string; endsAt: string } | null;
 }) {
+  // Show «تخفیفات ویژه» only when at least one active discounted product exists
+  if (items.length === 0) return null;
+
   return (
-    <section className={s.band} aria-labelledby="offers-title" data-offers={items.length ? 'on' : 'soon'}>
+    <section className={s.band} aria-labelledby="offers-title" data-offers="on">
       <div className={s.head}>
         <div className={s.titleBox}>
           <span className={s.bolt} aria-hidden="true">
@@ -33,7 +36,7 @@ export function OffersRail({
             </p>
           </div>
         </div>
-        {campaign && items.length > 0 && (
+        {campaign && (
           <Countdown endsAt={campaign.endsAt} label={`زمان باقی‌مانده تا پایان ${campaign.title}`} />
         )}
         <Link href={offersPath()} className={s.all}>
@@ -41,19 +44,11 @@ export function OffersRail({
           <Icon name="arrow_back" size={18} />
         </Link>
       </div>
-      {items.length > 0 ? (
-        <Carousel label="محصولات تخفیف‌دار">
-          {items.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </Carousel>
-      ) : (
-        <div className={s.soon}>
-          <Icon name="bolt" size={34} />
-          <b>به‌زودی</b>
-          <span>تخفیف‌های ویژه به‌زودی همین‌جا می‌آیند.</span>
-        </div>
-      )}
+      <Carousel label="محصولات تخفیف‌دار">
+        {items.map((p) => (
+          <ProductCard key={p.id} product={p} />
+        ))}
+      </Carousel>
     </section>
   );
 }
