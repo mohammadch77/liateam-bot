@@ -96,6 +96,12 @@ export default async function AdminPage() {
       count: counts.liveChat,
     },
     {
+      href: '/admin/blog',
+      title: 'وبلاگ و مقالات',
+      desc: 'مدیریت دسته‌بندی‌ها، نگارش مقاله و تحلیل سئو',
+      icon: 'category',
+    },
+    {
       href: '/admin/orders',
       title: 'سفارش‌ها',
       desc: 'بررسی، پیگیری و ثبت نهایی سفارش‌ها',

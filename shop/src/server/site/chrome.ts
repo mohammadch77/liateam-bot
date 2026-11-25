@@ -78,6 +78,7 @@ export async function headerBrands(): Promise<NavItem[]> {
 const PAGES = [
   { label: 'تخفیفات ویژه', href: offersPath() },
   { label: 'پک‌های کاربردی', href: packsPath() },
+  { label: 'وبلاگ', href: '/blog' },
   { label: 'همکاری در فروش', href: '/affiliate' },
   { label: 'درباره ما', href: aboutPath() },
   { label: 'تماس با ما', href: contactPath() },

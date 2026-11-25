@@ -8,6 +8,7 @@ import { formatToman } from '@/lib/format/money';
 import { logger } from '@/lib/logger';
 import { catalogService } from '@/server/services/catalog.service';
 import { bestsellerService } from '@/server/services/bestseller.service';
+import { blogService } from '@/server/services/blog.service';
 import { Container, Icon } from '@/ui';
 import { CatalogUnavailable } from './_catalog/CatalogListing';
 import { HeroSlider } from './HeroSlider';
@@ -65,6 +66,10 @@ export default async function HomePage() {
     oldPriceToman: p.oldPriceToman ?? null,
     stock: p.stock,
   }));
+  const latestBlogPosts = await blogService.homeLatest(3).catch((e) => {
+    logger.warn('home.blog_unavailable', { err: e });
+    return [];
+  });
 
   return (
     <div className={s.home} data-home-page>
@@ -202,7 +207,7 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <Magazine />
+        <Magazine articles={latestBlogPosts} />
 
         <section className={s.affiliate} aria-labelledby="affiliate-band-title" data-home-section="affiliate">
           <div className={s.bannerGrid}>

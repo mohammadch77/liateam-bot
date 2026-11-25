@@ -25,6 +25,7 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
   { href: '/admin/campaigns', label: 'کمپین‌ها', icon: 'spa' },
   { href: '/admin/packs', label: 'پک‌های کاربردی', icon: 'inventory_2' },
   { href: '/admin/bestsellers', label: 'پرفروش‌ترین‌ها', icon: 'brush' },
+  { href: '/admin/blog', label: 'وبلاگ و مقالات', icon: 'category' },
   { href: '/admin/settings', label: 'تنظیمات', icon: 'lock' },
 ];
 
