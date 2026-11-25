@@ -109,6 +109,7 @@ export function BlogAdminClient({
             const next = exists ? prev.map((p) => (p.id === saved.id ? saved : p)) : [saved, ...prev];
             return next;
           });
+          setTab('posts');
           setEditingPost(null);
           setBanner({ tone: 'success', text: `مقاله «${saved.title}» با امتیاز سئو ${toFaDigits(saved.seoScore)} ذخیره شد.` });
         }}
