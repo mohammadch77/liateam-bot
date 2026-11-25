@@ -27,6 +27,18 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+function visiblePages(current: number, total: number): Array<number | 'ellipsis'> {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const out: Array<number | 'ellipsis'> = [1];
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  if (start > 2) out.push('ellipsis');
+  for (let p = start; p <= end; p += 1) out.push(p);
+  if (end < total - 1) out.push('ellipsis');
+  out.push(total);
+  return out;
+}
+
 export default async function BlogIndexPage({
   searchParams,
 }: {
@@ -40,8 +52,6 @@ export default async function BlogIndexPage({
 
   const data = await blogService.publicIndex({ category, tag, q, page });
   const hasFilter = Boolean(category || tag || q);
-  const featured = !hasFilter && page === 1 && data.items.length > 0 ? data.items[0] : null;
-  const gridItems = featured ? data.items.slice(1) : data.items;
   const activeCat = category ? data.categories.find((c) => c.slug === category) : null;
 
   const buildHref = (next: { category?: string; tag?: string; q?: string; page?: number }) => {
@@ -53,6 +63,9 @@ export default async function BlogIndexPage({
     const qs = p.toString();
     return qs ? `/blog?${qs}` : '/blog';
   };
+
+  const rangeStart = data.total === 0 ? 0 : (data.page - 1) * data.pageSize + 1;
+  const rangeEnd = Math.min(data.total, data.page * data.pageSize);
 
   return (
     <Container>
@@ -124,42 +137,6 @@ export default async function BlogIndexPage({
           </div>
         )}
 
-        {featured && (
-          <Link href={`/blog/${featured.slug}`} className={s.featured} data-blog-featured>
-            <div className={s.featuredImgFrame}>
-              {featured.coverImageUrl ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={featured.coverImageUrl}
-                  alt={featured.coverImageAlt || featured.title}
-                  className={s.featuredImg}
-                />
-              ) : (
-                <div className={s.cardImgPlaceholder}>
-                  <Icon name="spa" size={44} />
-                </div>
-              )}
-              {featured.categoryName && <span className={s.cardBadge}>{featured.categoryName}</span>}
-            </div>
-
-            <div className={s.featuredBody}>
-              <div className={s.cardMeta}>
-                <span>{featured.authorName}</span>
-                <span className={s.metaDot}>•</span>
-                <span>{fmtDate(featured.publishedAt || featured.createdAt)}</span>
-                <span className={s.metaDot}>•</span>
-                <span>{toFaDigits(featured.readingTimeMinutes)} دقیقه مطالعه</span>
-              </div>
-              <h2 className={s.featuredTitle}>{featured.title}</h2>
-              <p className={s.featuredExcerpt}>{featured.excerpt}</p>
-              <span className={s.readMoreLink}>
-                مطالعه کامل مقاله
-                <Icon name="arrow_back" size={18} />
-              </span>
-            </div>
-          </Link>
-        )}
-
         {data.items.length === 0 ? (
           <div className={s.emptyBox}>
             <Icon name="spa" size={38} />
@@ -169,60 +146,97 @@ export default async function BlogIndexPage({
             </Link>
           </div>
         ) : (
-          gridItems.length > 0 && (
-            <div className={s.grid} data-blog-grid>
-              {gridItems.map((post) => (
-                <Link key={post.id} href={`/blog/${post.slug}`} className={s.card} data-blog-card>
-                  <div className={s.cardImgFrame}>
-                    {post.coverImageUrl ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={post.coverImageUrl}
-                        alt={post.coverImageAlt || post.title}
-                        className={s.cardImg}
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className={s.cardImgPlaceholder}>
-                        <Icon name="spa" size={36} />
-                      </div>
-                    )}
-                    {post.categoryName && <span className={s.cardBadge}>{post.categoryName}</span>}
-                  </div>
-                  <div className={s.cardBody}>
-                    <div className={s.cardMeta}>
-                      <span>{fmtDate(post.publishedAt || post.createdAt)}</span>
-                      <span className={s.metaDot}>•</span>
-                      <span>{toFaDigits(post.readingTimeMinutes)} دقیقه مطالعه</span>
+          <div className={s.grid} data-blog-grid>
+            {data.items.map((post) => (
+              <Link key={post.id} href={`/blog/${post.slug}`} className={s.card} data-blog-card>
+                <div className={s.cardImgFrame}>
+                  {post.coverImageUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={post.coverImageUrl}
+                      alt={post.coverImageAlt || post.title}
+                      className={s.cardImg}
+                    />
+                  ) : (
+                    <div className={s.cardImgPlaceholder}>
+                      <Icon name="spa" size={36} />
                     </div>
-                    <h2 className={s.cardTitle}>{post.title}</h2>
-                    <p className={s.cardExcerpt}>{post.excerpt}</p>
-                    <div className={s.cardFoot}>
-                      <span>{post.authorName}</span>
-                      <span className={s.cardReadCta}>
-                        مطالعه
-                        <Icon name="arrow_back" size={15} />
-                      </span>
-                    </div>
+                  )}
+                  {post.categoryName && <span className={s.cardBadge}>{post.categoryName}</span>}
+                </div>
+                <div className={s.cardBody}>
+                  <div className={s.cardMeta}>
+                    <span>{fmtDate(post.publishedAt || post.createdAt)}</span>
+                    <span className={s.metaDot}>•</span>
+                    <span>{toFaDigits(post.readingTimeMinutes)} دقیقه مطالعه</span>
                   </div>
-                </Link>
-              ))}
-            </div>
-          )
+                  <h2 className={s.cardTitle}>{post.title}</h2>
+                  <p className={s.cardExcerpt}>{post.excerpt}</p>
+                  <div className={s.cardFoot}>
+                    <span>{post.authorName}</span>
+                    <span className={s.cardReadCta}>
+                      مطالعه مقاله
+                      <Icon name="arrow_back" size={15} />
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
         )}
 
         {data.totalPages > 1 && (
-          <nav className={s.pager} aria-label="صفحه‌بندی مقالات">
-            {Array.from({ length: data.totalPages }, (_, i) => i + 1).map((p) => (
-              <Link
-                key={p}
-                href={buildHref({ category, tag, q, page: p })}
-                className={`${s.pagerBtn} ${p === data.page ? s.pagerBtnActive : ''}`}
-              >
-                {toFaDigits(p)}
-              </Link>
-            ))}
-          </nav>
+          <div className={s.pagerWrap} data-blog-pagination>
+            <span className={s.pagerSummary}>
+              نمایش {toFaDigits(rangeStart)} تا {toFaDigits(rangeEnd)} از {toFaDigits(data.total)} مقاله
+            </span>
+            <nav className={s.pager} aria-label="صفحه‌بندی مقالات">
+              {data.page > 1 ? (
+                <Link
+                  href={buildHref({ category, tag, q, page: data.page - 1 })}
+                  className={s.pagerBtn}
+                  aria-label="صفحه قبل"
+                >
+                  قبلی
+                </Link>
+              ) : (
+                <span className={`${s.pagerBtn} ${s.pagerBtnDisabled}`} aria-disabled="true">
+                  قبلی
+                </span>
+              )}
+
+              {visiblePages(data.page, data.totalPages).map((entry, idx) =>
+                entry === 'ellipsis' ? (
+                  <span key={`e-${idx}`} className={s.pagerEllipsis}>
+                    …
+                  </span>
+                ) : (
+                  <Link
+                    key={entry}
+                    href={buildHref({ category, tag, q, page: entry })}
+                    className={`${s.pagerBtn} ${entry === data.page ? s.pagerBtnActive : ''}`}
+                    aria-current={entry === data.page ? 'page' : undefined}
+                  >
+                    {toFaDigits(entry)}
+                  </Link>
+                ),
+              )}
+
+              {data.page < data.totalPages ? (
+                <Link
+                  href={buildHref({ category, tag, q, page: data.page + 1 })}
+                  className={s.pagerBtn}
+                  aria-label="صفحه بعد"
+                >
+                  بعدی
+                </Link>
+              ) : (
+                <span className={`${s.pagerBtn} ${s.pagerBtnDisabled}`} aria-disabled="true">
+                  بعدی
+                </span>
+              )}
+            </nav>
+          </div>
         )}
       </div>
     </Container>
